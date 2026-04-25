@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel
 from models.user import UserRegistration, RegistrationResponse
 from services import registry
 
@@ -20,14 +21,36 @@ _SESSION_EVENT_TYPES = {
 }
 
 
+class SessionActivityPayload(BaseModel):
+    event_type: str
+    message: Optional[str] = None
+    session_id: Optional[str] = None
+    user_id: Optional[str] = None
+    family_id: Optional[str] = None
+    family_name: Optional[str] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "event_type": "activity_log_viewed",
+                "family_id": "fam_96b8f576c788",
+                "family_name": "Ward",
+                "user_id": "usr_df06afdbc503",
+                "message": "Activity log viewed from admin interface.",
+            }
+        }
+    }
+
+
 @router.post("/session/activity")
 def track_session_activity(
-    payload: dict[str, Optional[str]],
+    payload: SessionActivityPayload,
     x_session_id: Optional[str] = Header(default=None),
     x_user_id: Optional[str] = Header(default=None),
 ) -> dict[str, str]:
     """Record session-level client activity events from the UI."""
-    event_type = str(payload.get("event_type") or "").strip()
+    payload_data = payload.model_dump()
+    event_type = str(payload_data.get("event_type") or "").strip()
     if event_type not in _SESSION_EVENT_TYPES:
         allowed = ", ".join(sorted(_SESSION_EVENT_TYPES))
         raise HTTPException(
@@ -38,7 +61,7 @@ def track_session_activity(
             ),
         )
 
-    message = str(payload.get("message") or "").strip()
+    message = str(payload_data.get("message") or "").strip()
     if not message:
         default_messages = {
             "session_started": "A new browser session started.",
@@ -47,10 +70,10 @@ def track_session_activity(
         }
         message = default_messages[event_type]
 
-    session_id = str(payload.get("session_id") or "").strip() or x_session_id
-    user_id = str(payload.get("user_id") or "").strip() or x_user_id
-    family_id = str(payload.get("family_id") or "").strip() or None
-    family_name = str(payload.get("family_name") or "").strip() or None
+    session_id = str(payload_data.get("session_id") or "").strip() or x_session_id
+    user_id = str(payload_data.get("user_id") or "").strip() or x_user_id
+    family_id = str(payload_data.get("family_id") or "").strip() or None
+    family_name = str(payload_data.get("family_name") or "").strip() or None
 
     registry.write_activity_event(
         event_type=event_type,
