@@ -668,6 +668,42 @@
       padding: 8px 10px;
     }
 
+    .tree-progress-wrap {
+      margin: 8px 0 12px;
+      border: 1px solid rgba(201, 168, 76, 0.24);
+      border-radius: 10px;
+      background: rgba(17, 33, 52, 0.74);
+      padding: 10px;
+    }
+
+    .tree-progress-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      color: var(--secondary-text);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .tree-progress-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+    }
+
+    .tree-progress-fill {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(224, 90, 90, 0.9), rgba(201, 168, 76, 0.92), rgba(76, 175, 130, 0.9));
+      transition: width 260ms ease;
+      box-shadow: 0 0 12px rgba(201, 168, 76, 0.36);
+    }
+
     .tree-family-card {
       border: 1px solid rgba(201, 168, 76, 0.26);
       border-radius: var(--radius);
@@ -949,6 +985,10 @@
       transition: transform 180ms ease;
     }
 
+    .graph-node:hover {
+      transform: scale(1.02);
+    }
+
     .graph-node-card {
       fill: rgba(20, 36, 56, 0.94);
       stroke: rgba(201, 168, 76, 0.36);
@@ -975,6 +1015,19 @@
         drop-shadow(0 0 14px rgba(255, 215, 0, 0.48));
     }
 
+    .graph-node.is-root {
+      transform: scale(1.06);
+      transform-origin: center;
+    }
+
+    .graph-node.is-root .graph-node-card {
+      stroke: rgba(255, 215, 0, 0.94);
+      stroke-width: 2.1;
+      filter:
+        drop-shadow(0 10px 24px rgba(0, 0, 0, 0.52))
+        drop-shadow(0 0 16px rgba(255, 215, 0, 0.52));
+    }
+
     .graph-node.is-connected .graph-node-card {
       stroke: rgba(255, 215, 0, 0.7);
     }
@@ -987,6 +1040,19 @@
       stroke: rgba(201, 168, 76, 0.42);
       fill: rgba(20, 36, 56, 0.72);
       stroke-dasharray: 4 3;
+      animation: pendingPulse 1.45s ease-in-out infinite;
+    }
+
+    @keyframes pendingPulse {
+      0% {
+        filter: drop-shadow(0 0 4px rgba(201, 168, 76, 0.14));
+      }
+      50% {
+        filter: drop-shadow(0 0 12px rgba(201, 168, 76, 0.42));
+      }
+      100% {
+        filter: drop-shadow(0 0 4px rgba(201, 168, 76, 0.14));
+      }
     }
 
     .graph-avatar {
@@ -1854,6 +1920,73 @@
       line-height: 1.55;
     }
 
+    .guidance-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .guidance-item {
+      width: 100%;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 8px;
+      align-items: center;
+      text-align: left;
+      border-radius: 9px;
+      border: 1px solid rgba(201, 168, 76, 0.24);
+      background: rgba(18, 33, 51, 0.8);
+      color: var(--body-text);
+      padding: 9px 10px;
+      font-size: 0.8rem;
+      letter-spacing: 0.01em;
+      text-transform: none;
+      box-shadow: none;
+    }
+
+    .guidance-item:hover {
+      transform: translateY(-1px) scale(1.01);
+      box-shadow: 0 0 14px rgba(201, 168, 76, 0.18);
+      filter: none;
+    }
+
+    .guidance-priority-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      box-shadow: 0 0 8px currentColor;
+      flex-shrink: 0;
+    }
+
+    .guidance-priority-label {
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .guidance-item.priority-high .guidance-priority-dot,
+    .guidance-item.priority-high .guidance-priority-label {
+      color: #ff8e8e;
+    }
+
+    .guidance-item.priority-medium .guidance-priority-dot,
+    .guidance-item.priority-medium .guidance-priority-label {
+      color: #f5d48b;
+    }
+
+    .guidance-item.priority-low .guidance-priority-dot,
+    .guidance-item.priority-low .guidance-priority-label {
+      color: #9ed4ff;
+    }
+
+    .guidance-feedback {
+      margin-top: 8px;
+      color: var(--secondary-text);
+      font-size: 0.74rem;
+      line-height: 1.45;
+      min-height: 18px;
+    }
+
     .inline-action-row {
       display: flex;
       gap: 10px;
@@ -2201,6 +2334,15 @@
             <input id="treeSearchInput" type="text" placeholder="Search by name, user ID, or role" />
           </div>
         </div>
+        <div class="tree-progress-wrap" aria-live="polite">
+          <div class="tree-progress-head">
+            <span>Family Structure Completion</span>
+            <span id="treeCompletionPercent">0%</span>
+          </div>
+          <div class="tree-progress-bar">
+            <div id="treeCompletionFill" class="tree-progress-fill"></div>
+          </div>
+        </div>
         <div class="tree-view-row">
           <div class="field">
             <label for="treeViewMode">View Mode</label>
@@ -2334,7 +2476,7 @@
           </div>
         </div>
         <div class="insights-card" style="margin-top:0;">
-          <h3>System Status</h3>
+          <h3>Aeternum System Status</h3>
           <div id="systemStatusBadges" class="status-badge-row"></div>
         </div>
         <button class="secondary" onclick="loadStats()">Refresh Stats</button>
@@ -2400,8 +2542,12 @@
         </article>
 
         <article class="intelligence-card" aria-labelledby="next-action-title">
-          <h3 id="next-action-title">Recommended Next Action</h3>
-          <div id="intelNextAction" class="next-action-box">Analyzing current registry health...</div>
+          <h3 id="next-action-title">Aeternum Guidance</h3>
+          <div id="guidanceActionList" class="guidance-list">
+            <p class="stats-loading">Building guidance actions...</p>
+          </div>
+          <div id="guidanceFeedback" class="guidance-feedback"></div>
+          <div id="intelNextAction" class="next-action-box" style="margin-top:8px;">Analyzing current registry health...</div>
         </article>
       </div>
     </section>
@@ -2536,6 +2682,10 @@
   const treeGraphLayout = document.getElementById('treeGraphLayout');
   const treeGraphLayoutField = document.getElementById('treeGraphLayoutField');
   const treeGraphHint = document.getElementById('treeGraphHint');
+  const treeCompletionPercent = document.getElementById('treeCompletionPercent');
+  const treeCompletionFill = document.getElementById('treeCompletionFill');
+  const guidanceActionList = document.getElementById('guidanceActionList');
+  const guidanceFeedback = document.getElementById('guidanceFeedback');
   const activityLogContent = document.getElementById('activityLogContent');
   const activityLogList = document.getElementById('activityLogList');
   const activitySessionFilterInput = document.getElementById('activitySessionFilter');
@@ -2627,14 +2777,46 @@
 
   function renderSystemStatusBadges() {
     if (!systemStatusBadges) return;
-    systemStatusBadges.innerHTML = [
-      'Registration Active',
-      'Family Intelligence Active',
-      'Activity Logging Active',
-      'Export Backup Active',
-      'Session Tracking Active',
-      'Backend Health Check Connected',
-    ].map((label) => `<span class="status-badge">${escapeHtml(label)}</span>`).join('');
+    const hasData = Array.isArray(registrationsCache) && registrationsCache.length > 0;
+    const missingLinks = hasData ? countMissingRelationshipLinks(registrationsCache) : 0;
+    const labels = [
+      'System actively mapping lineage connections',
+      hasData ? 'Family structure forming successfully' : 'Awaiting initial family registrations',
+      missingLinks > 0
+        ? 'Unlinked profiles detected - action recommended'
+        : 'Lineage linkage integrity is stable',
+      'Activity logging and export channels online',
+    ];
+    systemStatusBadges.innerHTML = labels
+      .map((label) => `<span class="status-badge">${escapeHtml(label)}</span>`)
+      .join('');
+  }
+
+  function calculateFamilyCompletion(family) {
+    const members = Array.isArray(family?.members) ? family.members : [];
+    if (!members.length) return 0;
+    const total = members.length;
+    const linkedCount = members.filter((member) => Array.isArray(member.linked_to_user_ids) && member.linked_to_user_ids.filter(Boolean).length > 0).length;
+    const roleCount = members.filter((member) => String(member.relationship_role || '').trim()).length;
+    const relationshipReadyCount = members.filter((member) => {
+      const linked = Array.isArray(member.linked_to_user_ids) && member.linked_to_user_ids.filter(Boolean).length > 0;
+      const role = Boolean(String(member.relationship_role || '').trim());
+      const summary = String(member.relationship_summary || member.relationship_display || '').toLowerCase();
+      return linked && role && !summary.includes('not linked yet');
+    }).length;
+
+    const linkedRatio = linkedCount / total;
+    const roleRatio = roleCount / total;
+    const relationshipRatio = relationshipReadyCount / total;
+    const weighted = (linkedRatio * 0.5) + (roleRatio * 0.25) + (relationshipRatio * 0.25);
+    return Math.max(0, Math.min(100, Math.round(weighted * 100)));
+  }
+
+  function updateTreeCompletionUI(family) {
+    if (!treeCompletionPercent || !treeCompletionFill) return;
+    const percent = calculateFamilyCompletion(family);
+    treeCompletionPercent.textContent = `${percent}%`;
+    treeCompletionFill.style.width = `${percent}%`;
   }
 
   function renderAdminSummary() {
@@ -2814,21 +2996,21 @@
     const duplicateInfo = analyzeDuplicateProfiles(members);
     const lines = [];
     if (hasFatherChildLinks) {
-      lines.push('Father -> child relationships are actively mapped.');
+      lines.push('Father-to-child relationships are structurally mapped and recognized by the system.');
     }
     if (siblingPairs.length >= 2) {
-      lines.push(`Sibling connection detected across ${siblingPairs.length} lineage members.`);
+      lines.push(`Sibling connection patterns are confirmed across ${siblingPairs.length} lineage profiles.`);
     }
     if (primary) {
-      lines.push(`Primary family structure established around ${primary.full_name || 'the primary representative'}.`);
+      lines.push(`Primary family structure is anchored around ${primary.full_name || 'the designated representative'}.`);
     }
     if (missingLinks > 0) {
-      lines.push(`${missingLinks} member profiles remain unlinked and are marked as pending lineage links.`);
+      lines.push(`${missingLinks} profiles require linkage to complete family structure.`);
     } else {
-      lines.push('All current member profiles are linked to an active lineage path.');
+      lines.push('All registered profiles are linked to an active lineage path.');
     }
     if (duplicateInfo.duplicateCount > 0) {
-      lines.push(`${duplicateInfo.duplicateCount} duplicate identity profiles are grouped as pending links to avoid root-level duplication.`);
+      lines.push(`${duplicateInfo.duplicateCount} duplicate identity profiles are grouped as pending records to prevent root-level duplication.`);
     }
 
     return lines;
@@ -2853,6 +3035,76 @@
       ? lines
       : ['Lineage insights appear once a family is selected.'];
     treeLineageInsights.innerHTML = `<ul class="lineage-panel-list">${list.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+  }
+
+  function buildGuidanceActions(users, families, activityEvents) {
+    const actions = [];
+    const missingLinks = countMissingRelationshipLinks(users);
+    const missingRoles = users.filter((user) => !String(user.relationship_role || '').trim()).length;
+    const elderCount = users.filter((user) => ['elder_ancestor', 'grandmother', 'grandfather'].includes(String(user.relationship_role || ''))).length;
+    const latestRegistration = getFirstEventByTypes(activityEvents, [
+      'registration_submitted',
+      'registration_started',
+      'registration_updated',
+      'registration_deleted',
+    ]);
+    const latestExport = getFirstEventByTypes(activityEvents, ['export_download_clicked', 'full_backup_downloaded']);
+    const latestRegistrationTs = latestRegistration ? new Date(latestRegistration.timestamp).getTime() : 0;
+    const latestExportTs = latestExport ? new Date(latestExport.timestamp).getTime() : 0;
+
+    if (missingLinks > 0) {
+      actions.push({
+        id: 'link-members',
+        priority: 'high',
+        text: `Link ${missingLinks} unassigned family members`,
+      });
+    }
+    if (missingRoles > 0) {
+      actions.push({
+        id: 'fill-roles',
+        priority: 'medium',
+        text: `Complete ${missingRoles} missing relationship role assignments`,
+      });
+    }
+    if (elderCount === 0 && users.length > 0) {
+      actions.push({
+        id: 'add-elder',
+        priority: 'medium',
+        text: 'Add elder generation to expand lineage',
+      });
+    }
+    if (latestRegistrationTs > latestExportTs || !latestExport) {
+      actions.push({
+        id: 'export-vault',
+        priority: 'low',
+        text: 'Export your current family structure to Vault',
+      });
+    }
+
+    if (!actions.length) {
+      actions.push({
+        id: 'maintain',
+        priority: 'low',
+        text: 'Structure is stable - continue extending lineage depth',
+      });
+    }
+
+    return actions;
+  }
+
+  function renderGuidanceActions(actions) {
+    if (!guidanceActionList) return;
+    const list = Array.isArray(actions) ? actions : [];
+    guidanceActionList.innerHTML = list.map((action) => `
+      <button type="button" class="guidance-item priority-${escapeHtml(action.priority)}" data-guidance-action="${escapeHtml(action.id)}">
+        <span class="guidance-priority-dot" aria-hidden="true"></span>
+        <span>${escapeHtml(action.text)}</span>
+        <span class="guidance-priority-label">${escapeHtml(action.priority)}</span>
+      </button>
+    `).join('');
+    if (guidanceFeedback) {
+      guidanceFeedback.textContent = 'Select a guidance task to simulate mission activation.';
+    }
   }
 
   function normalizeTreeForVisual(familyId, roots, family) {
@@ -2912,6 +3164,7 @@
 
     const primaryWithAttached = {
       ...primaryRoot.root,
+      primary_root: true,
       children: [
         ...(Array.isArray(primaryRoot.root.children) ? primaryRoot.root.children : []),
         ...attachedPending,
@@ -3178,7 +3431,9 @@
       renderDataHealth(normalizedUsers, normalizedFamilies);
       renderActivityIntelligence(normalizedActivity);
       renderLineageInsightsCard(normalizedFamilies);
+      renderGuidanceActions(buildGuidanceActions(normalizedUsers, normalizedFamilies, normalizedActivity));
       renderRecommendedNextAction(normalizedUsers, normalizedFamilies, normalizedActivity);
+      renderSystemStatusBadges();
     } catch {
       intelSummaryGrid.innerHTML = '<p class="stats-loading">Could not load intelligence summary.</p>';
       intelFamilySignals.innerHTML = '<p class="stats-loading">Could not load family signals.</p>';
@@ -3450,6 +3705,21 @@
     saveActivityFilterState();
     triggerActivityListFeedback('apply');
     loadActivityLog();
+  });
+  guidanceActionList?.addEventListener('click', (event) => {
+    const actionBtn = event.target.closest('[data-guidance-action]');
+    if (!actionBtn) return;
+    const actionId = String(actionBtn.getAttribute('data-guidance-action') || '').trim();
+    if (!actionId || !guidanceFeedback) return;
+
+    const actionMap = {
+      'link-members': 'Guidance mission activated: open Family Groups and map pending links.',
+      'fill-roles': 'Guidance mission activated: update relationship roles for incomplete profiles.',
+      'add-elder': 'Guidance mission activated: register elder lineage profiles to deepen ancestry context.',
+      'export-vault': 'Guidance mission activated: run full backup/export to preserve current structure.',
+      'maintain': 'Guidance mission acknowledged: continue incremental lineage expansion.',
+    };
+    guidanceFeedback.textContent = actionMap[actionId] || 'Guidance mission activated.';
   });
   form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
 
@@ -4111,6 +4381,7 @@
         relationship_role: String(node?.relationship_role || 'not_provided'),
         pending_profile: Boolean(node?.pending_profile),
         pending_label: String(node?.pending_label || ''),
+        is_primary_root: Boolean(node?.primary_root),
         depth,
         hasChildren: rawChildren.length > 0,
         isCollapsed,
@@ -4296,6 +4567,7 @@
       const toggleSymbol = node.isCollapsed ? '+' : '-';
       const nodeClass = [
         'graph-node',
+        node.is_primary_root ? 'is-root' : '',
         isSelected ? 'is-selected' : '',
         isConnected ? 'is-connected' : '',
         node.pending_profile ? 'is-pending' : '',
@@ -4469,6 +4741,7 @@
     if (!groups.length) {
       renderFamilyStatusBadgeForTree(null);
       renderLineageInsightsPanel([]);
+      updateTreeCompletionUI(null);
       if (activeTreeViewMode === 'graph') {
         await renderVisualFamilyTreeGraph(groups, roleFilter, searchTerm);
       } else {
@@ -4480,6 +4753,7 @@
     const selectedFamily = getFamilyById(groups, activeTreeFamilyId) || groups[0] || null;
     renderFamilyStatusBadgeForTree(selectedFamily);
     renderLineageInsightsPanel(buildLineageInsights(selectedFamily));
+    updateTreeCompletionUI(selectedFamily);
 
     if (activeTreeViewMode === 'graph') {
       await renderVisualFamilyTreeGraph(groups, roleFilter, searchTerm);
