@@ -1130,6 +1130,264 @@
       font-size: 0.86rem;
     }
 
+    .app-nav {
+      max-width: 1240px;
+      margin: 0 auto 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid rgba(201, 168, 76, 0.16);
+      border-radius: 14px;
+      background: rgba(19, 32, 50, 0.78);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32);
+      position: sticky;
+      top: 14px;
+      backdrop-filter: blur(8px);
+      z-index: 3;
+    }
+
+    .app-nav-link {
+      width: auto;
+      padding: 10px 14px;
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      background: rgba(11, 26, 43, 0.75);
+      color: var(--gold-lt);
+      border: 1px solid rgba(201, 168, 76, 0.22);
+      box-shadow: none;
+    }
+
+    .app-nav-link:hover {
+      background: rgba(201, 168, 76, 0.12);
+      filter: none;
+      box-shadow: 0 0 12px rgba(201, 168, 76, 0.14);
+    }
+
+    .app-nav-link.is-active {
+      background: linear-gradient(135deg, var(--gold-lt) 0%, var(--gold) 55%, var(--gold-dk) 100%);
+      color: var(--navy);
+      border-color: transparent;
+      box-shadow: 0 8px 22px rgba(201, 168, 76, 0.22);
+    }
+
+    .page-stack {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: grid;
+      gap: 24px;
+    }
+
+    .page-section {
+      display: none;
+      gap: 24px;
+    }
+
+    .page-section.is-active {
+      display: grid;
+    }
+
+    .page-header-card {
+      background: linear-gradient(135deg, rgba(19, 32, 50, 0.96), rgba(11, 26, 43, 0.9));
+      border: 1px solid rgba(201, 168, 76, 0.18);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 10px 36px rgba(0, 0, 0, 0.38);
+    }
+
+    .page-kicker {
+      display: inline-block;
+      margin-bottom: 10px;
+      color: var(--gold-lt);
+      font-size: 0.7rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .page-title {
+      color: var(--gold);
+      font-size: clamp(1.5rem, 3vw, 2.4rem);
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    .page-copy {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      max-width: 860px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .hero-actions button {
+      width: auto;
+      min-width: 180px;
+    }
+
+    .page-grid {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: 1fr;
+    }
+
+    .home-grid {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: 1.15fr 0.85fr;
+      align-items: start;
+    }
+
+    .page-card-title {
+      color: var(--gold-lt);
+      font-size: 0.76rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .home-feature-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .home-feature-item {
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(201, 168, 76, 0.14);
+      background: rgba(11, 26, 43, 0.58);
+    }
+
+    .home-feature-item strong {
+      color: var(--white);
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.92rem;
+    }
+
+    .home-feature-item span {
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.55;
+      display: block;
+    }
+
+    .section-split {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: 1fr;
+    }
+
+    .admin-shell {
+      display: grid;
+      gap: 24px;
+      grid-template-columns: 1fr;
+    }
+
+    .admin-summary-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      margin-bottom: 18px;
+    }
+
+    .admin-summary-tile {
+      border-radius: 12px;
+      border: 1px solid rgba(201, 168, 76, 0.16);
+      background: rgba(11, 26, 43, 0.62);
+      padding: 16px 14px;
+      min-height: 104px;
+    }
+
+    .admin-summary-value {
+      color: var(--gold);
+      font-size: 1.7rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .admin-summary-label {
+      color: var(--muted);
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      line-height: 1.5;
+    }
+
+    .status-badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(201, 168, 76, 0.18);
+      background: rgba(11, 26, 43, 0.58);
+      color: var(--white);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .status-badge::before {
+      content: '';
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 10px rgba(76, 175, 130, 0.55);
+    }
+
+    .inline-action-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .inline-action-row button {
+      width: auto;
+    }
+
+    @media (min-width: 980px) {
+      .section-split {
+        grid-template-columns: minmax(420px, 1.05fr) minmax(0, 1fr);
+      }
+
+      .admin-shell {
+        grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.1fr);
+        align-items: start;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .home-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .hero-actions button,
+      .app-nav-link {
+        width: 100%;
+      }
+
+      .app-nav {
+        position: static;
+      }
+    }
+
     footer {
       max-width: 1040px;
       margin: 36px auto 0;
@@ -1152,35 +1410,85 @@
   <div class="divider"></div>
 </header>
 
-<section class="section-stack">
-  <section class="feature-card" aria-labelledby="mission-title">
-    <h2 id="mission-title" class="feature-title">Mission Statement</h2>
-    <p class="mission-text">Aeternum Bridge exists to help dispersed Black families document their bloodlines, reconnect with ancestral regions, and build structured cultural pathways across the diaspora.</p>
-  </section>
+<nav class="app-nav" aria-label="Primary">
+  <button type="button" class="app-nav-link is-active" data-page-target="home">Home</button>
+  <button type="button" class="app-nav-link" data-page-target="register">Register</button>
+  <button type="button" class="app-nav-link" data-page-target="family-tree">Family Tree</button>
+  <button type="button" class="app-nav-link" data-page-target="activity-log">Activity Log</button>
+  <button type="button" class="app-nav-link" data-page-target="export-backup">Export &amp; Backup</button>
+  <button type="button" class="app-nav-link" data-page-target="admin-dashboard">Admin Dashboard</button>
+</nav>
 
-  <section class="feature-card" aria-labelledby="how-title">
-    <h2 id="how-title" class="feature-title">How It Works</h2>
-    <div class="how-grid">
-      <article class="how-step">
-        <h3>Register Your Family</h3>
-        <p>Submit one trusted family representative to establish your household profile and shared family identity.</p>
-      </article>
-      <article class="how-step">
-        <h3>Map Cultural Origin</h3>
-        <p>Capture ancestral region data to anchor each family record within a clear cultural and geographic context.</p>
-      </article>
-      <article class="how-step">
-        <h3>Build the Return Pathway</h3>
-        <p>Use registry insights to guide reconnection planning, family learning, and long-term return initiatives.</p>
-      </article>
+<main class="page-stack">
+  <section class="page-section is-active" data-page="home">
+    <section class="page-header-card">
+      <span class="page-kicker">Legacy Builders Aeternum</span>
+      <h2 class="page-title">Aeternum Bridge Engine</h2>
+      <p class="page-copy">Diaspora Connection &amp; Family Reconnection System</p>
+      <p class="page-copy" style="margin-top: 12px;">This engine captures family identity, organizes family groups, maps relationships, and preserves reconnection data for future Vault integration. It is built to move from registration to relationship intelligence, activity continuity, and long-term archival stewardship.</p>
+      <div class="hero-actions">
+        <button type="button" data-page-target="register">Start Registration</button>
+        <button type="button" class="secondary" data-page-target="family-tree">View Family Tree</button>
+        <button type="button" class="secondary" data-page-target="activity-log">View Activity Log</button>
+      </div>
+    </section>
+
+    <div class="home-grid">
+      <section class="feature-card" aria-labelledby="mission-title">
+        <h2 id="mission-title" class="feature-title">Mission Statement</h2>
+        <p class="mission-text">Aeternum Bridge exists to help dispersed Black families document their bloodlines, reconnect with ancestral regions, and build structured cultural pathways across the diaspora.</p>
+        <div class="inline-action-row">
+          <button type="button" class="secondary" data-page-target="admin-dashboard">Open Admin Dashboard</button>
+        </div>
+      </section>
+
+      <section class="feature-card" aria-labelledby="home-summary-title">
+        <h2 id="home-summary-title" class="feature-title">MVP Capabilities</h2>
+        <div class="home-feature-list">
+          <article class="home-feature-item">
+            <strong>Identity Capture</strong>
+            <span>Register family representatives, preserve household context, and keep reconnection details structured.</span>
+          </article>
+          <article class="home-feature-item">
+            <strong>Family Intelligence</strong>
+            <span>Generate visual family trees with parent, sibling, and relationship summaries derived from linked family data.</span>
+          </article>
+          <article class="home-feature-item">
+            <strong>Operational Continuity</strong>
+            <span>Track sessions, preserve activity history, and export registry data for future Vault and archival workflows.</span>
+          </article>
+        </div>
+      </section>
     </div>
+
+    <section class="feature-card" aria-labelledby="how-title">
+      <h2 id="how-title" class="feature-title">How It Works</h2>
+      <div class="how-grid">
+        <article class="how-step">
+          <h3>Register Your Family</h3>
+          <p>Submit one trusted family representative to establish your household profile and shared family identity.</p>
+        </article>
+        <article class="how-step">
+          <h3>Map Cultural Origin</h3>
+          <p>Capture ancestral region data to anchor each family record within a clear cultural and geographic context.</p>
+        </article>
+        <article class="how-step">
+          <h3>Build the Return Pathway</h3>
+          <p>Use registry insights to guide reconnection planning, family learning, and long-term return initiatives.</p>
+        </article>
+      </div>
+    </section>
   </section>
-</section>
 
-<div class="layout">
+  <section class="page-section" data-page="register">
+    <section class="page-header-card">
+      <span class="page-kicker">Register</span>
+      <h2 class="page-title">Register A Family Representative</h2>
+      <p class="page-copy">Submit one trusted representative to establish a family profile, connect relatives, and preserve structured reconnection data for downstream intelligence and Vault export.</p>
+    </section>
 
-  <!-- Registration Form -->
-  <div class="card">
+    <div class="section-split">
+      <div class="card">
     <h2>Register</h2>
     <p class="form-helper">Start by registering one family representative. More family members can be added later.</p>
     <form id="regForm" novalidate>
@@ -1317,33 +1625,38 @@
 
     <div id="successMsg" class="message success"></div>
     <div id="errorMsg" class="message error"></div>
-  </div>
+      </div>
 
-  <!-- Stats Panel -->
-  <div class="card">
-    <h2>Registry Stats</h2>
-    <div id="statsContent" class="stats-loading">Loading stats…</div>
-    <button class="secondary" onclick="loadStats()">Refresh Stats</button>
-    <p class="stats-meta" id="lastUpdated">Last updated: --</p>
-    <section class="insights-card" aria-labelledby="insights-title">
-      <h3 id="insights-title">Registry Insights</h3>
-      <div id="insightsContent" class="stats-loading">Insights will appear once registrations begin.</div>
+      <div class="feature-card">
+        <h2 class="feature-title">Registration Guidance</h2>
+        <div class="home-feature-list">
+          <article class="home-feature-item">
+            <strong>Capture Household Identity</strong>
+            <span>Use one consistent family name so all members resolve into the same family group and tree.</span>
+          </article>
+          <article class="home-feature-item">
+            <strong>Link Relationships Carefully</strong>
+            <span>Connected members, relationship roles, and household positions drive tree rendering and relationship summaries.</span>
+          </article>
+          <article class="home-feature-item">
+            <strong>Preserve Reconnection Context</strong>
+            <span>Contact, timeframe, and notes fields are optional now but useful later for export, planning, and stewardship.</span>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page-section" data-page="family-tree">
+    <section class="page-header-card">
+      <span class="page-kicker">Family Tree</span>
+      <h2 class="page-title">Relationship Intelligence &amp; Visual Bloodlines</h2>
+      <p class="page-copy">Explore active family groups, relationship summaries, automatic sibling intelligence, and tree-based structure generated from the current registry.</p>
     </section>
-    <details class="admin-collapsible" id="registrationsPanel">
-      <summary>Recent Registrations</summary>
-      <div class="registrations-wrap" id="registrationsContent">
-        <p class="stats-loading">Loading registrations...</p>
-      </div>
-    </details>
-    <details class="admin-collapsible" id="familyGroupsPanel">
-      <summary>Family Groups</summary>
-      <div class="family-groups-wrap" id="familyGroupsContent">
-        <p class="stats-loading">Loading family groups...</p>
-      </div>
-    </details>
-    <details class="admin-collapsible" id="visualFamilyTreePanel">
-      <summary>Visual Family Tree</summary>
-      <div class="tree-wrap">
+
+    <div class="card" id="visualFamilyTreePanel">
+      <h2>Visual Family Tree</h2>
+      <div class="tree-wrap" style="max-height:none; opacity:1; padding:0;">
         <div class="tree-controls">
           <div class="field">
             <label for="treeRoleFilter">Role Filter</label>
@@ -1365,10 +1678,46 @@
         </div>
         <div id="familyTreeContent" class="tree-empty">Family tree will appear once members are connected.</div>
       </div>
-    </details>
-    <details class="admin-collapsible" id="exportPanel">
-      <summary>Admin Export + Backup</summary>
-      <div class="export-wrap">
+    </div>
+  </section>
+
+  <section class="page-section" data-page="activity-log">
+    <section class="page-header-card">
+      <span class="page-kicker">Activity Log</span>
+      <h2 class="page-title">Legacy Activity Log</h2>
+      <p class="page-copy">Review newest system activity, filter by session or user, and inspect how registrations, tree views, exports, and tracking events are flowing through the MVP.</p>
+    </section>
+
+    <div class="card" id="activityLogPanel">
+      <h2>Activity Timeline</h2>
+      <div class="activity-log-wrap" id="activityLogContent" style="max-height:none; opacity:1; padding:0;">
+        <div class="activity-filter-row">
+          <div class="field">
+            <label for="activitySessionFilter">Session ID Filter</label>
+            <input id="activitySessionFilter" type="text" placeholder="Filter by session_id" />
+          </div>
+          <div class="field">
+            <label for="activityUserFilter">User ID Filter</label>
+            <input id="activityUserFilter" type="text" placeholder="Filter by user_id" />
+          </div>
+          <button type="button" class="secondary activity-filter-btn" id="activityFilterApplyBtn">Apply</button>
+          <button type="button" class="secondary activity-filter-btn" id="activityFilterClearBtn">Clear</button>
+        </div>
+        <div id="activityLogList"><p class="stats-loading">Loading activity log...</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page-section" data-page="export-backup">
+    <section class="page-header-card">
+      <span class="page-kicker">Export &amp; Backup</span>
+      <h2 class="page-title">Operational Exports &amp; Backup Files</h2>
+      <p class="page-copy">Download registrations, family groups, stats, and full backups without mutating system state. These exports preserve registry continuity for reporting, archival, and Vault integration planning.</p>
+    </section>
+
+    <div class="card" id="exportPanel">
+      <h2>Admin Export + Backup</h2>
+      <div class="export-wrap" style="max-height:none; opacity:1; padding:0;">
         <p style="font-size: 0.9em; color: #888; margin-bottom: 1rem;">Download registry data for backup, records, and future Eternal Vault integration.</p>
         <div class="export-buttons">
           <button class="btn btn-export" id="exportRegistrationsJsonBtn" data-format="registrations-json">
@@ -1389,31 +1738,59 @@
         </div>
         <p style="font-size: 0.85em; color: #aaa; margin-top: 1rem;">✓ Read-only exports. No data is modified during download.</p>
       </div>
-    </details>
-    <details class="admin-collapsible" id="activityLogPanel">
-      <summary>Legacy Activity Log</summary>
-      <div class="activity-log-wrap" id="activityLogContent">
-        <div class="activity-filter-row">
-          <div class="field">
-            <label for="activitySessionFilter">Session ID Filter</label>
-            <input id="activitySessionFilter" type="text" placeholder="Filter by session_id" />
-          </div>
-          <div class="field">
-            <label for="activityUserFilter">User ID Filter</label>
-            <input id="activityUserFilter" type="text" placeholder="Filter by user_id" />
-          </div>
-          <button type="button" class="secondary activity-filter-btn" id="activityFilterApplyBtn">Apply</button>
-          <button type="button" class="secondary activity-filter-btn" id="activityFilterClearBtn">Clear</button>
-        </div>
-        <div id="activityLogList"><p class="stats-loading">Loading activity log...</p></div>
-      </div>
-    </details>
-  </div>
+    </div>
+  </section>
 
-</div>
+  <section class="page-section" data-page="admin-dashboard">
+    <section class="page-header-card">
+      <span class="page-kicker">Admin Dashboard</span>
+      <h2 class="page-title">Registry Operations Overview</h2>
+      <p class="page-copy">Monitor system status, review quick metrics, inspect registrations and family groups, and keep the MVP operational surface organized for live administration.</p>
+    </section>
+
+    <div class="admin-shell">
+      <div class="card">
+        <h2>System Summary</h2>
+        <div id="adminQuickStats" class="admin-summary-grid">
+          <div class="admin-summary-tile">
+            <div class="admin-summary-value">--</div>
+            <div class="admin-summary-label">Loading dashboard metrics</div>
+          </div>
+        </div>
+        <div class="insights-card" style="margin-top:0;">
+          <h3>System Status</h3>
+          <div id="systemStatusBadges" class="status-badge-row"></div>
+        </div>
+        <button class="secondary" onclick="loadStats()">Refresh Stats</button>
+        <p class="stats-meta" id="lastUpdated">Last updated: --</p>
+        <section class="insights-card" aria-labelledby="insights-title">
+          <h3 id="insights-title">Registry Insights</h3>
+          <div id="insightsContent" class="stats-loading">Insights will appear once registrations begin.</div>
+        </section>
+      </div>
+
+      <div class="card">
+    <h2>Registry Stats</h2>
+    <div id="statsContent" class="stats-loading">Loading stats…</div>
+        <details class="admin-collapsible" id="registrationsPanel" open>
+          <summary>Recent Registrations</summary>
+          <div class="registrations-wrap" id="registrationsContent" style="max-height:420px; opacity:1;">
+            <p class="stats-loading">Loading registrations...</p>
+          </div>
+        </details>
+        <details class="admin-collapsible" id="familyGroupsPanel" open>
+          <summary>Family Groups</summary>
+          <div class="family-groups-wrap" id="familyGroupsContent" style="max-height:440px; opacity:1;">
+            <p class="stats-loading">Loading family groups...</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </section>
+</main>
 
 <footer>
-  Legacy Builders Aeternum&trade; - Powered by Aeternum Nexus
+  Legacy Builders Aeternum&trade; — Powered by Aeternum Nexus
 </footer>
 
 <div class="admin-modal" id="registrationEditModal" aria-hidden="true">
@@ -1513,10 +1890,14 @@
   const errorMsg   = document.getElementById('errorMsg');
   const statsLastUpdated = document.getElementById('lastUpdated');
   const insightsContent = document.getElementById('insightsContent');
+  const pageSections = Array.from(document.querySelectorAll('.page-section'));
+  const pageNavButtons = Array.from(document.querySelectorAll('[data-page-target]'));
   const registrationsPanel = document.getElementById('registrationsPanel');
   const familyGroupsPanel = document.getElementById('familyGroupsPanel');
   const visualFamilyTreePanel = document.getElementById('visualFamilyTreePanel');
   const activityLogPanel = document.getElementById('activityLogPanel');
+  const adminQuickStats = document.getElementById('adminQuickStats');
+  const systemStatusBadges = document.getElementById('systemStatusBadges');
   const familyNameInput = document.getElementById('family_name');
   const linkedToChecklist = document.getElementById('linked_to_user_ids');
   const familyGroupsContent = document.getElementById('familyGroupsContent');
@@ -1541,6 +1922,8 @@
   const familyTreeCache = new Map();
   let activeEditUserId = null;
   let activeEditInitial = null;
+  let latestStatsSnapshot = null;
+  let latestActivityEventCount = null;
   const SESSION_STORAGE_KEY = 'aeternum_session_id';
   const KNOWN_USER_STORAGE_KEY = 'aeternum_known_user_id';
   const REGISTRATION_STARTED_FLAG_KEY = 'aeternum_registration_started_logged';
@@ -1597,6 +1980,58 @@
     total_interested_in_return: null,
     total_with_contact_info: null,
   };
+
+  function renderSystemStatusBadges() {
+    if (!systemStatusBadges) return;
+    systemStatusBadges.innerHTML = [
+      'Registration Active',
+      'Family Intelligence Active',
+      'Activity Logging Active',
+      'Export Backup Active',
+      'Session Tracking Active',
+    ].map((label) => `<span class="status-badge">${escapeHtml(label)}</span>`).join('');
+  }
+
+  function renderAdminSummary() {
+    if (!adminQuickStats || !latestStatsSnapshot) return;
+    const stats = latestStatsSnapshot;
+    const tiles = [
+      ['Total Users', stats.total_users ?? 0],
+      ['Total Families', stats.total_families ?? stats.total_family_groups ?? 0],
+      ['Total Family Groups', stats.total_family_groups ?? stats.total_families ?? 0],
+      ['Largest Family Size', stats.largest_family_size ?? 0],
+      ['Total Activity Events', latestActivityEventCount ?? '--'],
+    ];
+    adminQuickStats.innerHTML = tiles.map(([label, value]) => `
+      <article class="admin-summary-tile">
+        <div class="admin-summary-value">${escapeHtml(String(value))}</div>
+        <div class="admin-summary-label">${escapeHtml(String(label))}</div>
+      </article>
+    `).join('');
+  }
+
+  function setActivePage(pageName) {
+    pageSections.forEach((section) => {
+      section.classList.toggle('is-active', section.dataset.page === pageName);
+    });
+    pageNavButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.pageTarget === pageName && button.classList.contains('app-nav-link'));
+    });
+
+    if (pageName === 'family-tree') {
+      renderVisualFamilyTree();
+    }
+    if (pageName === 'activity-log') {
+      loadActivityLog();
+    }
+    if (pageName === 'admin-dashboard') {
+      renderAdminSummary();
+      loadStats();
+      loadRegistrations();
+      loadFamilies();
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   function createSessionId() {
     if (window.crypto && typeof window.crypto.randomUUID === 'function') {
@@ -1697,15 +2132,13 @@
   editRegCancelBtn.addEventListener('click', closeRegistrationEditModal);
   treeRoleFilter.addEventListener('change', renderVisualFamilyTree);
   treeSearchInput.addEventListener('input', renderVisualFamilyTree);
-  visualFamilyTreePanel.addEventListener('toggle', () => {
-    if (visualFamilyTreePanel.open) {
-      renderVisualFamilyTree();
-    }
-  });
-  activityLogPanel.addEventListener('toggle', () => {
-    if (activityLogPanel.open) {
-      loadActivityLog();
-    }
+  pageNavButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const targetPage = button.dataset.pageTarget;
+      if (targetPage) {
+        setActivePage(targetPage);
+      }
+    });
   });
   activityFilterApplyBtn?.addEventListener('click', () => {
     loadActivityLog();
@@ -1829,6 +2262,7 @@
       loadStats();
       loadRegistrations();
       loadFamilies();
+      setActivePage('admin-dashboard');
       successMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (err) {
       showError('Network error — is the server running?');
@@ -2623,6 +3057,7 @@
         total_interested_in_return: data.total_interested_in_return ?? 0,
         total_with_contact_info: data.total_with_contact_info ?? 0,
       };
+      latestStatsSnapshot = data;
 
       const changed = {
         total_users: previousStatValues.total_users !== null && previousStatValues.total_users !== current.total_users,
@@ -2682,6 +3117,7 @@
       previousStatValues.total_families = current.total_families;
       previousStatValues.total_interested_in_return = current.total_interested_in_return;
       previousStatValues.total_with_contact_info = current.total_with_contact_info;
+      renderAdminSummary();
 
       const now = new Date();
       statsLastUpdated.textContent = `Last updated: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
@@ -2912,6 +3348,10 @@
       const response = await apiFetch(endpoint);
       const rows = await response.json();
       const events = Array.isArray(rows) ? rows : [];
+      if (!sessionFilter && !userFilter) {
+        latestActivityEventCount = events.length;
+        renderAdminSummary();
+      }
 
       if (!events.length) {
         activityLogList.innerHTML = '<p class="stats-loading">No activity events yet.</p>';
@@ -2950,6 +3390,7 @@
 
   ensureSessionStartedEvent();
   sendSessionHeartbeat();
+  renderSystemStatusBadges();
 
   // Load stats on page open
   loadStats();
