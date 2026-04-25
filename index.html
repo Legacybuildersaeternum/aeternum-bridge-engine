@@ -915,6 +915,37 @@
       font-size: 0.66rem;
     }
 
+    .activity-filter-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto auto;
+      gap: 8px;
+      align-items: end;
+      margin-bottom: 10px;
+    }
+
+    .activity-filter-row .field {
+      margin: 0;
+    }
+
+    .activity-filter-row input {
+      min-height: 36px;
+      font-size: 0.76rem;
+    }
+
+    .activity-filter-btn {
+      min-height: 36px;
+      padding: 8px 12px;
+      font-size: 0.66rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 900px) {
+      .activity-filter-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .export-buttons {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -1362,7 +1393,19 @@
     <details class="admin-collapsible" id="activityLogPanel">
       <summary>Legacy Activity Log</summary>
       <div class="activity-log-wrap" id="activityLogContent">
-        <p class="stats-loading">Loading activity log...</p>
+        <div class="activity-filter-row">
+          <div class="field">
+            <label for="activitySessionFilter">Session ID Filter</label>
+            <input id="activitySessionFilter" type="text" placeholder="Filter by session_id" />
+          </div>
+          <div class="field">
+            <label for="activityUserFilter">User ID Filter</label>
+            <input id="activityUserFilter" type="text" placeholder="Filter by user_id" />
+          </div>
+          <button type="button" class="secondary activity-filter-btn" id="activityFilterApplyBtn">Apply</button>
+          <button type="button" class="secondary activity-filter-btn" id="activityFilterClearBtn">Clear</button>
+        </div>
+        <div id="activityLogList"><p class="stats-loading">Loading activity log...</p></div>
       </div>
     </details>
   </div>
@@ -1480,6 +1523,11 @@
   const registrationsContent = document.getElementById('registrationsContent');
   const familyTreeContent = document.getElementById('familyTreeContent');
   const activityLogContent = document.getElementById('activityLogContent');
+  const activityLogList = document.getElementById('activityLogList');
+  const activitySessionFilterInput = document.getElementById('activitySessionFilter');
+  const activityUserFilterInput = document.getElementById('activityUserFilter');
+  const activityFilterApplyBtn = document.getElementById('activityFilterApplyBtn');
+  const activityFilterClearBtn = document.getElementById('activityFilterClearBtn');
   const treeRoleFilter = document.getElementById('treeRoleFilter');
   const treeSearchInput = document.getElementById('treeSearchInput');
   const registrationEditModal = document.getElementById('registrationEditModal');
@@ -1493,6 +1541,10 @@
   const familyTreeCache = new Map();
   let activeEditUserId = null;
   let activeEditInitial = null;
+  const SESSION_STORAGE_KEY = 'aeternum_session_id';
+  const KNOWN_USER_STORAGE_KEY = 'aeternum_known_user_id';
+  const REGISTRATION_STARTED_FLAG_KEY = 'aeternum_registration_started_logged';
+  const SESSION_STARTED_FLAG_KEY = 'aeternum_session_started_logged';
 
   const ORIGIN_REGION_OPTIONS = [
     'west_africa',
@@ -1546,6 +1598,98 @@
     total_with_contact_info: null,
   };
 
+  function createSessionId() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return window.crypto.randomUUID();
+    }
+    return `sess_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  }
+
+  function getOrCreateSessionId() {
+    const existing = (window.localStorage.getItem(SESSION_STORAGE_KEY) || '').trim();
+    if (existing) {
+      return existing;
+    }
+    const sessionId = createSessionId();
+    window.localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+    window.localStorage.removeItem(REGISTRATION_STARTED_FLAG_KEY);
+    window.localStorage.removeItem(SESSION_STARTED_FLAG_KEY);
+    return sessionId;
+  }
+
+  const sessionId = getOrCreateSessionId();
+
+  function getKnownUserId() {
+    const value = window.localStorage.getItem(KNOWN_USER_STORAGE_KEY);
+    const normalized = String(value || '').trim();
+    return normalized || null;
+  }
+
+  function setKnownUserId(userId) {
+    const normalized = String(userId || '').trim();
+    if (!normalized) return;
+    window.localStorage.setItem(KNOWN_USER_STORAGE_KEY, normalized);
+  }
+
+  function buildTrackedHeaders(extraHeaders = {}) {
+    const headers = {
+      'X-Session-Id': sessionId,
+      ...extraHeaders,
+    };
+    const knownUserId = getKnownUserId();
+    if (knownUserId) {
+      headers['X-User-Id'] = knownUserId;
+    }
+    return headers;
+  }
+
+  async function apiFetch(url, options = {}) {
+    const headers = buildTrackedHeaders(options.headers || {});
+    return fetch(url, {
+      ...options,
+      headers,
+    });
+  }
+
+  async function postSessionEvent(eventType, message) {
+    try {
+      await apiFetch('/session/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_type: eventType,
+          message,
+          session_id: sessionId,
+          user_id: getKnownUserId(),
+        }),
+      });
+    } catch {
+      // Session telemetry should not block app interactions.
+    }
+  }
+
+  async function ensureSessionStartedEvent() {
+    const loggedSession = window.localStorage.getItem(SESSION_STARTED_FLAG_KEY);
+    if (loggedSession === sessionId) {
+      return;
+    }
+    await postSessionEvent('session_started', 'Browser session started in Aeternum Bridge Engine.');
+    window.localStorage.setItem(SESSION_STARTED_FLAG_KEY, sessionId);
+  }
+
+  async function sendSessionHeartbeat() {
+    await postSessionEvent('session_active', 'Session heartbeat received from active browser tab.');
+  }
+
+  function trackRegistrationStartedOnce() {
+    const loggedSession = window.localStorage.getItem(REGISTRATION_STARTED_FLAG_KEY);
+    if (loggedSession === sessionId) {
+      return;
+    }
+    window.localStorage.setItem(REGISTRATION_STARTED_FLAG_KEY, sessionId);
+    postSessionEvent('registration_started', 'Registration flow started by user input.');
+  }
+
   familyNameInput.addEventListener('input', updateConnectedToOptions);
   familyGroupsContent.addEventListener('click', handleFamilyGroupActions);
   registrationsContent.addEventListener('click', handleRegistrationActions);
@@ -1563,6 +1707,27 @@
       loadActivityLog();
     }
   });
+  activityFilterApplyBtn?.addEventListener('click', () => {
+    loadActivityLog();
+  });
+  activityFilterClearBtn?.addEventListener('click', () => {
+    if (activitySessionFilterInput) activitySessionFilterInput.value = '';
+    if (activityUserFilterInput) activityUserFilterInput.value = '';
+    loadActivityLog();
+  });
+  activitySessionFilterInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      loadActivityLog();
+    }
+  });
+  activityUserFilterInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      loadActivityLog();
+    }
+  });
+  form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
 
   // Export button handlers
   document.getElementById('exportRegistrationsJsonBtn')?.addEventListener('click', () => handleExport('registrations-json'));
@@ -1637,7 +1802,7 @@
         notes,
       };
 
-      const res = await fetch('/register_user', {
+      const res = await apiFetch('/register_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1649,6 +1814,10 @@
         const detail = extractDetail(data);
         showError(detail);
         return;
+      }
+
+      if (data.user_id) {
+        setKnownUserId(data.user_id);
       }
 
       successMsg.innerHTML =
@@ -2131,7 +2300,7 @@
       return familyTreeCache.get(familyId);
     }
 
-    const response = await fetch(`/family-tree/${encodeURIComponent(familyId)}`);
+    const response = await apiFetch(`/family-tree/${encodeURIComponent(familyId)}`);
     if (!response.ok) {
       throw new Error(`Could not load tree for ${familyId}`);
     }
@@ -2242,7 +2411,7 @@
     }
 
     try {
-      const res = await fetch(`/registrations/${encodeURIComponent(activeEditUserId)}`, {
+      const res = await apiFetch(`/registrations/${encodeURIComponent(activeEditUserId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -2273,7 +2442,7 @@
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`/registrations/${encodeURIComponent(userId)}`, {
+      const res = await apiFetch(`/registrations/${encodeURIComponent(userId)}`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -2351,7 +2520,7 @@
     };
 
     try {
-      const res = await fetch(`/registrations/${encodeURIComponent(userId)}/relationship`, {
+      const res = await apiFetch(`/registrations/${encodeURIComponent(userId)}/relationship`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -2435,7 +2604,7 @@
   async function loadStats() {
     const container = document.getElementById('statsContent');
     try {
-      const res  = await fetch('/stats');
+      const res  = await apiFetch('/stats');
       const data = await res.json();
 
       const renderDistributionRows = (distribution, humanize = false) => {
@@ -2528,7 +2697,7 @@
   async function loadRegistrations() {
     const container = document.getElementById('registrationsContent');
     try {
-      const res = await fetch('/registrations');
+      const res = await apiFetch('/registrations');
       const rows = await res.json();
       console.log('[Aeternum] /registrations response:', rows);
       const list = Array.isArray(rows) ? rows : [];
@@ -2600,7 +2769,7 @@
   async function loadFamilies() {
     const container = document.getElementById('familyGroupsContent');
     try {
-      const res = await fetch('/families');
+      const res = await apiFetch('/families');
       const rows = await res.json();
       console.log('[Aeternum] /families response:', rows);
       const groups = Array.isArray(rows) ? rows : [];
@@ -2700,7 +2869,7 @@
         button.disabled = true;
       });
 
-      const response = await fetch(endpoint);
+      const response = await apiFetch(endpoint);
       if (!response.ok) {
         showError(`Export failed: ${response.statusText}`);
         return;
@@ -2730,15 +2899,22 @@
 
   /* ── Legacy Activity Log ── */
   async function loadActivityLog() {
-    if (!activityLogContent) return;
+    if (!activityLogList) return;
 
     try {
-      const response = await fetch('/activity-log');
+      const sessionFilter = String(activitySessionFilterInput?.value || '').trim();
+      const userFilter = String(activityUserFilterInput?.value || '').trim();
+      const query = new URLSearchParams();
+      if (sessionFilter) query.set('session_id', sessionFilter);
+      if (userFilter) query.set('user_id', userFilter);
+      const endpoint = query.toString() ? `/activity-log?${query.toString()}` : '/activity-log';
+
+      const response = await apiFetch(endpoint);
       const rows = await response.json();
       const events = Array.isArray(rows) ? rows : [];
 
       if (!events.length) {
-        activityLogContent.innerHTML = '<p class="stats-loading">No activity events yet.</p>';
+        activityLogList.innerHTML = '<p class="stats-loading">No activity events yet.</p>';
         return;
       }
 
@@ -2747,6 +2923,8 @@
           ? new Date(event.timestamp).toLocaleString()
           : 'Unknown time';
         const pieces = [
+          event.session_id ? `Session ID: ${escapeHtml(String(event.session_id))}` : '',
+          event.session_sequence ? `Session Seq: ${escapeHtml(String(event.session_sequence))}` : '',
           event.family_name ? `Family: ${escapeHtml(String(event.family_name))}` : '',
           event.family_id ? `Family ID: ${escapeHtml(String(event.family_id))}` : '',
           event.user_id ? `User ID: ${escapeHtml(String(event.user_id))}` : '',
@@ -2764,11 +2942,14 @@
         `;
       }).join('');
 
-      activityLogContent.innerHTML = `<div class="activity-log-list">${listHtml}</div>`;
+      activityLogList.innerHTML = `<div class="activity-log-list">${listHtml}</div>`;
     } catch {
-      activityLogContent.innerHTML = '<p class="stats-loading">Could not load activity log.</p>';
+      activityLogList.innerHTML = '<p class="stats-loading">Could not load activity log.</p>';
     }
   }
+
+  ensureSessionStartedEvent();
+  sendSessionHeartbeat();
 
   // Load stats on page open
   loadStats();
@@ -2781,6 +2962,9 @@
     loadFamilies();
     loadActivityLog();
   }, 15000);
+  setInterval(() => {
+    sendSessionHeartbeat();
+  }, 60000);
 </script>
 </body>
 </html>

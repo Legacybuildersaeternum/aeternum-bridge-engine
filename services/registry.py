@@ -4,6 +4,7 @@ import json
 import uuid
 import hashlib
 import logging
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -29,6 +30,7 @@ DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "diaspora_registry.js
 _EMPTY_STORE: dict[str, Any] = {"users": []}
 ACTIVITY_LOG_FILE = Path(__file__).resolve().parents[1] / "data" / "legacy_activity_log.json"
 _EMPTY_ACTIVITY_STORE: dict[str, Any] = {"events": []}
+_ACTIVITY_LOG_LOCK = threading.RLock()
 
 
 def _normalize_dropdown_token(value: str) -> str:
@@ -121,18 +123,27 @@ def _ensure_activity_file() -> None:
 
 
 def _load_activity_events() -> list[dict[str, Any]]:
-    _ensure_activity_file()
-    with ACTIVITY_LOG_FILE.open("r", encoding="utf-8") as f:
-        data = json.load(f)
+    with _ACTIVITY_LOG_LOCK:
+        _ensure_activity_file()
+        try:
+            with ACTIVITY_LOG_FILE.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError:
+            logger.warning("Activity log file was empty or invalid JSON. Resetting %s", ACTIVITY_LOG_FILE)
+            _save_activity_events([])
+            return []
     if isinstance(data, list):
         return data
     return data.get("events", [])
 
 
 def _save_activity_events(events: list[dict[str, Any]]) -> None:
-    _ensure_activity_file()
-    with ACTIVITY_LOG_FILE.open("w", encoding="utf-8") as f:
-        json.dump({"events": events}, f, indent=2, ensure_ascii=False)
+    with _ACTIVITY_LOG_LOCK:
+        _ensure_activity_file()
+        temp_file = ACTIVITY_LOG_FILE.with_suffix(".json.tmp")
+        with temp_file.open("w", encoding="utf-8") as f:
+            json.dump({"events": events}, f, indent=2, ensure_ascii=False)
+        temp_file.replace(ACTIVITY_LOG_FILE)
 
 
 def write_activity_event(
@@ -141,29 +152,70 @@ def write_activity_event(
     user_id: Optional[str] = None,
     family_id: Optional[str] = None,
     family_name: Optional[str] = None,
+    session_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Write one legacy activity entry and return the stored record."""
-    events = _load_activity_events()
-    entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "event_type": event_type,
-        "user_id": user_id,
-        "family_id": family_id,
-        "family_name": family_name,
-        "message": message,
-    }
-    events.append(entry)
-    # Keep file size bounded for MVP operations.
-    if len(events) > 1000:
-        events = events[-1000:]
-    _save_activity_events(events)
-    return entry
+    with _ACTIVITY_LOG_LOCK:
+        events = _load_activity_events()
+        session_sequence: Optional[int] = None
+        if session_id:
+            session_events = [event for event in events if str(event.get("session_id") or "") == session_id]
+            session_sequence = len(session_events) + 1
+
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "session_id": session_id,
+            "session_sequence": session_sequence,
+            "event_type": event_type,
+            "user_id": user_id,
+            "family_id": family_id,
+            "family_name": family_name,
+            "message": message,
+        }
+        events.append(entry)
+        # Keep file size bounded for MVP operations.
+        if len(events) > 1000:
+            events = events[-1000:]
+        _save_activity_events(events)
+        return entry
 
 
-def get_activity_log(limit: int = 200) -> list[dict[str, Any]]:
-    """Return activity log events ordered newest-first."""
-    events = _load_activity_events()
-    ordered = sorted(events, key=lambda item: str(item.get("timestamp", "")), reverse=True)
+def get_activity_log(
+    limit: int = 200,
+    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Return activity events with optional filters.
+
+    Default ordering is newest-first. When filtering by session_id,
+    events are returned in chronological order to show an in-session timeline.
+    """
+    with _ACTIVITY_LOG_LOCK:
+        events = _load_activity_events()
+    filtered = events
+    if session_id:
+        filtered = [
+            event
+            for event in filtered
+            if str(event.get("session_id") or "") == session_id
+        ]
+    if user_id:
+        filtered = [
+            event
+            for event in filtered
+            if str(event.get("user_id") or "") == user_id
+        ]
+
+    if session_id:
+        ordered = sorted(
+            filtered,
+            key=lambda item: (
+                str(item.get("timestamp", "")),
+                int(item.get("session_sequence") or 0),
+            ),
+        )
+    else:
+        ordered = sorted(filtered, key=lambda item: str(item.get("timestamp", "")), reverse=True)
     return ordered[: max(1, min(limit, 1000))]
 
 
@@ -242,7 +294,7 @@ def _generate_family_id(family_name: str) -> str:
     return "fam_" + hashlib.sha256(normalized.encode()).hexdigest()[:12]
 
 
-def register_user(payload: UserRegistration) -> UserRecord:
+def register_user(payload: UserRegistration, session_id: Optional[str] = None) -> UserRecord:
     users = _load()
     family_id = _generate_family_id(payload.family_name)
     family_exists = any(user.get("family_id") == family_id for user in users)
@@ -294,6 +346,7 @@ def register_user(payload: UserRegistration) -> UserRecord:
         user_id=record.user_id,
         family_id=record.family_id,
         family_name=record.family_name,
+        session_id=session_id,
     )
     write_activity_event(
         event_type="family_group_updated" if family_exists else "family_group_created",
@@ -305,6 +358,7 @@ def register_user(payload: UserRegistration) -> UserRecord:
         user_id=record.user_id,
         family_id=record.family_id,
         family_name=record.family_name,
+        session_id=session_id,
     )
     return record
 
@@ -391,6 +445,7 @@ def get_registrations() -> list[UserRecord]:
 def update_registration_relationship(
     user_id: str,
     payload: RelationshipUpdateRequest,
+    session_id: Optional[str] = None,
 ) -> UserRecord:
     users = _load()
     user_index = next((idx for idx, user in enumerate(users) if user.get("user_id") == user_id), -1)
@@ -457,6 +512,7 @@ def update_registration_relationship(
         user_id=updated_record.user_id,
         family_id=updated_record.family_id,
         family_name=updated_record.family_name,
+        session_id=session_id,
     )
     write_activity_event(
         event_type="family_group_updated",
@@ -464,11 +520,12 @@ def update_registration_relationship(
         user_id=updated_record.user_id,
         family_id=updated_record.family_id,
         family_name=updated_record.family_name,
+        session_id=session_id,
     )
     return updated_record
 
 
-def delete_registration(user_id: str) -> dict[str, str]:
+def delete_registration(user_id: str, session_id: Optional[str] = None) -> dict[str, str]:
     users = _load()
     target = next((user for user in users if user.get("user_id") == user_id), None)
     if target is None:
@@ -496,11 +553,16 @@ def delete_registration(user_id: str) -> dict[str, str]:
         user_id=str(target.get("user_id") or user_id),
         family_id=str(target.get("family_id") or "") or None,
         family_name=str(target.get("family_name") or "") or None,
+        session_id=session_id,
     )
     return {"message": "Registration deleted successfully."}
 
 
-def update_registration(user_id: str, payload: RegistrationUpdateRequest) -> UserRecord:
+def update_registration(
+    user_id: str,
+    payload: RegistrationUpdateRequest,
+    session_id: Optional[str] = None,
+) -> UserRecord:
     users = _load()
     user_index = next((idx for idx, user in enumerate(users) if user.get("user_id") == user_id), -1)
     if user_index == -1:
@@ -594,6 +656,7 @@ def update_registration(user_id: str, payload: RegistrationUpdateRequest) -> Use
         user_id=updated_record.user_id,
         family_id=updated_record.family_id,
         family_name=updated_record.family_name,
+        session_id=session_id,
     )
     if any(field in updates for field in ["relationship_role", "household_position", "relationship_notes", "linked_to_user_ids", "linked_to_user_id"]):
         write_activity_event(
@@ -602,6 +665,7 @@ def update_registration(user_id: str, payload: RegistrationUpdateRequest) -> Use
             user_id=updated_record.user_id,
             family_id=updated_record.family_id,
             family_name=updated_record.family_name,
+            session_id=session_id,
         )
     return updated_record
 
@@ -679,7 +743,11 @@ def get_families() -> list[FamilyGroupResponse]:
     return families
 
 
-def get_family_tree(family_id: str) -> dict[str, Any]:
+def get_family_tree(
+    family_id: str,
+    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> dict[str, Any]:
     """Build a lightweight hierarchical family tree for a single family group."""
     users = [_normalize_user(u) for u in _load()]
     family_members = [u for u in users if u.get("family_id") == family_id]
@@ -853,8 +921,10 @@ def get_family_tree(family_id: str) -> dict[str, Any]:
     write_activity_event(
         event_type="family_tree_viewed",
         message=f"Family tree generated and viewed for {family_name}.",
+        user_id=user_id,
         family_id=family_id,
         family_name=family_name,
+        session_id=session_id,
     )
 
     return tree_payload
