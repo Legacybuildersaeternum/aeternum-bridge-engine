@@ -1,0 +1,2617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aeternum Bridge Engine</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:    #0b1a2b;
+      --navy2:   #132032;
+      --gold:    #c9a84c;
+      --gold-lt: #e8c96a;
+      --gold-dk: #a8893c;
+      --white:   #f4f4f4;
+      --muted:   #8a9bb0;
+      --error:   #e05a5a;
+      --success: #4caf82;
+      --radius:  8px;
+    }
+
+    body {
+      background-color: var(--navy);
+      background-image: url('/static/logo.png');
+      background-repeat: no-repeat;
+      background-position: center 42%;
+      background-size: 580px;
+      color: var(--white);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      padding: 32px 16px 56px;
+      position: relative;
+    }
+
+    /* Overlay dims watermark to ~3% effective opacity */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 26, 43, 0.97);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header, .layout, .section-stack, footer { position: relative; z-index: 1; }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .header-logo {
+      display: block;
+      margin: 0 auto 22px;
+      max-width: 84px;
+      width: 100%;
+      /* invert+sepia+hue converts the brown logo to gold-toned on dark bg */
+      filter:
+        invert(1)
+        sepia(0.6)
+        saturate(1.8)
+        hue-rotate(8deg)
+        brightness(0.82)
+        drop-shadow(0 0 10px rgba(201, 168, 76, 0.55));
+      opacity: 0.93;
+    }
+
+    header h1 {
+      font-size: clamp(1.75rem, 4vw, 2.6rem);
+      color: var(--gold);
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      text-shadow:
+        0 0 16px rgba(201, 168, 76, 0.35),
+        0 0  4px rgba(201, 168, 76, 0.18),
+        0 2px 8px rgba(0, 0, 0, 0.8);
+    }
+
+    header p {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .divider {
+      width: 120px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      margin: 18px auto 0;
+      border-radius: 2px;
+      opacity: 0.65;
+    }
+
+    /* ── Top content stack ── */
+    .section-stack {
+      max-width: 1040px;
+      margin: 0 auto 24px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: rgba(19, 32, 50, 0.9);
+      border: 1px solid rgba(201, 168, 76, 0.16);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow:
+        0 2px 18px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(201, 168, 76, 0.05);
+    }
+
+    .feature-title {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--gold);
+      opacity: 0.9;
+      margin-bottom: 10px;
+    }
+
+    .mission-text {
+      color: var(--white);
+      font-size: 1.02rem;
+      line-height: 1.75;
+      max-width: 900px;
+    }
+
+    .how-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .how-step {
+      background: rgba(11, 26, 43, 0.8);
+      border: 1px solid rgba(201, 168, 76, 0.14);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .how-step h3 {
+      color: var(--gold-lt);
+      font-size: 0.88rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .how-step p {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid;
+      gap: 24px;
+      max-width: 1240px;
+      margin: 0 auto;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 980px) {
+      .layout { grid-template-columns: minmax(420px, 1.15fr) minmax(0, 1fr); }
+    }
+    @media (min-width: 880px) {
+      .how-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--navy2);
+      border: 1px solid rgba(201, 168, 76, 0.18);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      box-shadow:
+        0 4px 28px rgba(0, 0, 0, 0.5),
+        0 1px  4px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(201, 168, 76, 0.06);
+      transition: box-shadow 0.25s;
+    }
+    .card:hover {
+      box-shadow:
+        0 6px 36px rgba(0, 0, 0, 0.6),
+        0 2px  6px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(201, 168, 76, 0.1);
+    }
+    .card h2 {
+      font-size: 0.75rem;
+      color: var(--gold);
+      margin-bottom: 22px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      opacity: 0.8;
+    }
+
+    .form-helper {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+
+    /* ── Form fields ── */
+    .field { margin-bottom: 16px; }
+    .field label {
+      display: block;
+      font-size: 0.74rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .field input,
+    .field select {
+      width: 100%;
+      background: var(--navy);
+      border: 1px solid rgba(201, 168, 76, 0.2);
+      border-radius: var(--radius);
+      color: var(--white);
+      font-size: 0.95rem;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.12);
+    }
+    .field select option { background: var(--navy2); }
+
+    .field textarea {
+      width: 100%;
+      background: var(--navy);
+      border: 1px solid rgba(201, 168, 76, 0.2);
+      border-radius: var(--radius);
+      color: var(--white);
+      font-size: 0.95rem;
+      padding: 10px 12px;
+      outline: none;
+      min-height: 90px;
+      resize: vertical;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .field textarea:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.12);
+    }
+
+    .multi-link-checklist {
+      background: var(--navy);
+      border: 1px solid rgba(201, 168, 76, 0.2);
+      border-radius: var(--radius);
+      padding: 8px 10px;
+      min-height: 42px;
+      max-height: 170px;
+      overflow-y: auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    .multi-link-empty {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+
+    .multi-link-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--white);
+      line-height: 1.35;
+    }
+
+    .multi-link-item input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--gold);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .optional-section {
+      margin: 20px 0 18px;
+      padding: 16px;
+      border: 1px solid rgba(201, 168, 76, 0.14);
+      border-radius: var(--radius);
+      background: rgba(11, 26, 43, 0.45);
+    }
+
+    .optional-section h3 {
+      font-size: 0.7rem;
+      color: var(--gold-lt);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .optional-note {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    .optional-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--gold);
+      cursor: pointer;
+    }
+    .checkbox-row label {
+      font-size: 0.9rem;
+      color: var(--white);
+      cursor: pointer;
+    }
+
+    /* ── Buttons ── */
+    button {
+      display: block;
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, var(--gold-lt) 0%, var(--gold) 55%, var(--gold-dk) 100%);
+      color: var(--navy);
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: filter 0.2s, box-shadow 0.2s, transform 0.1s;
+      text-transform: uppercase;
+      box-shadow: 0 2px 12px rgba(201, 168, 76, 0.22);
+    }
+    button:hover {
+      filter: brightness(1.13);
+      box-shadow: 0 4px 20px rgba(201, 168, 76, 0.42);
+    }
+    button:active { transform: scale(0.98); filter: brightness(0.96); }
+
+    button.secondary {
+      background: transparent;
+      border: 1px solid rgba(201, 168, 76, 0.4);
+      color: var(--gold);
+      margin-top: 14px;
+      box-shadow: none;
+      font-size: 0.76rem;
+    }
+    button.secondary:hover {
+      background: rgba(201, 168, 76, 0.07);
+      box-shadow: 0 0 14px rgba(201, 168, 76, 0.18);
+      filter: none;
+    }
+
+    /* ── Messages ── */
+    .message {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      font-size: 0.88rem;
+      display: none;
+      line-height: 1.55;
+    }
+    .message.success {
+      background: rgba(76, 175, 130, 0.09);
+      border: 1px solid rgba(76, 175, 130, 0.45);
+      color: var(--success);
+    }
+    .message.error {
+      background: rgba(224, 90, 90, 0.09);
+      border: 1px solid rgba(224, 90, 90, 0.45);
+      color: var(--error);
+    }
+    .message.show { display: block; }
+
+    .id-block {
+      margin-top: 8px;
+      font-size: 0.79rem;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    .id-block span { color: var(--gold-lt); font-family: monospace; }
+
+    /* ── Stats panel ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 10px;
+      margin-bottom: 24px;
+    }
+    .stat-box {
+      background: var(--navy);
+      border: 1px solid rgba(201, 168, 76, 0.1);
+      border-radius: var(--radius);
+      padding: 14px 10px;
+      text-align: center;
+    }
+    .stat-box .num {
+      font-size: 1.9rem;
+      font-weight: 700;
+      color: var(--gold);
+      line-height: 1;
+      text-shadow: 0 0 14px rgba(201, 168, 76, 0.32);
+    }
+    .stat-box .lbl {
+      font-size: 0.66rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-top: 5px;
+    }
+
+    .region-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    .region-table th {
+      text-align: left;
+      color: var(--muted);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 0 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .region-table td {
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--white);
+    }
+    .region-table td:last-child { text-align: right; color: var(--gold-lt); font-weight: 600; }
+
+    .stats-loading { color: var(--muted); font-size: 0.88rem; }
+
+    .stats-meta {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .num.updated {
+      animation: statPulse 900ms ease;
+    }
+
+    @keyframes statPulse {
+      0% {
+        text-shadow: 0 0 0 rgba(201, 168, 76, 0);
+      }
+      40% {
+        text-shadow: 0 0 22px rgba(201, 168, 76, 0.72);
+      }
+      100% {
+        text-shadow: 0 0 14px rgba(201, 168, 76, 0.32);
+      }
+    }
+
+    .stats-subgroup {
+      margin-top: 18px;
+    }
+
+    .stats-subgroup h4 {
+      color: var(--gold-lt);
+      font-size: 0.65rem;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      opacity: 0.9;
+    }
+
+    .admin-collapsible {
+      margin-top: 16px;
+      border: 1px solid rgba(201, 168, 76, 0.14);
+      border-radius: var(--radius);
+      background: rgba(11, 26, 43, 0.4);
+      overflow: hidden;
+    }
+
+    .admin-collapsible summary {
+      cursor: pointer;
+      padding: 12px 14px;
+      color: var(--gold-lt);
+      font-size: 0.74rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      list-style: none;
+      border-bottom: 1px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .admin-collapsible summary::after {
+      content: '▾';
+      font-size: 0.9rem;
+      transition: transform 0.2s ease;
+      opacity: 0.85;
+    }
+
+    .admin-collapsible[open] summary::after {
+      transform: rotate(180deg);
+    }
+
+    .admin-collapsible[open] summary {
+      border-bottom-color: rgba(201, 168, 76, 0.14);
+    }
+
+    .admin-collapsible summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .registrations-wrap {
+      padding: 10px 14px 14px;
+      overflow-x: auto;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 260ms ease, opacity 180ms ease;
+    }
+
+    .admin-collapsible[open] .registrations-wrap {
+      max-height: 420px;
+      opacity: 1;
+    }
+
+    .registrations-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      min-width: 880px;
+    }
+
+    .registrations-table th {
+      text-align: left;
+      color: var(--muted);
+      font-size: 0.64rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 8px 6px;
+    }
+
+    .registrations-table td {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 8px 6px;
+      color: var(--white);
+      vertical-align: top;
+      line-height: 1.4;
+    }
+
+    .registrations-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .family-groups-wrap {
+      padding: 10px 14px 14px;
+      max-height: 0;
+      opacity: 0;
+      overflow-y: auto;
+      transition: max-height 260ms ease, opacity 180ms ease;
+    }
+
+    .admin-collapsible[open] .family-groups-wrap {
+      max-height: 440px;
+      opacity: 1;
+    }
+
+    .tree-wrap {
+      padding: 10px 14px 14px;
+      max-height: 0;
+      opacity: 0;
+      overflow-y: auto;
+      transition: max-height 260ms ease, opacity 180ms ease;
+    }
+
+    .admin-collapsible[open] .tree-wrap {
+      max-height: 560px;
+      opacity: 1;
+    }
+
+    .tree-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .tree-controls .field {
+      margin-bottom: 0;
+    }
+
+    .tree-controls .field input,
+    .tree-controls .field select {
+      font-size: 0.82rem;
+      padding: 8px 10px;
+    }
+
+    .tree-family-card {
+      border: 1px solid rgba(201, 168, 76, 0.16);
+      border-radius: var(--radius);
+      background: rgba(11, 26, 43, 0.54);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .tree-family-header {
+      color: var(--gold-lt);
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .tree-family-sub {
+      color: var(--muted);
+      font-size: 0.72rem;
+      margin-bottom: 10px;
+      line-height: 1.45;
+    }
+
+    .tree-forest {
+      display: grid;
+      gap: 10px;
+    }
+
+    .tree-branch {
+      position: relative;
+      padding-left: 2px;
+    }
+
+    .tree-children {
+      margin-top: 8px;
+      margin-left: 16px;
+      padding-left: 12px;
+      border-left: 1px dashed rgba(201, 168, 76, 0.32);
+      display: grid;
+      gap: 8px;
+    }
+
+    .tree-node {
+      border: 1px solid rgba(201, 168, 76, 0.14);
+      border-radius: 6px;
+      background: rgba(19, 32, 50, 0.74);
+      padding: 9px;
+    }
+
+    .tree-node-name {
+      color: var(--white);
+      font-weight: 700;
+      font-size: 0.79rem;
+      margin-bottom: 5px;
+      line-height: 1.35;
+    }
+
+    .tree-node-meta {
+      color: var(--muted);
+      font-size: 0.74rem;
+      line-height: 1.5;
+    }
+
+    .tree-node-meta strong {
+      color: var(--gold-lt);
+      font-weight: 600;
+    }
+
+    .tree-empty {
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.55;
+      padding: 8px 2px;
+    }
+
+    .family-group-card {
+      border: 1px solid rgba(201, 168, 76, 0.16);
+      border-radius: var(--radius);
+      background: rgba(11, 26, 43, 0.5);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .family-group-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .family-group-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: baseline;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .family-group-title strong {
+      color: var(--gold-lt);
+      font-size: 0.84rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .family-group-meta {
+      color: var(--muted);
+      font-size: 0.74rem;
+      line-height: 1.55;
+      margin-bottom: 10px;
+    }
+
+    .family-members-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .family-member-row {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 8px;
+      background: rgba(19, 32, 50, 0.65);
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+
+    .family-member-row .name {
+      color: var(--white);
+      font-weight: 600;
+    }
+
+    .family-member-row .meta {
+      color: var(--muted);
+    }
+
+    .member-row-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .member-edit-btn,
+    .member-delete-btn,
+    .member-edit-save,
+    .member-edit-cancel {
+      width: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 10px;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+    }
+
+    .danger-btn {
+      background: rgba(224, 90, 90, 0.16);
+      border: 1px solid rgba(224, 90, 90, 0.45);
+      color: #ff9c9c;
+      box-shadow: none;
+    }
+
+    .danger-btn:hover {
+      background: rgba(224, 90, 90, 0.24);
+      box-shadow: 0 0 14px rgba(224, 90, 90, 0.24);
+      filter: none;
+    }
+
+    .table-action-btn {
+      width: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 10px;
+      font-size: 0.64rem;
+      letter-spacing: 0.08em;
+    }
+
+    .export-wrap {
+      padding: 10px 14px 14px;
+      max-height: 0;
+      opacity: 0;
+      overflow-y: auto;
+      transition: max-height 260ms ease, opacity 180ms ease;
+    }
+
+    .admin-collapsible[open] .export-wrap {
+      max-height: 300px;
+      opacity: 1;
+    }
+
+    .export-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .btn-export {
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+      background: linear-gradient(135deg, rgba(201, 168, 76, 0.14), rgba(201, 168, 76, 0.08));
+      border: 1px solid rgba(201, 168, 76, 0.36);
+      color: var(--gold-lt);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 160ms ease;
+      text-transform: uppercase;
+    }
+
+    .btn-export:hover {
+      background: linear-gradient(135deg, rgba(201, 168, 76, 0.22), rgba(201, 168, 76, 0.14));
+      border-color: rgba(201, 168, 76, 0.56);
+      box-shadow: 0 0 12px rgba(201, 168, 76, 0.18);
+      filter: none;
+    }
+
+    .btn-export:active {
+      transform: scale(0.96);
+    }
+
+    .member-edit-panel {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(201, 168, 76, 0.18);
+      background: rgba(11, 26, 43, 0.5);
+      display: none;
+    }
+
+    .member-edit-panel.open {
+      display: block;
+    }
+
+    .member-edit-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .member-edit-panel .field {
+      margin-bottom: 0;
+    }
+
+    .member-edit-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .member-edit-error {
+      margin-top: 8px;
+      color: var(--error);
+      font-size: 0.75rem;
+      line-height: 1.4;
+      display: none;
+    }
+
+    .member-edit-error.show {
+      display: block;
+    }
+
+    .admin-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 12, 22, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 20;
+    }
+
+    .admin-modal.open {
+      display: flex;
+    }
+
+    .admin-modal-card {
+      width: min(980px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      background: var(--navy2);
+      border: 1px solid rgba(201, 168, 76, 0.24);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+    }
+
+    .admin-modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid rgba(201, 168, 76, 0.14);
+      padding-bottom: 10px;
+    }
+
+    .admin-modal-head h3 {
+      color: var(--gold-lt);
+      font-size: 0.88rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .admin-modal-head p {
+      color: var(--muted);
+      font-size: 0.72rem;
+      word-break: break-all;
+    }
+
+    .admin-edit-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .admin-modal textarea {
+      min-height: 88px;
+    }
+
+    .admin-modal-actions {
+      margin-top: 14px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .admin-modal-actions button {
+      width: auto;
+      padding: 9px 14px;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+    }
+
+    .admin-modal-error {
+      margin-top: 10px;
+      color: var(--error);
+      font-size: 0.8rem;
+      display: none;
+    }
+
+    .admin-modal-error.show {
+      display: block;
+    }
+
+    .insights-card {
+      margin-top: 16px;
+      border: 1px solid rgba(201, 168, 76, 0.14);
+      border-radius: var(--radius);
+      background: rgba(11, 26, 43, 0.45);
+      padding: 14px;
+    }
+
+    .insights-card h3 {
+      color: var(--gold-lt);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .insights-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--white);
+      display: grid;
+      gap: 8px;
+      line-height: 1.55;
+      font-size: 0.86rem;
+    }
+
+    footer {
+      max-width: 1040px;
+      margin: 36px auto 0;
+      text-align: center;
+      color: rgba(244, 244, 244, 0.7);
+      font-size: 0.74rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding-top: 16px;
+      border-top: 1px solid rgba(201, 168, 76, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <img src="/static/logo.png" alt="Aeternum Bridge Engine Logo" class="header-logo" />
+  <h1>Aeternum Bridge Engine</h1>
+  <p>Diaspora Registry &amp; Cultural Reconnection System</p>
+  <div class="divider"></div>
+</header>
+
+<section class="section-stack">
+  <section class="feature-card" aria-labelledby="mission-title">
+    <h2 id="mission-title" class="feature-title">Mission Statement</h2>
+    <p class="mission-text">Aeternum Bridge exists to help dispersed Black families document their bloodlines, reconnect with ancestral regions, and build structured cultural pathways across the diaspora.</p>
+  </section>
+
+  <section class="feature-card" aria-labelledby="how-title">
+    <h2 id="how-title" class="feature-title">How It Works</h2>
+    <div class="how-grid">
+      <article class="how-step">
+        <h3>Register Your Family</h3>
+        <p>Submit one trusted family representative to establish your household profile and shared family identity.</p>
+      </article>
+      <article class="how-step">
+        <h3>Map Cultural Origin</h3>
+        <p>Capture ancestral region data to anchor each family record within a clear cultural and geographic context.</p>
+      </article>
+      <article class="how-step">
+        <h3>Build the Return Pathway</h3>
+        <p>Use registry insights to guide reconnection planning, family learning, and long-term return initiatives.</p>
+      </article>
+    </div>
+  </section>
+</section>
+
+<div class="layout">
+
+  <!-- Registration Form -->
+  <div class="card">
+    <h2>Register</h2>
+    <p class="form-helper">Start by registering one family representative. More family members can be added later.</p>
+    <form id="regForm" novalidate>
+      <div class="field">
+        <label for="full_name">Full Name</label>
+        <input id="full_name" type="text" placeholder="e.g. Amara Diallo" required />
+      </div>
+      <div class="field">
+        <label for="family_name">Family Name</label>
+        <input id="family_name" type="text" placeholder="e.g. Diallo" required />
+      </div>
+      <div class="field">
+        <label for="family_size">Family Size</label>
+        <input id="family_size" type="number" min="1" placeholder="e.g. 4" required />
+      </div>
+      <div class="field">
+        <label for="origin_region">Origin Region</label>
+        <select id="origin_region" required>
+          <option value="" disabled selected>— Select region —</option>
+          <option value="west_africa">West Africa</option>
+          <option value="east_africa">East Africa</option>
+          <option value="central_africa">Central Africa</option>
+          <option value="southern_africa">Southern Africa</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="interested_in_return" />
+        <label for="interested_in_return">Interested in return to region of origin</label>
+      </div>
+
+      <section class="optional-section" aria-labelledby="optional-details-title">
+        <h3 id="optional-details-title">Optional Contact + Planning Details</h3>
+        <p class="optional-note">Add details now or leave blank and update later as your family planning evolves.</p>
+        <div class="optional-grid">
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" placeholder="name@example.com" />
+          </div>
+          <div class="field">
+            <label for="phone">Phone</label>
+            <input id="phone" type="text" placeholder="+1 555 123 4567" />
+          </div>
+          <div class="field">
+            <label for="city">City</label>
+            <input id="city" type="text" placeholder="City" />
+          </div>
+          <div class="field">
+            <label for="state">State / Province</label>
+            <input id="state" type="text" placeholder="State or Province" />
+          </div>
+          <div class="field">
+            <label for="country">Country</label>
+            <input id="country" type="text" placeholder="Country" />
+          </div>
+          <div class="field">
+            <label for="age_range">Age Range</label>
+            <input id="age_range" type="text" placeholder="e.g. 35-44" />
+          </div>
+          <div class="field">
+            <label for="preferred_contact_method">Preferred Contact Method</label>
+            <select id="preferred_contact_method">
+              <option value="">— Select method —</option>
+              <option value="email">Email</option>
+              <option value="phone">Phone</option>
+              <option value="either">Either</option>
+              <option value="no_preference">No Preference</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="travel_timeframe">Travel Timeframe</label>
+            <select id="travel_timeframe">
+              <option value="">— Select timeframe —</option>
+              <option value="within_1_year">Within 1 year</option>
+              <option value="1-3_years">1-3 years</option>
+              <option value="3-5_years">3-5 years</option>
+              <option value="not_sure_yet">Not sure yet</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-top: 12px; margin-bottom: 0;">
+          <label for="notes">Notes</label>
+          <textarea id="notes" placeholder="Optional planning notes, interests, or travel context."></textarea>
+        </div>
+      </section>
+
+      <section class="optional-section" aria-labelledby="family-graph-title">
+        <h3 id="family-graph-title">Family Graph Details</h3>
+        <p class="optional-note">Link each registration into a family relationship map to build bloodline context over time.</p>
+        <div class="optional-grid">
+          <div class="field">
+            <label for="relationship_role">Relationship Role</label>
+            <select id="relationship_role">
+              <option value="">— Select relationship role —</option>
+              <option value="daughter">Daughter</option>
+              <option value="son">Son</option>
+              <option value="mother">Mother</option>
+              <option value="father">Father</option>
+              <option value="granddaughter">Granddaughter</option>
+              <option value="grandson">Grandson</option>
+              <option value="grandmother">Grandmother</option>
+              <option value="grandfather">Grandfather</option>
+              <option value="sister">Sister</option>
+              <option value="brother">Brother</option>
+              <option value="cousin">Cousin</option>
+              <option value="spouse_partner">Spouse / Partner</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="household_position">Household Position</label>
+            <select id="household_position">
+              <option value="">— Select household position —</option>
+              <option value="primary_representative">Primary Representative</option>
+              <option value="family_member">Family Member</option>
+              <option value="elder">Elder</option>
+              <option value="dependent">Dependent</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="linked_to_user_ids">Connected To</label>
+            <div id="linked_to_user_ids" class="multi-link-checklist" aria-live="polite">
+              <p class="multi-link-empty">Select a family name to choose connected members.</p>
+            </div>
+          </div>
+        </div>
+        <div class="field" style="margin-top: 12px; margin-bottom: 0;">
+          <label for="relationship_notes">Relationship Notes</label>
+          <textarea id="relationship_notes" placeholder="Optional family/bloodline context notes."></textarea>
+        </div>
+      </section>
+      <button type="submit">Submit Registration</button>
+    </form>
+
+    <div id="successMsg" class="message success"></div>
+    <div id="errorMsg" class="message error"></div>
+  </div>
+
+  <!-- Stats Panel -->
+  <div class="card">
+    <h2>Registry Stats</h2>
+    <div id="statsContent" class="stats-loading">Loading stats…</div>
+    <button class="secondary" onclick="loadStats()">Refresh Stats</button>
+    <p class="stats-meta" id="lastUpdated">Last updated: --</p>
+    <section class="insights-card" aria-labelledby="insights-title">
+      <h3 id="insights-title">Registry Insights</h3>
+      <div id="insightsContent" class="stats-loading">Insights will appear once registrations begin.</div>
+    </section>
+    <details class="admin-collapsible" id="registrationsPanel">
+      <summary>Recent Registrations</summary>
+      <div class="registrations-wrap" id="registrationsContent">
+        <p class="stats-loading">Loading registrations...</p>
+      </div>
+    </details>
+    <details class="admin-collapsible" id="familyGroupsPanel">
+      <summary>Family Groups</summary>
+      <div class="family-groups-wrap" id="familyGroupsContent">
+        <p class="stats-loading">Loading family groups...</p>
+      </div>
+    </details>
+    <details class="admin-collapsible" id="visualFamilyTreePanel">
+      <summary>Visual Family Tree</summary>
+      <div class="tree-wrap">
+        <div class="tree-controls">
+          <div class="field">
+            <label for="treeRoleFilter">Role Filter</label>
+            <select id="treeRoleFilter">
+              <option value="all">All Roles</option>
+              <option value="parent">Parent</option>
+              <option value="father">Father</option>
+              <option value="mother">Mother</option>
+              <option value="son">Son</option>
+              <option value="daughter">Daughter</option>
+              <option value="child">Child</option>
+              <option value="elder_ancestor">Elder / Ancestor</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="treeSearchInput">Search Member</label>
+            <input id="treeSearchInput" type="text" placeholder="Search by name, user ID, or role" />
+          </div>
+        </div>
+        <div id="familyTreeContent" class="tree-empty">Family tree will appear once members are connected.</div>
+      </div>
+    </details>
+    <details class="admin-collapsible" id="exportPanel">
+      <summary>Export & Backup</summary>
+      <div class="export-wrap">
+        <p style="font-size: 0.9em; color: #888; margin-bottom: 1rem;">Download registry data for backup, archival, or future Vault integration.</p>
+        <div class="export-buttons">
+          <button class="btn btn-export" id="exportRegistrationsJsonBtn" data-format="registrations-json">
+            📥 Registrations JSON
+          </button>
+          <button class="btn btn-export" id="exportRegistrationsCsvBtn" data-format="registrations-csv">
+            📥 Registrations CSV
+          </button>
+          <button class="btn btn-export" id="exportFamiliesJsonBtn" data-format="families-json">
+            📥 Families JSON
+          </button>
+          <button class="btn btn-export" id="exportStatsJsonBtn" data-format="stats-json">
+            📥 Stats JSON
+          </button>
+          <button class="btn btn-export" id="exportFullBackupBtn" data-format="full-backup">
+            📥 Full Backup JSON
+          </button>
+        </div>
+        <p style="font-size: 0.85em; color: #aaa; margin-top: 1rem;">✓ Read-only exports. No data is modified during download.</p>
+      </div>
+    </details>
+  </div>
+
+</div>
+
+<footer>
+  Legacy Builders Aeternum&trade; - Powered by Aeternum Nexus
+</footer>
+
+<div class="admin-modal" id="registrationEditModal" aria-hidden="true">
+  <div class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="editRegTitle">
+    <div class="admin-modal-head">
+      <h3 id="editRegTitle">Edit Registration</h3>
+      <p id="editRegUserId">User ID: --</p>
+    </div>
+    <form id="registrationEditForm" novalidate>
+      <div class="admin-edit-grid">
+        <div class="field">
+          <label for="edit_full_name">Full Name</label>
+          <input id="edit_full_name" type="text" required />
+        </div>
+        <div class="field">
+          <label for="edit_family_name">Family Name</label>
+          <input id="edit_family_name" type="text" required />
+        </div>
+        <div class="field">
+          <label for="edit_family_size">Family Size</label>
+          <input id="edit_family_size" type="number" min="1" required />
+        </div>
+        <div class="field">
+          <label for="edit_origin_region">Origin Region</label>
+          <select id="edit_origin_region" required></select>
+        </div>
+        <div class="field">
+          <label for="edit_email">Email</label>
+          <input id="edit_email" type="email" />
+        </div>
+        <div class="field">
+          <label for="edit_phone">Phone</label>
+          <input id="edit_phone" type="text" />
+        </div>
+        <div class="field">
+          <label for="edit_city">City</label>
+          <input id="edit_city" type="text" />
+        </div>
+        <div class="field">
+          <label for="edit_state">State / Province</label>
+          <input id="edit_state" type="text" />
+        </div>
+        <div class="field">
+          <label for="edit_country">Country</label>
+          <input id="edit_country" type="text" />
+        </div>
+        <div class="field">
+          <label for="edit_age_range">Age Range</label>
+          <input id="edit_age_range" type="text" />
+        </div>
+        <div class="field">
+          <label for="edit_preferred_contact_method">Preferred Contact Method</label>
+          <select id="edit_preferred_contact_method"></select>
+        </div>
+        <div class="field">
+          <label for="edit_travel_timeframe">Travel Timeframe</label>
+          <select id="edit_travel_timeframe"></select>
+        </div>
+        <div class="field">
+          <label for="edit_relationship_role">Relationship Role</label>
+          <select id="edit_relationship_role"></select>
+        </div>
+        <div class="field">
+          <label for="edit_household_position">Household Position</label>
+          <select id="edit_household_position"></select>
+        </div>
+        <div class="field">
+          <label for="edit_linked_to_user_ids">Connected To</label>
+          <div id="edit_linked_to_user_ids" class="multi-link-checklist" aria-live="polite"></div>
+        </div>
+        <div class="field" style="display:flex; align-items:center; gap:10px; margin-top:22px;">
+          <input id="edit_interested_in_return" type="checkbox" style="width:18px; height:18px; accent-color:var(--gold);" />
+          <label for="edit_interested_in_return" style="margin:0; text-transform:none; letter-spacing:0; color:var(--white); font-size:0.9rem;">Interested in Return</label>
+        </div>
+      </div>
+      <div class="field" style="margin-top: 12px;">
+        <label for="edit_notes">Notes</label>
+        <textarea id="edit_notes"></textarea>
+      </div>
+      <div class="field" style="margin-top: 12px; margin-bottom: 0;">
+        <label for="edit_relationship_notes">Relationship Notes</label>
+        <textarea id="edit_relationship_notes"></textarea>
+      </div>
+      <div class="admin-modal-actions">
+        <button type="submit">Save Registration</button>
+        <button type="button" class="secondary" id="editRegCancelBtn">Cancel</button>
+      </div>
+      <div class="admin-modal-error" id="editRegError"></div>
+    </form>
+  </div>
+</div>
+
+<script>
+  /* ── Registration ── */
+  const form       = document.getElementById('regForm');
+  const successMsg = document.getElementById('successMsg');
+  const errorMsg   = document.getElementById('errorMsg');
+  const statsLastUpdated = document.getElementById('lastUpdated');
+  const insightsContent = document.getElementById('insightsContent');
+  const registrationsPanel = document.getElementById('registrationsPanel');
+  const familyGroupsPanel = document.getElementById('familyGroupsPanel');
+  const visualFamilyTreePanel = document.getElementById('visualFamilyTreePanel');
+  const familyNameInput = document.getElementById('family_name');
+  const linkedToChecklist = document.getElementById('linked_to_user_ids');
+  const familyGroupsContent = document.getElementById('familyGroupsContent');
+  const registrationsContent = document.getElementById('registrationsContent');
+  const familyTreeContent = document.getElementById('familyTreeContent');
+  const treeRoleFilter = document.getElementById('treeRoleFilter');
+  const treeSearchInput = document.getElementById('treeSearchInput');
+  const registrationEditModal = document.getElementById('registrationEditModal');
+  const registrationEditForm = document.getElementById('registrationEditForm');
+  const editRegError = document.getElementById('editRegError');
+  const editRegUserId = document.getElementById('editRegUserId');
+  const editRegCancelBtn = document.getElementById('editRegCancelBtn');
+
+  let registrationsCache = [];
+  let familiesCache = [];
+  let activeEditUserId = null;
+  let activeEditInitial = null;
+
+  const ORIGIN_REGION_OPTIONS = [
+    'west_africa',
+    'east_africa',
+    'central_africa',
+    'southern_africa',
+    'unknown',
+  ];
+
+  const CONTACT_METHOD_OPTIONS = [
+    'email',
+    'phone',
+    'either',
+    'no_preference',
+  ];
+
+  const TRAVEL_TIMEFRAME_OPTIONS = [
+    'within_1_year',
+    '1-3_years',
+    '3-5_years',
+    'not_sure_yet',
+  ];
+
+  const RELATIONSHIP_ROLE_OPTIONS = [
+    'daughter',
+    'son',
+    'mother',
+    'father',
+    'granddaughter',
+    'grandson',
+    'grandmother',
+    'grandfather',
+    'sister',
+    'brother',
+    'cousin',
+    'spouse_partner',
+    'other',
+  ];
+
+  const HOUSEHOLD_POSITION_OPTIONS = [
+    'primary_representative',
+    'family_member',
+    'elder',
+    'dependent',
+  ];
+
+  const previousStatValues = {
+    total_users: null,
+    total_families: null,
+    total_interested_in_return: null,
+    total_with_contact_info: null,
+  };
+
+  familyNameInput.addEventListener('input', updateConnectedToOptions);
+  familyGroupsContent.addEventListener('click', handleFamilyGroupActions);
+  registrationsContent.addEventListener('click', handleRegistrationActions);
+  registrationEditForm.addEventListener('submit', handleRegistrationEditSave);
+  editRegCancelBtn.addEventListener('click', closeRegistrationEditModal);
+  treeRoleFilter.addEventListener('change', renderVisualFamilyTree);
+  treeSearchInput.addEventListener('input', renderVisualFamilyTree);
+  visualFamilyTreePanel.addEventListener('toggle', () => {
+    if (visualFamilyTreePanel.open) {
+      renderVisualFamilyTree();
+    }
+  });
+
+  // Export button handlers
+  document.getElementById('exportRegistrationsJsonBtn')?.addEventListener('click', () => handleExport('registrations-json'));
+  document.getElementById('exportRegistrationsCsvBtn')?.addEventListener('click', () => handleExport('registrations-csv'));
+  document.getElementById('exportFamiliesJsonBtn')?.addEventListener('click', () => handleExport('families-json'));
+  document.getElementById('exportStatsJsonBtn')?.addEventListener('click', () => handleExport('stats-json'));
+  document.getElementById('exportFullBackupBtn')?.addEventListener('click', () => handleExport('full-backup'));
+
+  registrationEditModal.addEventListener('click', (event) => {
+    if (event.target === registrationEditModal) {
+      closeRegistrationEditModal();
+    }
+  });
+  document.getElementById('edit_family_name').addEventListener('input', () => {
+    refreshEditConnectedOptions();
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    successMsg.classList.remove('show');
+    errorMsg.classList.remove('show');
+
+    const full_name        = document.getElementById('full_name').value.trim();
+    const family_name      = document.getElementById('family_name').value.trim();
+    const family_size      = parseInt(document.getElementById('family_size').value, 10);
+    const origin_region    = document.getElementById('origin_region').value;
+    const interested_in_return = document.getElementById('interested_in_return').checked;
+    const email = optionalValue(document.getElementById('email').value);
+    const phone = optionalValue(document.getElementById('phone').value);
+    const city = optionalValue(document.getElementById('city').value);
+    const state = optionalValue(document.getElementById('state').value);
+    const country = optionalValue(document.getElementById('country').value);
+    const age_range = optionalValue(document.getElementById('age_range').value);
+    const preferred_contact_method = optionalValue(document.getElementById('preferred_contact_method').value);
+    const travel_timeframe = optionalValue(document.getElementById('travel_timeframe').value);
+    const relationship_role = optionalValue(document.getElementById('relationship_role').value);
+    const household_position = optionalValue(document.getElementById('household_position').value);
+    const linked_to_user_ids = collectCheckedValues('linked_to_user_ids');
+    const relationship_notes = optionalValue(document.getElementById('relationship_notes').value);
+    const notes = optionalValue(document.getElementById('notes').value);
+
+    // Basic client-side validation
+    if (!full_name || !family_name || !origin_region || isNaN(family_size) || family_size < 1) {
+      showError('Please fill in all required fields with valid values.');
+      return;
+    }
+
+    if (email && !isValidEmail(email)) {
+      showError('Please enter a valid email address or leave it blank.');
+      return;
+    }
+
+    try {
+      const payload = {
+        full_name,
+        family_name,
+        family_size,
+        origin_region,
+        interested_in_return,
+        email,
+        phone,
+        city,
+        state,
+        country,
+        age_range,
+        preferred_contact_method,
+        travel_timeframe,
+        relationship_role,
+        household_position,
+        linked_to_user_ids,
+        relationship_notes,
+        notes,
+      };
+
+      const res = await fetch('/register_user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const detail = extractDetail(data);
+        showError(detail);
+        return;
+      }
+
+      successMsg.innerHTML =
+        `<strong>Registration successful</strong><br>` +
+        `<div class="id-block">User ID: <span>${data.user_id}</span></div>` +
+        `<div class="id-block">Family ID: <span>${data.family_id}</span></div>`;
+      successMsg.classList.add('show');
+      form.reset();
+      loadStats();
+      loadRegistrations();
+      loadFamilies();
+      successMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (err) {
+      showError('Network error — is the server running?');
+    }
+  });
+
+  function optionalValue(value) {
+    const trimmed = (value || '').trim();
+    return trimmed ? trimmed : null;
+  }
+
+  function normalizeFamilyName(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function getLinkedIdsFromRecord(record) {
+    const values = Array.isArray(record?.linked_to_user_ids)
+      ? record.linked_to_user_ids
+      : (record?.linked_to_user_id ? [record.linked_to_user_id] : []);
+    const normalized = [];
+    for (const id of values) {
+      const value = String(id || '').trim();
+      if (value && !normalized.includes(value)) {
+        normalized.push(value);
+      }
+    }
+    return normalized.sort();
+  }
+
+  function collectCheckedValues(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return [];
+    const values = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+      .map((input) => input.value)
+      .filter((value, index, arr) => value && arr.indexOf(value) === index);
+    return values.sort();
+  }
+
+  function collectCheckedValuesFromContainer(container) {
+    if (!container) return [];
+    const values = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+      .map((input) => input.value)
+      .filter((value, index, arr) => value && arr.indexOf(value) === index);
+    return values.sort();
+  }
+
+  function renderLinkedChecklist(container, options, selectedIds) {
+    if (!container) return;
+    if (!options.length) {
+      container.innerHTML = '<p class="multi-link-empty">No eligible family members available.</p>';
+      return;
+    }
+
+    const selectedSet = new Set(selectedIds || []);
+    container.innerHTML = options.map((person) => {
+      const checked = selectedSet.has(person.user_id) ? 'checked' : '';
+      return `
+        <label class="multi-link-item">
+          <input type="checkbox" value="${escapeHtml(person.user_id || '')}" ${checked}>
+          <span>${escapeHtml(person.full_name || 'Unknown')} (${escapeHtml(person.user_id || '-')})</span>
+        </label>
+      `;
+    }).join('');
+  }
+
+  function updateConnectedToOptions() {
+    const selectedValues = collectCheckedValues('linked_to_user_ids');
+    const currentFamily = normalizeFamilyName(familyNameInput.value);
+    linkedToChecklist.innerHTML = '<p class="multi-link-empty">No eligible family members available.</p>';
+
+    if (!currentFamily) {
+      linkedToChecklist.innerHTML = '<p class="multi-link-empty">Select a family name to choose connected members.</p>';
+      return;
+    }
+
+    const candidates = registrationsCache.filter((r) =>
+      normalizeFamilyName(r.family_name) === currentFamily
+    );
+
+    renderLinkedChecklist(linkedToChecklist, candidates, selectedValues);
+  }
+
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.add('show');
+  }
+
+  function extractDetail(data) {
+    if (!data.detail) return 'Registration failed. Please try again.';
+    if (typeof data.detail === 'string') return data.detail;
+    if (Array.isArray(data.detail)) {
+      return data.detail.map(d => `${d.loc?.slice(-1)[0] ?? 'field'}: ${d.msg}`).join(' | ');
+    }
+    return JSON.stringify(data.detail);
+  }
+
+  function getTopLabel(distribution, fallback) {
+    const entries = Object.entries(distribution || {});
+    if (!entries.length) return fallback;
+    entries.sort((a, b) => b[1] - a[1]);
+    return entries[0][0];
+  }
+
+  function toDisplayLabel(value) {
+    if (!value) return '';
+    return String(value)
+      .split('_')
+      .map((part) => {
+        if (!part) return part;
+        if (/^\d/.test(part) || part.includes('-')) return part;
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      })
+      .join(' ');
+  }
+
+  function timeframeToStage(timeframe) {
+    if (timeframe === 'within_1_year') return 'high_intent';
+    if (timeframe === '1-3_years') return 'early_planning';
+    if (timeframe === '3-5_years') return 'long_term_planning';
+    return 'exploring';
+  }
+
+  function getTopCombination(combinations, fallbackRegion, fallbackRight) {
+    const topKey = getTopLabel(combinations, '');
+    if (!topKey || !topKey.includes('|')) {
+      return { left: fallbackRegion, right: fallbackRight, count: 0 };
+    }
+    const [left, right] = topKey.split('|');
+    return {
+      left,
+      right,
+      count: combinations[topKey] ?? 0,
+    };
+  }
+
+  function formatPercent(value) {
+    return `${(value * 100).toFixed(0)}%`;
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function selectOptionsHtml(options, selected, placeholder) {
+    const head = `<option value="">${placeholder}</option>`;
+    const body = options
+      .map((value) => `<option value="${value}" ${selected === value ? 'selected' : ''}>${toDisplayLabel(value)}</option>`)
+      .join('');
+    return `${head}${body}`;
+  }
+
+  function familyOptionsHtml(members, currentUserId, selectedUserId) {
+    const head = '<option value="">— Select connected user —</option>';
+    const body = members
+      .filter((m) => m.user_id !== currentUserId)
+      .map((m) => {
+        const selected = selectedUserId && m.user_id === selectedUserId ? 'selected' : '';
+        return `<option value="${escapeHtml(m.user_id)}" ${selected}>${escapeHtml(m.full_name)} (${escapeHtml(m.user_id)})</option>`;
+      })
+      .join('');
+    return `${head}${body}`;
+  }
+
+  function handleFamilyGroupActions(event) {
+    const deleteBtn = event.target.closest('.member-delete-btn');
+    if (deleteBtn) {
+      const userId = deleteBtn.dataset.userId;
+      requestDeleteRegistration(userId);
+      return;
+    }
+
+    const editRegistrationBtn = event.target.closest('.member-edit-registration-btn');
+    if (editRegistrationBtn) {
+      openRegistrationEditModal(editRegistrationBtn.dataset.userId);
+      return;
+    }
+
+    const editBtn = event.target.closest('.member-edit-btn');
+    if (editBtn) {
+      const row = editBtn.closest('.family-member-row');
+      const familyId = editBtn.dataset.familyId;
+      const userId = editBtn.dataset.userId;
+      openMemberEditPanel(row, familyId, userId);
+      return;
+    }
+
+    const saveBtn = event.target.closest('.member-edit-save');
+    if (saveBtn) {
+      const panel = saveBtn.closest('.member-edit-panel');
+      const userId = saveBtn.dataset.userId;
+      saveMemberRelationship(panel, userId);
+      return;
+    }
+
+    const cancelBtn = event.target.closest('.member-edit-cancel');
+    if (cancelBtn) {
+      const panel = cancelBtn.closest('.member-edit-panel');
+      panel.classList.remove('open');
+      panel.innerHTML = '';
+    }
+  }
+
+  function handleRegistrationActions(event) {
+    const editBtn = event.target.closest('.registration-edit-btn');
+    if (editBtn) {
+      openRegistrationEditModal(editBtn.dataset.userId);
+      return;
+    }
+
+    const deleteBtn = event.target.closest('.registration-delete-btn');
+    if (!deleteBtn) return;
+    const userId = deleteBtn.dataset.userId;
+    requestDeleteRegistration(userId);
+  }
+
+  function setSelectOptions(selectEl, options, selectedValue, placeholder) {
+    selectEl.innerHTML = selectOptionsHtml(options, selectedValue, placeholder);
+  }
+
+  function getRegistrationByUserId(userId) {
+    return registrationsCache.find((r) => r.user_id === userId) || null;
+  }
+
+  function buildEditSnapshot(record) {
+    return {
+      full_name: record.full_name || '',
+      family_name: record.family_name || '',
+      family_size: Number(record.family_size || 1),
+      origin_region: record.origin_region || 'unknown',
+      interested_in_return: Boolean(record.interested_in_return),
+      email: optionalValue(record.email),
+      phone: optionalValue(record.phone),
+      city: optionalValue(record.city),
+      state: optionalValue(record.state),
+      country: optionalValue(record.country),
+      age_range: optionalValue(record.age_range),
+      preferred_contact_method: optionalValue(record.preferred_contact_method),
+      travel_timeframe: optionalValue(record.travel_timeframe),
+      notes: optionalValue(record.notes),
+      relationship_role: optionalValue(record.relationship_role),
+      household_position: optionalValue(record.household_position),
+      linked_to_user_ids: getLinkedIdsFromRecord(record),
+      relationship_notes: optionalValue(record.relationship_notes),
+    };
+  }
+
+  function refreshEditConnectedOptions(selectedOverride = null) {
+    if (!activeEditUserId) return;
+    const familyName = document.getElementById('edit_family_name').value;
+    const checklistEl = document.getElementById('edit_linked_to_user_ids');
+    const selected = selectedOverride !== null
+      ? selectedOverride
+      : collectCheckedValues('edit_linked_to_user_ids');
+    const currentFamily = normalizeFamilyName(familyName);
+
+    checklistEl.innerHTML = '<p class="multi-link-empty">No eligible family members available.</p>';
+    if (!currentFamily) {
+      checklistEl.innerHTML = '<p class="multi-link-empty">Set family name to choose connected members.</p>';
+      return;
+    }
+
+    const candidates = registrationsCache.filter((r) =>
+      r.user_id !== activeEditUserId && normalizeFamilyName(r.family_name) === currentFamily
+    );
+    renderLinkedChecklist(checklistEl, candidates, selected || []);
+  }
+
+  async function openRegistrationEditModal(userId) {
+    let record = getRegistrationByUserId(userId);
+    if (!record) {
+      await loadRegistrations();
+      record = getRegistrationByUserId(userId);
+    }
+    if (!record) {
+      showError('Could not load registration for editing.');
+      return;
+    }
+
+    activeEditUserId = userId;
+    activeEditInitial = buildEditSnapshot(record);
+    editRegUserId.textContent = `User ID: ${userId}`;
+    editRegError.textContent = '';
+    editRegError.classList.remove('show');
+
+    document.getElementById('edit_full_name').value = activeEditInitial.full_name;
+    document.getElementById('edit_family_name').value = activeEditInitial.family_name;
+    document.getElementById('edit_family_size').value = String(activeEditInitial.family_size);
+    document.getElementById('edit_email').value = activeEditInitial.email || '';
+    document.getElementById('edit_phone').value = activeEditInitial.phone || '';
+    document.getElementById('edit_city').value = activeEditInitial.city || '';
+    document.getElementById('edit_state').value = activeEditInitial.state || '';
+    document.getElementById('edit_country').value = activeEditInitial.country || '';
+    document.getElementById('edit_age_range').value = activeEditInitial.age_range || '';
+    document.getElementById('edit_notes').value = activeEditInitial.notes || '';
+    document.getElementById('edit_relationship_notes').value = activeEditInitial.relationship_notes || '';
+    document.getElementById('edit_interested_in_return').checked = activeEditInitial.interested_in_return;
+
+    setSelectOptions(
+      document.getElementById('edit_origin_region'),
+      ORIGIN_REGION_OPTIONS,
+      activeEditInitial.origin_region,
+      '— Select origin region —'
+    );
+    setSelectOptions(
+      document.getElementById('edit_preferred_contact_method'),
+      CONTACT_METHOD_OPTIONS,
+      activeEditInitial.preferred_contact_method || '',
+      '— Select method —'
+    );
+    setSelectOptions(
+      document.getElementById('edit_travel_timeframe'),
+      TRAVEL_TIMEFRAME_OPTIONS,
+      activeEditInitial.travel_timeframe || '',
+      '— Select timeframe —'
+    );
+    setSelectOptions(
+      document.getElementById('edit_relationship_role'),
+      RELATIONSHIP_ROLE_OPTIONS,
+      activeEditInitial.relationship_role || '',
+      '— Select relationship role —'
+    );
+    setSelectOptions(
+      document.getElementById('edit_household_position'),
+      HOUSEHOLD_POSITION_OPTIONS,
+      activeEditInitial.household_position || '',
+      '— Select household position —'
+    );
+    refreshEditConnectedOptions(activeEditInitial.linked_to_user_ids || []);
+
+    registrationEditModal.classList.add('open');
+    registrationEditModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeRegistrationEditModal() {
+    registrationEditModal.classList.remove('open');
+    registrationEditModal.setAttribute('aria-hidden', 'true');
+    editRegError.textContent = '';
+    editRegError.classList.remove('show');
+    activeEditUserId = null;
+    activeEditInitial = null;
+  }
+
+  function collectRegistrationEditValues() {
+    const familySizeRaw = document.getElementById('edit_family_size').value;
+    return {
+      full_name: optionalValue(document.getElementById('edit_full_name').value),
+      family_name: optionalValue(document.getElementById('edit_family_name').value),
+      family_size: familySizeRaw === '' ? null : Number(familySizeRaw),
+      origin_region: optionalValue(document.getElementById('edit_origin_region').value),
+      interested_in_return: document.getElementById('edit_interested_in_return').checked,
+      email: optionalValue(document.getElementById('edit_email').value),
+      phone: optionalValue(document.getElementById('edit_phone').value),
+      city: optionalValue(document.getElementById('edit_city').value),
+      state: optionalValue(document.getElementById('edit_state').value),
+      country: optionalValue(document.getElementById('edit_country').value),
+      age_range: optionalValue(document.getElementById('edit_age_range').value),
+      preferred_contact_method: optionalValue(document.getElementById('edit_preferred_contact_method').value),
+      travel_timeframe: optionalValue(document.getElementById('edit_travel_timeframe').value),
+      notes: optionalValue(document.getElementById('edit_notes').value),
+      relationship_role: optionalValue(document.getElementById('edit_relationship_role').value),
+      household_position: optionalValue(document.getElementById('edit_household_position').value),
+      linked_to_user_ids: collectCheckedValues('edit_linked_to_user_ids'),
+      relationship_notes: optionalValue(document.getElementById('edit_relationship_notes').value),
+    };
+  }
+
+  function valuesEqual(left, right) {
+    if (Array.isArray(left) || Array.isArray(right)) {
+      const leftArr = Array.isArray(left) ? left : [];
+      const rightArr = Array.isArray(right) ? right : [];
+      if (leftArr.length !== rightArr.length) return false;
+      return leftArr.every((value, idx) => value === rightArr[idx]);
+    }
+    return left === right;
+  }
+
+  function roleMatchesTreeFilter(role, filter) {
+    if (!filter || filter === 'all') return true;
+    const normalizedRole = String(role || '').trim().toLowerCase();
+    if (filter === 'parent') {
+      return ['parent', 'father', 'mother'].includes(normalizedRole);
+    }
+    if (filter === 'child') {
+      return ['child', 'son', 'daughter'].includes(normalizedRole);
+    }
+    if (filter === 'elder_ancestor') {
+      return ['elder_ancestor', 'grandparent', 'grandfather', 'grandmother'].includes(normalizedRole);
+    }
+    return normalizedRole === filter;
+  }
+
+  function nodeMatchesTreeSearch(member, searchTerm) {
+    if (!searchTerm) return true;
+    const haystack = [
+      member.full_name || '',
+      member.user_id || '',
+      member.relationship_role || '',
+    ].join(' ').toLowerCase();
+    return haystack.includes(searchTerm);
+  }
+
+  function renderTreeNodeCard(member) {
+    const connectedNames = (Array.isArray(member.linked_to_full_names) && member.linked_to_full_names.length)
+      ? member.linked_to_full_names.join(', ')
+      : (member.linked_to_full_name || 'None');
+
+    return `
+      <div class="tree-node">
+        <div class="tree-node-name">${escapeHtml(member.full_name || 'Unnamed member')}</div>
+        <div class="tree-node-meta">
+          <strong>Role:</strong> ${toDisplayLabel(member.relationship_role || 'not_provided')}<br>
+          <strong>Household:</strong> ${toDisplayLabel(member.household_position || 'not_provided')}<br>
+          <strong>Relationship:</strong> ${escapeHtml(member.relationship_display || 'Relationship not linked yet.')}<br>
+          <strong>Connected to:</strong> ${escapeHtml(connectedNames)}<br>
+          <strong>User ID:</strong> ${escapeHtml(member.user_id || '-')}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderVisualFamilyTree() {
+    const roleFilter = treeRoleFilter.value;
+    const searchTerm = treeSearchInput.value.trim().toLowerCase();
+    const groups = Array.isArray(familiesCache) ? familiesCache : [];
+
+    if (!groups.length) {
+      familyTreeContent.innerHTML = 'Family tree will appear once members are connected.';
+      return;
+    }
+
+    let totalConnectedMembers = 0;
+    const familyBlocks = [];
+
+    for (const family of groups) {
+      const members = Array.isArray(family.members) ? family.members : [];
+      if (!members.length) continue;
+
+      const byId = new Map();
+      for (const member of members) {
+        byId.set(member.user_id, member);
+      }
+
+      const outgoing = new Map();
+      const targeted = new Set();
+
+      for (const member of members) {
+        const links = getLinkedIdsFromRecord(member)
+          .filter((id) => id !== member.user_id && byId.has(id));
+        outgoing.set(member.user_id, links);
+        if (links.length) {
+          totalConnectedMembers += 1;
+        }
+        for (const linkedId of links) {
+          targeted.add(linkedId);
+        }
+      }
+
+      const filterSet = new Set(
+        members
+          .filter((member) => roleMatchesTreeFilter(member.relationship_role, roleFilter))
+          .filter((member) => nodeMatchesTreeSearch(member, searchTerm))
+          .map((member) => member.user_id)
+      );
+
+      const subtreeHasMatch = (userId, trail = new Set()) => {
+        if (filterSet.has(userId)) return true;
+        if (trail.has(userId)) return false;
+        const nextTrail = new Set(trail);
+        nextTrail.add(userId);
+        const children = outgoing.get(userId) || [];
+        return children.some((childId) => subtreeHasMatch(childId, nextTrail));
+      };
+
+      const renderBranch = (userId, trail = new Set()) => {
+        if (trail.has(userId)) return '';
+        if (!subtreeHasMatch(userId)) return '';
+        const member = byId.get(userId);
+        if (!member) return '';
+
+        const nextTrail = new Set(trail);
+        nextTrail.add(userId);
+        const childHtml = (outgoing.get(userId) || [])
+          .map((childId) => renderBranch(childId, nextTrail))
+          .filter(Boolean)
+          .join('');
+
+        return `
+          <div class="tree-branch">
+            ${renderTreeNodeCard(member)}
+            ${childHtml ? `<div class="tree-children">${childHtml}</div>` : ''}
+          </div>
+        `;
+      };
+
+      const roots = members
+        .filter((member) => (outgoing.get(member.user_id) || []).length > 0)
+        .filter((member) => !targeted.has(member.user_id));
+      const fallbackRoots = roots.length
+        ? roots
+        : members.filter((member) => (outgoing.get(member.user_id) || []).length > 0);
+
+      let forestHtml = fallbackRoots
+        .map((member) => renderBranch(member.user_id, new Set()))
+        .filter(Boolean)
+        .join('');
+
+      if (!forestHtml && filterSet.size) {
+        forestHtml = members
+          .filter((member) => filterSet.has(member.user_id))
+          .map((member) => `<div class="tree-branch">${renderTreeNodeCard(member)}</div>`)
+          .join('');
+      }
+
+      if (!forestHtml) {
+        continue;
+      }
+
+      familyBlocks.push(`
+        <article class="tree-family-card">
+          <div class="tree-family-header">${escapeHtml(family.family_name || 'Unknown Family')}</div>
+          <div class="tree-family-sub">Family ID: ${escapeHtml(family.family_id || '-')}</div>
+          <div class="tree-forest">${forestHtml}</div>
+        </article>
+      `);
+    }
+
+    if (!familyBlocks.length) {
+      familyTreeContent.innerHTML = 'Family tree will appear once members are connected.';
+      return;
+    }
+
+    if (!totalConnectedMembers) {
+      familyTreeContent.innerHTML = 'Family tree will appear once members are connected.';
+      return;
+    }
+
+    familyTreeContent.innerHTML = familyBlocks.join('');
+  }
+
+  function changedFieldsPayload(current, initial) {
+    const payload = {};
+    for (const [key, value] of Object.entries(current)) {
+      if (!valuesEqual(value, initial[key])) {
+        payload[key] = value;
+      }
+    }
+    return payload;
+  }
+
+  async function handleRegistrationEditSave(event) {
+    event.preventDefault();
+    if (!activeEditUserId || !activeEditInitial) return;
+
+    editRegError.textContent = '';
+    editRegError.classList.remove('show');
+
+    const currentValues = collectRegistrationEditValues();
+
+    if (!currentValues.full_name || !currentValues.family_name || !currentValues.origin_region) {
+      editRegError.textContent = 'Full name, family name, and origin region are required.';
+      editRegError.classList.add('show');
+      return;
+    }
+
+    if (currentValues.family_size === null || Number.isNaN(currentValues.family_size) || currentValues.family_size < 1) {
+      editRegError.textContent = 'Family size must be at least 1.';
+      editRegError.classList.add('show');
+      return;
+    }
+
+    if (currentValues.email && !isValidEmail(currentValues.email)) {
+      editRegError.textContent = 'Please enter a valid email address or clear the field.';
+      editRegError.classList.add('show');
+      return;
+    }
+
+    const payload = changedFieldsPayload(currentValues, activeEditInitial);
+    if (!Object.keys(payload).length) {
+      closeRegistrationEditModal();
+      return;
+    }
+
+    try {
+      const res = await fetch(`/registrations/${encodeURIComponent(activeEditUserId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        editRegError.textContent = extractDetail(data);
+        editRegError.classList.add('show');
+        return;
+      }
+
+      closeRegistrationEditModal();
+      successMsg.innerHTML = '<strong>Registration updated successfully.</strong>';
+      successMsg.classList.add('show');
+      errorMsg.classList.remove('show');
+      await Promise.all([loadStats(), loadRegistrations(), loadFamilies()]);
+    } catch {
+      editRegError.textContent = 'Could not update registration. Please try again.';
+      editRegError.classList.add('show');
+    }
+  }
+
+  async function requestDeleteRegistration(userId) {
+    if (!userId) return;
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this registration? This cannot be undone.'
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/registrations/${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showError(extractDetail(data));
+        return;
+      }
+
+      successMsg.innerHTML = `<strong>${data.message || 'Registration deleted successfully.'}</strong>`;
+      successMsg.classList.add('show');
+      errorMsg.classList.remove('show');
+      await Promise.all([loadStats(), loadRegistrations(), loadFamilies()]);
+    } catch {
+      showError('Could not delete registration. Please try again.');
+    }
+  }
+
+  function openMemberEditPanel(row, familyId, userId) {
+    const panel = row.querySelector('.member-edit-panel');
+    if (!panel) return;
+
+    const family = familiesCache.find((f) => f.family_id === familyId);
+    const member = family?.members?.find((m) => m.user_id === userId);
+    if (!family || !member) return;
+
+    panel.innerHTML = `
+      <div class="member-edit-grid">
+        <div class="field">
+          <label>Relationship Role</label>
+          <select data-edit-field="relationship_role">
+            ${selectOptionsHtml(RELATIONSHIP_ROLE_OPTIONS, member.relationship_role || '', '— Select relationship role —')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Household Position</label>
+          <select data-edit-field="household_position">
+            ${selectOptionsHtml(HOUSEHOLD_POSITION_OPTIONS, member.household_position || '', '— Select household position —')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Connected To</label>
+          <div class="multi-link-checklist" data-edit-field="linked_to_user_ids"></div>
+        </div>
+      </div>
+      <div class="field" style="margin-top: 10px;">
+        <label>Relationship Notes</label>
+        <textarea data-edit-field="relationship_notes">${escapeHtml(member.relationship_notes || '')}</textarea>
+      </div>
+      <div class="member-edit-actions">
+        <button type="button" class="member-edit-save" data-user-id="${userId}">Save</button>
+        <button type="button" class="secondary member-edit-cancel">Cancel</button>
+      </div>
+      <div class="member-edit-error"></div>
+    `;
+
+    const linkedChecklist = panel.querySelector('[data-edit-field="linked_to_user_ids"]');
+    const candidates = (family.members || []).filter((m) => m.user_id !== userId);
+    renderLinkedChecklist(linkedChecklist, candidates, getLinkedIdsFromRecord(member));
+
+    panel.classList.add('open');
+  }
+
+  async function saveMemberRelationship(panel, userId) {
+    const errorEl = panel.querySelector('.member-edit-error');
+    if (errorEl) {
+      errorEl.textContent = '';
+      errorEl.classList.remove('show');
+    }
+
+    const payload = {
+      relationship_role: optionalValue(panel.querySelector('[data-edit-field="relationship_role"]').value),
+      household_position: optionalValue(panel.querySelector('[data-edit-field="household_position"]').value),
+      linked_to_user_ids: collectCheckedValuesFromContainer(panel.querySelector('[data-edit-field="linked_to_user_ids"]')),
+      relationship_notes: optionalValue(panel.querySelector('[data-edit-field="relationship_notes"]').value),
+    };
+
+    try {
+      const res = await fetch(`/registrations/${encodeURIComponent(userId)}/relationship`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = extractDetail(data);
+        if (errorEl) {
+          errorEl.textContent = msg;
+          errorEl.classList.add('show');
+        }
+        return;
+      }
+
+      await Promise.all([loadFamilies(), loadRegistrations(), loadStats()]);
+    } catch {
+      if (errorEl) {
+        errorEl.textContent = 'Could not save relationship changes. Please try again.';
+        errorEl.classList.add('show');
+      }
+    }
+  }
+
+  function renderInsights(data) {
+    const totalUsers = data.total_users ?? 0;
+    if (!totalUsers) {
+      insightsContent.innerHTML = 'Insights will appear once registrations begin.';
+      return;
+    }
+
+    const interested = data.total_interested_in_return ?? 0;
+    const interestedPercent = interested / totalUsers;
+    const topRegion = getTopLabel(data.region_distribution, 'unknown');
+    const topTravel = getTopLabel(data.travel_timeframe_distribution, 'not_sure_yet');
+    const topCountry = getTopLabel(data.country_distribution, 'Not provided');
+    const topState = getTopLabel(data.state_distribution, 'Not provided');
+
+    const topRegionTravel = getTopCombination(
+      data.region_travel_timeframe_combinations || {},
+      topRegion,
+      topTravel
+    );
+    const topRegionInterest = getTopCombination(
+      data.region_interest_combinations || {},
+      topRegion,
+      interested ? 'interested' : 'not_interested'
+    );
+
+    const topStage = timeframeToStage(topRegionTravel.right);
+    const highIntentUsers = (data.travel_timeframe_distribution || {}).within_1_year ?? 0;
+    const highIntentShare = totalUsers > 0 ? highIntentUsers / totalUsers : 0;
+    const topRole = getTopLabel(data.role_distribution, 'not_provided');
+
+    insightsContent.innerHTML = `
+      <ul class="insights-list">
+        <li>${formatPercent(interestedPercent)} of registered users are interested in return pathways.</li>
+        <li>${toDisplayLabel(topRegion)} is currently the leading origin region.</li>
+        <li>Majority signal: ${toDisplayLabel(topRegionTravel.left)} users are in ${toDisplayLabel(topStage)} stage.</li>
+        <li>High intent users (${toDisplayLabel('within_1_year')}) represent ${formatPercent(highIntentShare)}.</li>
+        <li>Region intent trend: ${toDisplayLabel(topRegionInterest.left)} has the strongest ${toDisplayLabel(topRegionInterest.right)} profile.</li>
+        <li>Largest family group currently has ${data.largest_family_size ?? 0} members.</li>
+        <li>Most common family role is ${toDisplayLabel(topRole)}.</li>
+        <li>${data.total_family_groups ?? data.total_families ?? 0} family groups are currently active.</li>
+        <li>Top country represented: ${toDisplayLabel(topCountry)}. Top state represented: ${toDisplayLabel(topState)}.</li>
+      </ul>
+    `;
+  }
+
+  function buildStatBox(value, label, updated) {
+    const updatedClass = updated ? ' updated' : '';
+    return `
+      <div class="stat-box">
+        <div class="num${updatedClass}">${value}</div>
+        <div class="lbl">${label}</div>
+      </div>
+    `;
+  }
+
+  /* ── Stats ── */
+  async function loadStats() {
+    const container = document.getElementById('statsContent');
+    try {
+      const res  = await fetch('/stats');
+      const data = await res.json();
+
+      const renderDistributionRows = (distribution, humanize = false) => {
+        const entries = Object.entries(distribution || {});
+        if (!entries.length) {
+          return `<tr><td colspan="2" style="color:var(--muted)">No data yet</td></tr>`;
+        }
+        return entries
+          .map(([label, count]) => `<tr><td>${humanize ? toDisplayLabel(label) : label}</td><td>${count}</td></tr>`)
+          .join('');
+      };
+
+      const current = {
+        total_users: data.total_users ?? 0,
+        total_families: data.total_family_groups ?? data.total_families ?? 0,
+        total_interested_in_return: data.total_interested_in_return ?? 0,
+        total_with_contact_info: data.total_with_contact_info ?? 0,
+      };
+
+      const changed = {
+        total_users: previousStatValues.total_users !== null && previousStatValues.total_users !== current.total_users,
+        total_families: previousStatValues.total_families !== null && previousStatValues.total_families !== current.total_families,
+        total_interested_in_return:
+          previousStatValues.total_interested_in_return !== null &&
+          previousStatValues.total_interested_in_return !== current.total_interested_in_return,
+        total_with_contact_info:
+          previousStatValues.total_with_contact_info !== null &&
+          previousStatValues.total_with_contact_info !== current.total_with_contact_info,
+      };
+
+      container.innerHTML = `
+        <div class="stat-grid">
+          ${buildStatBox(current.total_users, 'Total Users', changed.total_users)}
+          ${buildStatBox(current.total_families, 'Families', changed.total_families)}
+          <div class="stat-box" style="grid-column:1/-1">
+            <div class="num${changed.total_interested_in_return ? ' updated' : ''}">${current.total_interested_in_return}</div>
+            <div class="lbl">Interested in Return</div>
+          </div>
+          <div class="stat-box" style="grid-column:1/-1">
+            <div class="num${changed.total_with_contact_info ? ' updated' : ''}">${current.total_with_contact_info}</div>
+            <div class="lbl">With Contact Info</div>
+          </div>
+        </div>
+        <div class="stats-subgroup">
+          <h4>Region Distribution</h4>
+          <table class="region-table">
+            <thead><tr><th>Region</th><th>Count</th></tr></thead>
+            <tbody>${renderDistributionRows(data.region_distribution, true)}</tbody>
+          </table>
+        </div>
+        <div class="stats-subgroup">
+          <h4>Travel Timeframe</h4>
+          <table class="region-table">
+            <thead><tr><th>Timeframe</th><th>Count</th></tr></thead>
+            <tbody>${renderDistributionRows(data.travel_timeframe_distribution, true)}</tbody>
+          </table>
+        </div>
+        <div class="stats-subgroup">
+          <h4>State Distribution</h4>
+          <table class="region-table">
+            <thead><tr><th>State</th><th>Count</th></tr></thead>
+            <tbody>${renderDistributionRows(data.state_distribution)}</tbody>
+          </table>
+        </div>
+        <div class="stats-subgroup">
+          <h4>Country Distribution</h4>
+          <table class="region-table">
+            <thead><tr><th>Country</th><th>Count</th></tr></thead>
+            <tbody>${renderDistributionRows(data.country_distribution)}</tbody>
+          </table>
+        </div>
+      `;
+
+      previousStatValues.total_users = current.total_users;
+      previousStatValues.total_families = current.total_families;
+      previousStatValues.total_interested_in_return = current.total_interested_in_return;
+      previousStatValues.total_with_contact_info = current.total_with_contact_info;
+
+      const now = new Date();
+      statsLastUpdated.textContent = `Last updated: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+      renderInsights(data);
+    } catch {
+      container.innerHTML = `<p class="stats-loading">Could not load stats.</p>`;
+      insightsContent.innerHTML = '<p class="stats-loading">Unable to generate insights right now.</p>';
+      statsLastUpdated.textContent = 'Last updated: unavailable';
+    }
+  }
+
+  /* ── Registrations ── */
+  async function loadRegistrations() {
+    const container = document.getElementById('registrationsContent');
+    try {
+      const res = await fetch('/registrations');
+      const rows = await res.json();
+      console.log('[Aeternum] /registrations response:', rows);
+      const list = Array.isArray(rows) ? rows : [];
+
+      // Keep newest first even if backend sorting changes in future.
+      list.sort((a, b) => {
+        const aTs = new Date(a?.registered_at || 0).getTime();
+        const bTs = new Date(b?.registered_at || 0).getTime();
+        return bTs - aTs;
+      });
+      registrationsCache = list;
+      updateConnectedToOptions();
+
+      if (!list.length) {
+        container.innerHTML = `<p class="stats-loading">No registrations yet.</p>`;
+        return;
+      }
+
+      const recent = list.slice(0, 15);
+      const bodyRows = recent.map((r) => `
+        <tr>
+          <td>${r.full_name || ''}</td>
+          <td>${r.family_name || ''}</td>
+          <td>${toDisplayLabel(r.origin_region || 'unknown')}</td>
+          <td>${r.interested_in_return ? 'Yes' : 'No'}</td>
+          <td>${toDisplayLabel(r.travel_timeframe || 'not_sure_yet')}</td>
+          <td>${r.city || 'Not provided'}</td>
+          <td>${r.state || 'Not provided'}</td>
+          <td>${r.country || 'Not provided'}</td>
+          <td>
+            <button
+              type="button"
+              class="secondary table-action-btn registration-edit-btn"
+              data-user-id="${escapeHtml(r.user_id || '')}"
+            >Edit Registration</button>
+            <button
+              type="button"
+              class="secondary danger-btn table-action-btn registration-delete-btn"
+              data-user-id="${escapeHtml(r.user_id || '')}"
+            >Delete</button>
+          </td>
+        </tr>
+      `).join('');
+
+      container.innerHTML = `
+        <table class="registrations-table">
+          <thead>
+            <tr>
+              <th>Full Name</th>
+              <th>Family Name</th>
+              <th>Origin Region</th>
+              <th>Interested</th>
+              <th>Travel Timeframe</th>
+              <th>City</th>
+              <th>State</th>
+              <th>Country</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      `;
+    } catch {
+      container.innerHTML = `<p class="stats-loading">Could not load registrations.</p>`;
+    }
+  }
+
+  /* ── Family Groups ── */
+  async function loadFamilies() {
+    const container = document.getElementById('familyGroupsContent');
+    try {
+      const res = await fetch('/families');
+      const rows = await res.json();
+      console.log('[Aeternum] /families response:', rows);
+      const groups = Array.isArray(rows) ? rows : [];
+
+      if (!groups.length) {
+        container.innerHTML = `<p class="stats-loading">No family groups yet.</p>`;
+        familiesCache = [];
+        renderVisualFamilyTree();
+        return;
+      }
+
+      const cards = groups.map((family) => {
+        const regions = Array.isArray(family.origin_regions) && family.origin_regions.length
+          ? family.origin_regions.map((r) => toDisplayLabel(r)).join(', ')
+          : 'Unknown';
+
+        const members = (family.members || []).map((member) => `
+          <div class="family-member-row">
+            <div class="name">${member.full_name || 'Unnamed member'} (${member.user_id || '-'})</div>
+            <div class="meta">
+              ${member.relationship_display || 'Relationship not linked yet.'}<br>
+              Household Position: ${toDisplayLabel(member.household_position || 'not_provided')}<br>
+              Connected To: ${(Array.isArray(member.linked_to_full_names) && member.linked_to_full_names.length)
+                ? member.linked_to_full_names.map((n) => escapeHtml(n)).join(', ')
+                : (member.linked_to_full_name ? escapeHtml(member.linked_to_full_name) : 'None')}
+            </div>
+            <div class="member-row-actions">
+              <button type="button" class="secondary member-edit-btn" data-family-id="${family.family_id}" data-user-id="${member.user_id}">Edit Relationship</button>
+              <button type="button" class="secondary member-edit-registration-btn" data-user-id="${member.user_id}">Edit Registration</button>
+              <button type="button" class="secondary danger-btn member-delete-btn" data-user-id="${member.user_id}">Delete</button>
+            </div>
+            <div class="member-edit-panel"></div>
+          </div>
+        `).join('');
+
+        return `
+          <article class="family-group-card">
+            <div class="family-group-title">
+              <strong>${family.family_name || 'Unknown Family'}</strong>
+              <span class="family-group-meta">${family.family_id || '-'}</span>
+            </div>
+            <div class="family-group-meta">
+              Total Members: ${family.total_members ?? 0} |
+              Interested Count: ${family.interested_count ?? 0}<br>
+              Origin Regions: ${regions}
+            </div>
+            <div class="family-members-list">${members || '<p class="stats-loading">No members listed.</p>'}</div>
+          </article>
+        `;
+      }).join('');
+
+      container.innerHTML = cards;
+      familiesCache = groups;
+      renderVisualFamilyTree();
+    } catch {
+      container.innerHTML = `<p class="stats-loading">Could not load family groups.</p>`;
+      familiesCache = [];
+      renderVisualFamilyTree();
+    }
+  }
+
+  async function handleExport(format) {
+    try {
+      let endpoint, filename, contentType;
+
+      switch (format) {
+        case 'registrations-json':
+          endpoint = '/export/registrations';
+          filename = `diaspora-registrations-${new Date().toISOString().split('T')[0]}.json`;
+          contentType = 'application/json';
+          break;
+        case 'registrations-csv':
+          endpoint = '/export/registrations.csv';
+          filename = `diaspora-registrations-${new Date().toISOString().split('T')[0]}.csv`;
+          contentType = 'text/csv';
+          break;
+        case 'families-json':
+          endpoint = '/export/families';
+          filename = `diaspora-families-${new Date().toISOString().split('T')[0]}.json`;
+          contentType = 'application/json';
+          break;
+        case 'stats-json':
+          endpoint = '/export/stats';
+          filename = `diaspora-stats-${new Date().toISOString().split('T')[0]}.json`;
+          contentType = 'application/json';
+          break;
+        case 'full-backup':
+          endpoint = '/export/full_backup';
+          filename = `diaspora-full-backup-${new Date().toISOString().split('T')[0]}.json`;
+          contentType = 'application/json';
+          break;
+        default:
+          showError('Unknown export format.');
+          return;
+      }
+
+      const response = await fetch(endpoint);
+      if (!response.ok) {
+        showError(`Export failed: ${response.statusText}`);
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      successMsg.innerHTML = `<strong>✓ Export downloaded: ${filename}</strong>`;
+      successMsg.classList.add('show');
+      errorMsg.classList.remove('show');
+    } catch (err) {
+      showError(`Could not export data: ${err.message}`);
+    }
+  }
+
+  // Load stats on page open
+  loadStats();
+  loadRegistrations();
+  loadFamilies();
+  setInterval(() => {
+    loadStats();
+    loadRegistrations();
+    loadFamilies();
+  }, 15000);
+</script>
+</body>
+</html>
