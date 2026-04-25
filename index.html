@@ -14,7 +14,7 @@
       --gold-lt: #e8c96a;
       --gold-dk: #a8893c;
       --white:   #f4f4f4;
-      --muted:   #d1deec;
+      --muted:   #e2ecf6;
       --error:   #e05a5a;
       --success: #4caf82;
       --radius:  8px;
@@ -22,10 +22,6 @@
 
     body {
       background-color: var(--navy);
-      background-image: url('/static/logo.png');
-      background-repeat: no-repeat;
-      background-position: center 42%;
-      background-size: 580px;
       color: var(--white);
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       min-height: 100vh;
@@ -33,12 +29,27 @@
       position: relative;
     }
 
-    /* Keep watermark subtle without washing out foreground content. */
+    /* Base atmospheric tint behind all content. */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
-      background: rgba(11, 26, 43, 0.5);
+      background: linear-gradient(180deg, rgba(8, 18, 33, 0.46), rgba(8, 18, 33, 0.56));
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Isolated watermark layer kept very low-opacity so text/cards stay dominant. */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url('/static/logo.png');
+      background-repeat: no-repeat;
+      background-position: center 42%;
+      background-size: 600px;
+      opacity: 0.045;
+      filter: blur(2px);
       pointer-events: none;
       z-index: 0;
     }
@@ -109,8 +120,18 @@
       border-radius: var(--radius);
       padding: 24px;
       box-shadow:
-        0 2px 18px rgba(0, 0, 0, 0.35),
+        0 10px 30px rgba(0, 0, 0, 0.42),
+        0 0 18px rgba(201, 168, 76, 0.1),
         inset 0 1px 0 rgba(201, 168, 76, 0.05);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.48),
+        0 0 20px rgba(201, 168, 76, 0.14),
+        inset 0 1px 0 rgba(201, 168, 76, 0.08);
     }
 
     .feature-title {
@@ -179,14 +200,17 @@
       border-radius: var(--radius);
       padding: 28px 24px;
       box-shadow:
-        0 4px 28px rgba(0, 0, 0, 0.5),
+        0 10px 30px rgba(0, 0, 0, 0.44),
+        0 0 22px rgba(201, 168, 76, 0.1),
         0 1px  4px rgba(0, 0, 0, 0.35),
         inset 0 1px 0 rgba(201, 168, 76, 0.06);
-      transition: box-shadow 0.25s;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .card:hover {
+      transform: translateY(-2px);
       box-shadow:
-        0 6px 36px rgba(0, 0, 0, 0.6),
+        0 14px 38px rgba(0, 0, 0, 0.54),
+        0 0 24px rgba(201, 168, 76, 0.14),
         0 2px  6px rgba(0, 0, 0, 0.4),
         inset 0 1px 0 rgba(201, 168, 76, 0.1);
     }
@@ -211,7 +235,7 @@
     .field label {
       display: block;
       font-size: 0.74rem;
-      color: #e0e9f3;
+      color: rgba(255, 255, 255, 0.9);
       text-transform: uppercase;
       letter-spacing: 0.08em;
       margin-bottom: 6px;
@@ -348,13 +372,14 @@
       border: none;
       border-radius: var(--radius);
       cursor: pointer;
-      transition: filter 0.2s, box-shadow 0.2s, transform 0.1s;
+      transition: filter 0.2s, box-shadow 0.2s, transform 0.2s ease;
       text-transform: uppercase;
       box-shadow: 0 2px 12px rgba(201, 168, 76, 0.22);
     }
     button:hover {
       filter: brightness(1.13);
-      box-shadow: 0 4px 20px rgba(201, 168, 76, 0.42);
+      transform: translateY(-1px) scale(1.01);
+      box-shadow: 0 8px 22px rgba(201, 168, 76, 0.42);
     }
     button:active { transform: scale(0.98); filter: brightness(0.96); }
 
@@ -393,6 +418,21 @@
     }
     .message.show { display: block; }
 
+    .message.show {
+      animation: feedbackBannerIn 260ms ease-out;
+    }
+
+    @keyframes feedbackBannerIn {
+      0% {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     .id-block {
       margin-top: 8px;
       font-size: 0.79rem;
@@ -414,6 +454,17 @@
       border-radius: var(--radius);
       padding: 14px 10px;
       text-align: center;
+      box-shadow:
+        0 8px 24px rgba(0, 0, 0, 0.34),
+        0 0 12px rgba(201, 168, 76, 0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .stat-box:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 12px 28px rgba(0, 0, 0, 0.4),
+        0 0 16px rgba(201, 168, 76, 0.12);
     }
     .stat-box .num {
       font-size: 1.9rem;
@@ -892,6 +943,17 @@
       border-radius: 6px;
       background: rgba(24, 40, 61, 0.88);
       padding: 9px 10px;
+      box-shadow:
+        0 8px 22px rgba(0, 0, 0, 0.32),
+        0 0 12px rgba(201, 168, 76, 0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .activity-log-item:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 12px 30px rgba(0, 0, 0, 0.4),
+        0 0 16px rgba(201, 168, 76, 0.12);
     }
 
     .activity-log-meta {
@@ -2416,7 +2478,7 @@
       }
 
       successMsg.innerHTML =
-        `<strong>Registration saved. Family intelligence updated.</strong><br>` +
+        `<strong>Registration successful. Family profile created.</strong><br>` +
         `<div class="id-block">User ID: <span>${data.user_id}</span></div>` +
         `<div class="id-block">Family ID: <span>${data.family_id}</span></div>`;
       successMsg.classList.add('show');
