@@ -704,6 +704,31 @@
       box-shadow: 0 0 12px rgba(201, 168, 76, 0.36);
     }
 
+    .tree-progress-wrap.is-rewarding {
+      box-shadow:
+        0 0 0 1px rgba(255, 215, 0, 0.16),
+        0 0 24px rgba(255, 215, 0, 0.22);
+    }
+
+    .tree-progress-wrap.is-rewarding .tree-progress-fill {
+      animation: treeRewardGlow 1.1s ease;
+    }
+
+    @keyframes treeRewardGlow {
+      0% {
+        box-shadow: 0 0 12px rgba(255, 215, 0, 0.2);
+        filter: brightness(1);
+      }
+      50% {
+        box-shadow: 0 0 24px rgba(255, 215, 0, 0.46);
+        filter: brightness(1.08);
+      }
+      100% {
+        box-shadow: 0 0 12px rgba(255, 215, 0, 0.2);
+        filter: brightness(1);
+      }
+    }
+
     .tree-family-card {
       border: 1px solid rgba(201, 168, 76, 0.26);
       border-radius: var(--radius);
@@ -808,6 +833,28 @@
       line-height: 1.52;
       display: grid;
       gap: 6px;
+    }
+
+    .lineage-panel-item {
+      border: 1px solid rgba(201, 168, 76, 0.16);
+      border-radius: 8px;
+      background: rgba(17, 33, 52, 0.74);
+      padding: 9px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--body-text);
+      font-size: 0.83rem;
+      line-height: 1.5;
+    }
+
+    .lineage-panel-item button {
+      width: auto;
+      padding: 7px 9px;
+      font-size: 0.62rem;
+      letter-spacing: 0.08em;
+      flex-shrink: 0;
     }
 
     .tree-forest {
@@ -934,6 +981,91 @@
       position: relative;
     }
 
+    .tree-graph-actionbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px 0;
+      color: var(--secondary-text);
+      font-size: 0.76rem;
+      line-height: 1.45;
+      flex-wrap: wrap;
+    }
+
+    .tree-link-mode-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(201, 168, 76, 0.28);
+      padding: 6px 10px;
+      background: rgba(18, 33, 51, 0.82);
+      color: var(--gold-lt);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-size: 0.64rem;
+    }
+
+    .tree-link-mode-chip.is-active {
+      border-color: rgba(255, 215, 0, 0.58);
+      box-shadow: 0 0 18px rgba(255, 215, 0, 0.18);
+    }
+
+    .tree-graph-feedback {
+      color: var(--muted);
+    }
+
+    .tree-node-action-panel {
+      position: absolute;
+      right: 14px;
+      top: 52px;
+      width: min(300px, calc(100% - 28px));
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(201, 168, 76, 0.28);
+      background: rgba(10, 23, 39, 0.94);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.46);
+      z-index: 2;
+      display: grid;
+      gap: 10px;
+    }
+
+    .tree-node-action-panel[hidden] {
+      display: none;
+    }
+
+    .tree-node-action-panel h4 {
+      color: var(--gold-lt);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .tree-node-action-panel p {
+      color: var(--body-text);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+
+    .tree-node-action-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .tree-node-action-btn {
+      width: 100%;
+      padding: 9px 10px;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+    }
+
+    .tree-node-action-meta {
+      color: var(--secondary-text);
+      font-size: 0.7rem;
+      line-height: 1.45;
+    }
+
     .tree-graph-hint {
       color: var(--secondary-text);
       font-size: 0.76rem;
@@ -959,8 +1091,20 @@
       stroke: rgba(201, 168, 76, 0.36);
       stroke-width: 1.8;
       fill: none;
-      filter: drop-shadow(0 0 2px rgba(201, 168, 76, 0.14));
-      transition: stroke 180ms ease, opacity 180ms ease, stroke-width 180ms ease;
+      filter: drop-shadow(0 0 3px rgba(201, 168, 76, 0.18));
+      transition: stroke 180ms ease, opacity 180ms ease, stroke-width 180ms ease, filter 180ms ease;
+      animation: graphEdgeReveal 380ms ease;
+    }
+
+    @keyframes graphEdgeReveal {
+      0% {
+        opacity: 0;
+        stroke-dasharray: 6 12;
+      }
+      100% {
+        opacity: 1;
+        stroke-dasharray: none;
+      }
     }
 
     .graph-edge.sibling {
@@ -972,8 +1116,25 @@
     .graph-edge.is-highlighted {
       stroke: rgba(255, 215, 0, 0.92);
       stroke-width: 2.4;
-      filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
+      filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.52));
       opacity: 1;
+    }
+
+    .graph-edge.is-simulated {
+      stroke: rgba(123, 211, 177, 0.9);
+      stroke-width: 2.8;
+      stroke-dasharray: 8 5;
+      filter: drop-shadow(0 0 8px rgba(123, 211, 177, 0.38));
+      animation: simulatedLinkFlow 900ms linear infinite;
+    }
+
+    @keyframes simulatedLinkFlow {
+      0% {
+        stroke-dashoffset: 26;
+      }
+      100% {
+        stroke-dashoffset: 0;
+      }
     }
 
     .graph-edge.is-muted {
@@ -982,11 +1143,23 @@
 
     .graph-node {
       cursor: pointer;
-      transition: transform 180ms ease;
+      transition: transform 180ms ease, opacity 180ms ease;
+      animation: graphNodeReveal 260ms ease;
+    }
+
+    @keyframes graphNodeReveal {
+      0% {
+        opacity: 0;
+        transform: translateY(6px) scale(0.98);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
 
     .graph-node:hover {
-      transform: scale(1.02);
+      transform: scale(1.05);
     }
 
     .graph-node-card {
@@ -1026,6 +1199,25 @@
       filter:
         drop-shadow(0 10px 24px rgba(0, 0, 0, 0.52))
         drop-shadow(0 0 16px rgba(255, 215, 0, 0.52));
+      animation: rootAnchorPulse 2.2s ease-in-out infinite;
+    }
+
+    @keyframes rootAnchorPulse {
+      0% {
+        filter:
+          drop-shadow(0 10px 24px rgba(0, 0, 0, 0.52))
+          drop-shadow(0 0 14px rgba(255, 215, 0, 0.38));
+      }
+      50% {
+        filter:
+          drop-shadow(0 12px 28px rgba(0, 0, 0, 0.56))
+          drop-shadow(0 0 22px rgba(255, 215, 0, 0.62));
+      }
+      100% {
+        filter:
+          drop-shadow(0 10px 24px rgba(0, 0, 0, 0.52))
+          drop-shadow(0 0 14px rgba(255, 215, 0, 0.38));
+      }
     }
 
     .graph-node.is-connected .graph-node-card {
@@ -1036,11 +1228,25 @@
       opacity: 0.38;
     }
 
+    .graph-node.is-focused .graph-node-card {
+      stroke: rgba(123, 211, 177, 0.96);
+      stroke-width: 2.1;
+      filter:
+        drop-shadow(0 10px 22px rgba(0, 0, 0, 0.48))
+        drop-shadow(0 0 16px rgba(123, 211, 177, 0.48));
+    }
+
     .graph-node.is-pending .graph-node-card {
       stroke: rgba(201, 168, 76, 0.42);
       fill: rgba(20, 36, 56, 0.72);
       stroke-dasharray: 4 3;
       animation: pendingPulse 1.45s ease-in-out infinite;
+    }
+
+    .graph-node.is-resolved .graph-node-card {
+      stroke: rgba(123, 211, 177, 0.78);
+      fill: rgba(24, 48, 60, 0.9);
+      stroke-dasharray: none;
     }
 
     @keyframes pendingPulse {
@@ -1987,6 +2193,22 @@
       min-height: 18px;
     }
 
+    .guidance-feedback.is-success {
+      color: #9fe4b6;
+      text-shadow: 0 0 10px rgba(76, 175, 130, 0.18);
+    }
+
+    .system-guidance-banner {
+      margin-top: 12px;
+      border: 1px solid rgba(201, 168, 76, 0.24);
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(201, 168, 76, 0.12), rgba(17, 33, 52, 0.86));
+      padding: 10px 12px;
+      color: var(--body-text);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
     .inline-action-row {
       display: flex;
       gap: 10px;
@@ -2362,12 +2584,17 @@
         <p class="tree-graph-hint" id="treeGraphHint" style="display:none;">
           Click any node to highlight lineage connections. Use + / - on a node to expand or collapse branches.
         </p>
+        <div class="tree-graph-actionbar">
+          <div id="treeGraphFeedback" class="tree-graph-feedback">Aeternum is actively guiding your family reconstruction.</div>
+          <div id="treeLinkModeChip" class="tree-link-mode-chip">Link Mode Idle</div>
+        </div>
         <div class="tree-family-header-row" style="margin-bottom:10px;">
           <span style="color:var(--secondary-text); font-size:0.72rem; letter-spacing:0.08em; text-transform:uppercase;">Family Status</span>
           <span id="treeFamilyStatusBadge" class="family-status-badge">--</span>
         </div>
         <div id="familyTreeListView" class="tree-view tree-empty">Family tree will appear once members are connected.</div>
         <div id="familyTreeGraphView" class="tree-view tree-graph-wrap is-hidden" hidden>
+          <aside id="treeNodeActionPanel" class="tree-node-action-panel" hidden></aside>
           <svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>
         </div>
         <section class="lineage-panel" aria-labelledby="lineage-insights-title">
@@ -2478,6 +2705,7 @@
         <div class="insights-card" style="margin-top:0;">
           <h3>Aeternum System Status</h3>
           <div id="systemStatusBadges" class="status-badge-row"></div>
+          <div id="systemGuidanceBanner" class="system-guidance-banner">Aeternum is actively guiding your family reconstruction.</div>
         </div>
         <button class="secondary" onclick="loadStats()">Refresh Stats</button>
         <p class="stats-meta" id="lastUpdated">Last updated: --</p>
@@ -2678,6 +2906,9 @@
   const familyTreeListView = document.getElementById('familyTreeListView');
   const familyTreeGraphView = document.getElementById('familyTreeGraphView');
   const familyTreeGraphSvg = document.getElementById('familyTreeGraphSvg');
+  const treeNodeActionPanel = document.getElementById('treeNodeActionPanel');
+  const treeGraphFeedback = document.getElementById('treeGraphFeedback');
+  const treeLinkModeChip = document.getElementById('treeLinkModeChip');
   const treeViewMode = document.getElementById('treeViewMode');
   const treeGraphLayout = document.getElementById('treeGraphLayout');
   const treeGraphLayoutField = document.getElementById('treeGraphLayoutField');
@@ -2686,6 +2917,7 @@
   const treeCompletionFill = document.getElementById('treeCompletionFill');
   const guidanceActionList = document.getElementById('guidanceActionList');
   const guidanceFeedback = document.getElementById('guidanceFeedback');
+  const systemGuidanceBanner = document.getElementById('systemGuidanceBanner');
   const activityLogContent = document.getElementById('activityLogContent');
   const activityLogList = document.getElementById('activityLogList');
   const activitySessionFilterInput = document.getElementById('activitySessionFilter');
@@ -2711,6 +2943,19 @@
   let activeTreeViewMode = 'list';
   let activeTreeLayout = 'vertical';
   let activeTreeSelectedNodeKey = '';
+  let activeTreeIssueNodeKeys = [];
+  let previousTreeCompletionPercent = 0;
+  let treeCompletionRewardTimer = null;
+  let treeActionPanelNodeKey = '';
+  let treeAutoFocusAppliedForFamilyId = '';
+  const treeGraphNodeMeta = new Map();
+  const treeResolvedNodeKeys = new Set();
+  const treeFocusedNodeKeys = new Set();
+  const treeSimulatedLinks = [];
+  const treeLinkModeState = {
+    active: false,
+    sourceKey: '',
+  };
   const collapsedTreeNodeKeys = new Set();
   let latestStatsSnapshot = null;
   let latestActivitySnapshot = [];
@@ -2790,6 +3035,145 @@
     systemStatusBadges.innerHTML = labels
       .map((label) => `<span class="status-badge">${escapeHtml(label)}</span>`)
       .join('');
+    if (systemGuidanceBanner) {
+      systemGuidanceBanner.textContent = 'Aeternum is actively guiding your family reconstruction.';
+    }
+  }
+
+  function getNodeKeyFromFamilyMember(family, member) {
+    const familyId = String(family?.family_id || 'family').trim();
+    const userId = String(member?.user_id || '').trim();
+    return familyId && userId ? `${familyId}::${userId}` : '';
+  }
+
+  function getMissingLinkNodeKeys(family) {
+    const members = Array.isArray(family?.members) ? family.members : [];
+    return members
+      .filter((member) => {
+        const linked = Array.isArray(member.linked_to_user_ids) ? member.linked_to_user_ids.filter(Boolean) : [];
+        return linked.length === 0;
+      })
+      .map((member) => getNodeKeyFromFamilyMember(family, member))
+      .filter(Boolean);
+  }
+
+  function getMissingRoleNodeKeys(family) {
+    const members = Array.isArray(family?.members) ? family.members : [];
+    return members
+      .filter((member) => !String(member.relationship_role || '').trim())
+      .map((member) => getNodeKeyFromFamilyMember(family, member))
+      .filter(Boolean);
+  }
+
+  function setTreeGraphFeedback(message, tone = 'default') {
+    if (!treeGraphFeedback) return;
+    treeGraphFeedback.textContent = message || 'Aeternum is actively guiding your family reconstruction.';
+    treeGraphFeedback.style.color = tone === 'success' ? '#9fe4b6' : '';
+  }
+
+  function updateTreeLinkModeChip() {
+    if (!treeLinkModeChip) return;
+    const active = treeLinkModeState.active;
+    treeLinkModeChip.classList.toggle('is-active', active);
+    if (!active) {
+      treeLinkModeChip.textContent = 'Link Mode Idle';
+      return;
+    }
+    if (!treeLinkModeState.sourceKey) {
+      treeLinkModeChip.textContent = 'Link Mode Armed';
+      return;
+    }
+    const sourceMeta = treeGraphNodeMeta.get(treeLinkModeState.sourceKey);
+    treeLinkModeChip.textContent = `Source: ${trimGraphLabel(sourceMeta?.full_name || 'Selected', 18)}`;
+  }
+
+  function clearTreeFocus() {
+    treeFocusedNodeKeys.clear();
+    activeTreeIssueNodeKeys = [];
+  }
+
+  function focusTreeNodeKeys(nodeKeys, message) {
+    clearTreeFocus();
+    (nodeKeys || []).forEach((nodeKey) => {
+      if (nodeKey) treeFocusedNodeKeys.add(nodeKey);
+    });
+    activeTreeIssueNodeKeys = Array.from(treeFocusedNodeKeys);
+    if (activeTreeIssueNodeKeys.length && !activeTreeSelectedNodeKey) {
+      activeTreeSelectedNodeKey = activeTreeIssueNodeKeys[0];
+    }
+    if (message) {
+      setTreeGraphFeedback(message);
+    }
+  }
+
+  function triggerTreeRewardFeedback(message) {
+    if (guidanceFeedback) {
+      guidanceFeedback.textContent = message;
+      guidanceFeedback.classList.add('is-success');
+    }
+    const wrap = treeCompletionFill?.parentElement?.parentElement;
+    if (wrap) {
+      wrap.classList.add('is-rewarding');
+      if (treeCompletionRewardTimer) {
+        window.clearTimeout(treeCompletionRewardTimer);
+      }
+      treeCompletionRewardTimer = window.setTimeout(() => {
+        wrap.classList.remove('is-rewarding');
+      }, 1200);
+    }
+    setTreeGraphFeedback(message, 'success');
+  }
+
+  function resetTreeLinkMode(message = '') {
+    treeLinkModeState.active = false;
+    treeLinkModeState.sourceKey = '';
+    updateTreeLinkModeChip();
+    if (message) {
+      setTreeGraphFeedback(message);
+    }
+  }
+
+  function nodeHasSimulatedLink(nodeKey) {
+    return treeSimulatedLinks.some((link) => link.from === nodeKey || link.to === nodeKey);
+  }
+
+  function resolveNodeInteraction(nodeKey, actionLabel) {
+    if (!nodeKey) return;
+    treeResolvedNodeKeys.add(nodeKey);
+    treeFocusedNodeKeys.add(nodeKey);
+    activeTreeSelectedNodeKey = nodeKey;
+    const meta = treeGraphNodeMeta.get(nodeKey);
+    const name = meta?.full_name || 'Selected profile';
+    triggerTreeRewardFeedback(`${name}: ${actionLabel}. Family structure improved.`);
+    renderVisualFamilyTree();
+  }
+
+  function beginTreeLinkMode(nodeKey = '') {
+    treeLinkModeState.active = true;
+    treeLinkModeState.sourceKey = nodeKey || '';
+    updateTreeLinkModeChip();
+    if (nodeKey) {
+      const meta = treeGraphNodeMeta.get(nodeKey);
+      setTreeGraphFeedback(`${meta?.full_name || 'Source member'} selected. Choose a second node to simulate the family link.`);
+    } else {
+      setTreeGraphFeedback('Link mode armed. Select the first node to begin a simulated connection.');
+    }
+  }
+
+  function finalizeSimulatedLink(sourceKey, targetKey) {
+    if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+    const exists = treeSimulatedLinks.some((link) => {
+      return (link.from === sourceKey && link.to === targetKey) || (link.from === targetKey && link.to === sourceKey);
+    });
+    if (!exists) {
+      treeSimulatedLinks.push({ from: sourceKey, to: targetKey, type: 'simulated' });
+    }
+    treeResolvedNodeKeys.add(sourceKey);
+    treeResolvedNodeKeys.add(targetKey);
+    focusTreeNodeKeys([sourceKey, targetKey], 'Simulated lineage link created. Review the highlighted members.');
+    resetTreeLinkMode();
+    triggerTreeRewardFeedback('Family structure improved. Simulated lineage link established.');
+    renderVisualFamilyTree();
   }
 
   function calculateFamilyCompletion(family) {
@@ -2805,9 +3189,13 @@
       return linked && role && !summary.includes('not linked yet');
     }).length;
 
-    const linkedRatio = linkedCount / total;
+    const simulatedResolvedCount = members
+      .map((member) => getNodeKeyFromFamilyMember(family, member))
+      .filter((nodeKey) => nodeKey && (treeResolvedNodeKeys.has(nodeKey) || nodeHasSimulatedLink(nodeKey))).length;
+
+    const linkedRatio = Math.min(total, linkedCount + simulatedResolvedCount) / total;
     const roleRatio = roleCount / total;
-    const relationshipRatio = relationshipReadyCount / total;
+    const relationshipRatio = Math.min(total, relationshipReadyCount + simulatedResolvedCount) / total;
     const weighted = (linkedRatio * 0.5) + (roleRatio * 0.25) + (relationshipRatio * 0.25);
     return Math.max(0, Math.min(100, Math.round(weighted * 100)));
   }
@@ -2817,6 +3205,10 @@
     const percent = calculateFamilyCompletion(family);
     treeCompletionPercent.textContent = `${percent}%`;
     treeCompletionFill.style.width = `${percent}%`;
+    if (percent > previousTreeCompletionPercent && previousTreeCompletionPercent !== 0) {
+      triggerTreeRewardFeedback('Family structure improved. Completion score increased.');
+    }
+    previousTreeCompletionPercent = percent;
   }
 
   function renderAdminSummary() {
@@ -2970,7 +3362,7 @@
   function buildLineageInsights(family) {
     const members = Array.isArray(family?.members) ? family.members : [];
     if (!members.length) {
-      return ['No lineage records are mapped yet.'];
+      return [{ text: 'No lineage records are mapped yet.' }];
     }
 
     const missingLinks = members.filter((member) => {
@@ -2996,21 +3388,40 @@
     const duplicateInfo = analyzeDuplicateProfiles(members);
     const lines = [];
     if (hasFatherChildLinks) {
-      lines.push('Father-to-child relationships are structurally mapped and recognized by the system.');
+      lines.push({ text: 'Father-to-child relationships are structurally mapped and recognized by the system.' });
     }
     if (siblingPairs.length >= 2) {
-      lines.push(`Sibling connection patterns are confirmed across ${siblingPairs.length} lineage profiles.`);
+      lines.push({ text: `Sibling connection patterns are confirmed across ${siblingPairs.length} lineage profiles.` });
     }
     if (primary) {
-      lines.push(`Primary family structure is anchored around ${primary.full_name || 'the designated representative'}.`);
+      lines.push({ text: `Primary family structure is anchored around ${primary.full_name || 'the designated representative'}.` });
     }
     if (missingLinks > 0) {
-      lines.push(`${missingLinks} profiles require linkage to complete family structure.`);
+      lines.push({
+        text: `${missingLinks} profiles require linkage to complete family structure.`,
+        actionLabel: 'Resolve Now',
+        actionId: 'focus-missing-links',
+        nodeKeys: getMissingLinkNodeKeys(family),
+      });
     } else {
-      lines.push('All registered profiles are linked to an active lineage path.');
+      lines.push({ text: 'All registered profiles are linked to an active lineage path.' });
+    }
+    const missingRoleKeys = getMissingRoleNodeKeys(family);
+    if (missingRoleKeys.length) {
+      lines.push({
+        text: `${missingRoleKeys.length} profiles still need relationship assignment to sharpen lineage interpretation.`,
+        actionLabel: 'Resolve Now',
+        actionId: 'focus-missing-roles',
+        nodeKeys: missingRoleKeys,
+      });
     }
     if (duplicateInfo.duplicateCount > 0) {
-      lines.push(`${duplicateInfo.duplicateCount} duplicate identity profiles are grouped as pending records to prevent root-level duplication.`);
+      lines.push({
+        text: `${duplicateInfo.duplicateCount} duplicate identity profiles are grouped as pending records to prevent root-level duplication.`,
+        actionLabel: 'Resolve Now',
+        actionId: 'focus-duplicates',
+        nodeKeys: getMissingLinkNodeKeys(family),
+      });
     }
 
     return lines;
@@ -3033,8 +3444,14 @@
     if (!treeLineageInsights) return;
     const list = Array.isArray(lines) && lines.length
       ? lines
-      : ['Lineage insights appear once a family is selected.'];
-    treeLineageInsights.innerHTML = `<ul class="lineage-panel-list">${list.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+      : [{ text: 'Lineage insights appear once a family is selected.' }];
+    treeLineageInsights.innerHTML = `<ul class="lineage-panel-list">${list.map((line, index) => {
+      const insight = typeof line === 'string' ? { text: line } : (line || {});
+      const button = insight.actionLabel
+        ? `<button type="button" class="secondary" data-lineage-action="${escapeHtml(String(insight.actionId || 'focus'))}" data-lineage-index="${index}">${escapeHtml(String(insight.actionLabel))}</button>`
+        : '';
+      return `<li class="lineage-panel-item"><span>${escapeHtml(String(insight.text || ''))}</span>${button}</li>`;
+    }).join('')}</ul>`;
   }
 
   function buildGuidanceActions(users, families, activityEvents) {
@@ -3104,6 +3521,49 @@
     `).join('');
     if (guidanceFeedback) {
       guidanceFeedback.textContent = 'Select a guidance task to simulate mission activation.';
+      guidanceFeedback.classList.remove('is-success');
+    }
+  }
+
+  function renderTreeNodeActionPanel() {
+    const panel = familyTreeGraphView?.querySelector('#treeNodeActionPanel');
+    if (!panel) return;
+    const nodeKey = treeActionPanelNodeKey || activeTreeSelectedNodeKey;
+    if (!nodeKey) {
+      panel.hidden = true;
+      panel.innerHTML = '';
+      return;
+    }
+    const node = treeGraphNodeMeta.get(nodeKey);
+    if (!node || (!node.pending_profile && !treeLinkModeState.active)) {
+      panel.hidden = true;
+      panel.innerHTML = '';
+      return;
+    }
+
+    const status = treeResolvedNodeKeys.has(nodeKey) || nodeHasSimulatedLink(nodeKey) ? 'Connected' : (node.pending_label || 'Pending Link');
+    panel.hidden = false;
+    panel.innerHTML = `
+      <h4>Node Action Engine</h4>
+      <p>${escapeHtml(node.full_name || 'Selected profile')} is currently marked as ${escapeHtml(status)}.</p>
+      <div class="tree-node-action-list">
+        <button type="button" class="tree-node-action-btn" data-tree-node-action="link-existing" data-node-key="${escapeHtml(nodeKey)}">Link To Existing Member</button>
+        <button type="button" class="tree-node-action-btn secondary" data-tree-node-action="assign-relationship" data-node-key="${escapeHtml(nodeKey)}">Assign Relationship</button>
+        <button type="button" class="tree-node-action-btn secondary" data-tree-node-action="merge-duplicate" data-node-key="${escapeHtml(nodeKey)}">Merge Duplicate Profile</button>
+      </div>
+      <div class="tree-node-action-meta">This panel simulates Phase 22 actions in UI state only. Use graph selection to preview structure repair before persistence is added.</div>
+    `;
+  }
+
+  function maybeAutoFocusTreeIssues(family) {
+    if (!family || treeAutoFocusAppliedForFamilyId === String(family.family_id || '')) return;
+    const missingKeys = getMissingLinkNodeKeys(family);
+    const issueKeys = missingKeys.length ? missingKeys : getMissingRoleNodeKeys(family);
+    if (!issueKeys.length) return;
+    treeAutoFocusAppliedForFamilyId = String(family.family_id || '');
+    focusTreeNodeKeys(issueKeys.slice(0, 3), 'Auto-focus locked onto the first incomplete lineage issue.');
+    if (visualFamilyTreePanel && typeof visualFamilyTreePanel.scrollIntoView === 'function') {
+      visualFamilyTreePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }
 
@@ -3349,7 +3809,10 @@
     }
     const lines = buildLineageInsights(topFamily);
     latestLineageSignals = lines;
-    intelLineageInsights.innerHTML = `<ul class="intelligence-list">${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+    intelLineageInsights.innerHTML = `<ul class="intelligence-list">${lines.map((line) => {
+      const text = typeof line === 'string' ? line : String(line?.text || '');
+      return `<li>${escapeHtml(text)}</li>`;
+    }).join('')}</ul>`;
   }
 
   function renderRecommendedNextAction(users, families, activityEvents) {
@@ -3652,12 +4115,15 @@
   treeFamilyFilter.addEventListener('change', () => {
     activeTreeFamilyId = String(treeFamilyFilter.value || '').trim();
     activeTreeSelectedNodeKey = '';
+    treeActionPanelNodeKey = '';
+    treeAutoFocusAppliedForFamilyId = '';
     renderVisualFamilyTree();
   });
   treeSearchInput.addEventListener('input', renderVisualFamilyTree);
   treeViewMode?.addEventListener('change', () => {
     activeTreeViewMode = String(treeViewMode.value || 'list');
     activeTreeSelectedNodeKey = '';
+    treeActionPanelNodeKey = '';
     renderVisualFamilyTree();
   });
   treeGraphLayout?.addEventListener('change', () => {
@@ -3713,13 +4179,66 @@
     if (!actionId || !guidanceFeedback) return;
 
     const actionMap = {
-      'link-members': 'Guidance mission activated: open Family Groups and map pending links.',
-      'fill-roles': 'Guidance mission activated: update relationship roles for incomplete profiles.',
+      'link-members': 'Guidance mission activated: link mode armed. Open graph view and choose two nodes to simulate the connection.',
+      'fill-roles': 'Guidance mission activated: focus is set on incomplete profiles requiring role assignment.',
       'add-elder': 'Guidance mission activated: register elder lineage profiles to deepen ancestry context.',
       'export-vault': 'Guidance mission activated: run full backup/export to preserve current structure.',
       'maintain': 'Guidance mission acknowledged: continue incremental lineage expansion.',
     };
     guidanceFeedback.textContent = actionMap[actionId] || 'Guidance mission activated.';
+    guidanceFeedback.classList.remove('is-success');
+
+    if (actionId === 'link-members') {
+      activeTreeViewMode = 'graph';
+      if (treeViewMode) treeViewMode.value = 'graph';
+      beginTreeLinkMode();
+      setActivePage('family-tree');
+      return;
+    }
+    if (actionId === 'fill-roles') {
+      const family = getFamilyById(familiesCache, activeTreeFamilyId) || familiesCache[0] || null;
+      if (family) {
+        focusTreeNodeKeys(getMissingRoleNodeKeys(family), 'Profiles missing relationship roles are highlighted for review.');
+        activeTreeViewMode = 'graph';
+        if (treeViewMode) treeViewMode.value = 'graph';
+        setActivePage('family-tree');
+      }
+      return;
+    }
+  });
+  treeLineageInsights?.addEventListener('click', (event) => {
+    const actionBtn = event.target.closest('[data-lineage-action]');
+    if (!actionBtn) return;
+    const index = Number(actionBtn.getAttribute('data-lineage-index'));
+    const family = getFamilyById(familiesCache, activeTreeFamilyId) || familiesCache[0] || null;
+    if (!family) return;
+    const insights = buildLineageInsights(family);
+    const insight = insights[index];
+    const nodeKeys = Array.isArray(insight?.nodeKeys) ? insight.nodeKeys : [];
+    activeTreeViewMode = 'graph';
+    if (treeViewMode) treeViewMode.value = 'graph';
+    focusTreeNodeKeys(nodeKeys, 'Resolve-now guidance applied. Review the highlighted lineage issue.');
+    setActivePage('family-tree');
+  });
+  familyTreeGraphView?.addEventListener('click', (event) => {
+    const actionBtn = event.target.closest('[data-tree-node-action]');
+    if (!actionBtn) return;
+    const action = String(actionBtn.getAttribute('data-tree-node-action') || '').trim();
+    const nodeKey = String(actionBtn.getAttribute('data-node-key') || '').trim();
+    if (!nodeKey) return;
+
+    if (action === 'link-existing') {
+      beginTreeLinkMode(nodeKey);
+      renderVisualFamilyTree();
+      return;
+    }
+    if (action === 'assign-relationship') {
+      resolveNodeInteraction(nodeKey, 'relationship assignment simulated');
+      return;
+    }
+    if (action === 'merge-duplicate') {
+      resolveNodeInteraction(nodeKey, 'duplicate merge simulated');
+    }
   });
   form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
 
@@ -4518,6 +5037,11 @@
       return;
     }
 
+    treeGraphNodeMeta.clear();
+    topology.nodes.forEach((node) => {
+      treeGraphNodeMeta.set(node.key, node);
+    });
+
     const positions = activeTreeLayout === 'radial'
       ? computeRadialGraphPositions(topology, width, height)
       : computeVerticalGraphPositions(topology, width, height);
@@ -4531,7 +5055,7 @@
       });
     }
 
-    const edgeMarkup = topology.edges.map((edge) => {
+    const edgeMarkup = [...topology.edges, ...treeSimulatedLinks].map((edge) => {
       const from = positions.get(edge.from);
       const to = positions.get(edge.to);
       if (!from || !to) return '';
@@ -4541,6 +5065,7 @@
       const classNames = [
         'graph-edge',
         edge.type === 'sibling' ? 'sibling' : '',
+        edge.type === 'simulated' ? 'is-simulated' : '',
         highlighted ? 'is-highlighted' : '',
         muted ? 'is-muted' : '',
       ].filter(Boolean).join(' ');
@@ -4561,8 +5086,9 @@
       const isMuted = activeTreeSelectedNodeKey && !connectedNodeKeys.has(node.key);
       const initial = (String(node.full_name || 'U').trim().charAt(0) || 'U').toUpperCase();
       const roleLabel = toDisplayLabel(node.relationship_role || 'not_provided');
+      const isResolved = treeResolvedNodeKeys.has(node.key) || nodeHasSimulatedLink(node.key);
       const roleOrPendingLabel = node.pending_profile
-        ? (node.pending_label || 'Pending Link')
+        ? (isResolved ? 'Linked' : (node.pending_label || 'Pending Link'))
         : roleLabel;
       const toggleSymbol = node.isCollapsed ? '+' : '-';
       const nodeClass = [
@@ -4570,7 +5096,9 @@
         node.is_primary_root ? 'is-root' : '',
         isSelected ? 'is-selected' : '',
         isConnected ? 'is-connected' : '',
+        treeFocusedNodeKeys.has(node.key) ? 'is-focused' : '',
         node.pending_profile ? 'is-pending' : '',
+        isResolved ? 'is-resolved' : '',
         isMuted ? 'is-muted' : '',
       ].filter(Boolean).join(' ');
 
@@ -4661,12 +5189,12 @@
 
   async function renderVisualFamilyTreeGraph(groups, roleFilter, searchTerm) {
     if (!familyTreeGraphView) return;
-    familyTreeGraphView.innerHTML = '<svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>';
+    familyTreeGraphView.innerHTML = '<aside id="treeNodeActionPanel" class="tree-node-action-panel" hidden></aside><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>';
     const svg = document.getElementById('familyTreeGraphSvg');
     if (!svg) return;
 
     if (!groups.length) {
-      familyTreeGraphView.innerHTML = `<div class="tree-graph-empty">${escapeHtml(getTreeEmptyMessage())}</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>`;
+      familyTreeGraphView.innerHTML = `<aside id="treeNodeActionPanel" class="tree-node-action-panel" hidden></aside><div class="tree-graph-empty">${escapeHtml(getTreeEmptyMessage())}</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>`;
       return;
     }
 
@@ -4680,7 +5208,7 @@
 
     const selectedFamily = groups.find((group) => String(group.family_id || '') === activeTreeFamilyId);
     if (!selectedFamily) {
-      familyTreeGraphView.innerHTML = `<div class="tree-graph-empty">${escapeHtml(getTreeEmptyMessage())}</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>`;
+      familyTreeGraphView.innerHTML = `<aside id="treeNodeActionPanel" class="tree-node-action-panel" hidden></aside><div class="tree-graph-empty">${escapeHtml(getTreeEmptyMessage())}</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>`;
       return;
     }
 
@@ -4688,7 +5216,7 @@
     try {
       tree = await fetchFamilyTreeData(selectedFamily.family_id);
     } catch {
-      familyTreeGraphView.innerHTML = '<div class="tree-graph-empty">Could not load family graph data.</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>';
+      familyTreeGraphView.innerHTML = '<aside id="treeNodeActionPanel" class="tree-node-action-panel" hidden></aside><div class="tree-graph-empty">Could not load family graph data.</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>';
       return;
     }
 
@@ -4699,7 +5227,7 @@
       .filter(Boolean);
 
     if (!filteredRoots.length) {
-      familyTreeGraphView.innerHTML = '<div class="tree-graph-empty">No graph nodes match the current filters.</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>';
+      familyTreeGraphView.innerHTML = '<aside id="treeNodeActionPanel" class="tree-node-action-panel" hidden></aside><div class="tree-graph-empty">No graph nodes match the current filters.</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>';
       return;
     }
 
@@ -4719,7 +5247,24 @@
       if (!nodeEl) return;
       const nodeKey = String(nodeEl.getAttribute('data-node-key') || '');
       if (!nodeKey) return;
+      if (treeLinkModeState.active) {
+        if (!treeLinkModeState.sourceKey) {
+          treeLinkModeState.sourceKey = nodeKey;
+          activeTreeSelectedNodeKey = nodeKey;
+          updateTreeLinkModeChip();
+          setTreeGraphFeedback('Source node selected. Choose the target node to complete the simulated link.');
+          renderVisualFamilyTree();
+          return;
+        }
+        if (treeLinkModeState.sourceKey === nodeKey) {
+          setTreeGraphFeedback('Select a different target node to complete the simulated link.');
+          return;
+        }
+        finalizeSimulatedLink(treeLinkModeState.sourceKey, nodeKey);
+        return;
+      }
       activeTreeSelectedNodeKey = activeTreeSelectedNodeKey === nodeKey ? '' : nodeKey;
+      treeActionPanelNodeKey = activeTreeSelectedNodeKey;
       renderVisualFamilyTree();
     });
 
@@ -4729,6 +5274,7 @@
     const nodeCount = topology.nodes.length;
     const height = Math.max(520, Math.min(940, 380 + nodeCount * 10));
     renderGraphSvg(svg, topology, width, height);
+    renderTreeNodeActionPanel();
   }
 
   async function renderVisualFamilyTree() {
@@ -4754,6 +5300,7 @@
     renderFamilyStatusBadgeForTree(selectedFamily);
     renderLineageInsightsPanel(buildLineageInsights(selectedFamily));
     updateTreeCompletionUI(selectedFamily);
+    maybeAutoFocusTreeIssues(selectedFamily);
 
     if (activeTreeViewMode === 'graph') {
       await renderVisualFamilyTreeGraph(groups, roleFilter, searchTerm);
