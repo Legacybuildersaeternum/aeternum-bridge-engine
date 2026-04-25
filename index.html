@@ -642,16 +642,60 @@
 
     .tree-branch {
       position: relative;
-      padding-left: 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
     }
 
     .tree-children {
-      margin-top: 8px;
-      margin-left: 16px;
-      padding-left: 12px;
-      border-left: 1px dashed rgba(201, 168, 76, 0.32);
-      display: grid;
-      gap: 8px;
+      position: relative;
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px 14px;
+      padding-top: 16px;
+    }
+
+    .tree-children::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 10%;
+      right: 10%;
+      border-top: 1px dashed rgba(201, 168, 76, 0.36);
+    }
+
+    .tree-child-wrap {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      padding-top: 10px;
+      flex: 1 1 220px;
+      max-width: 300px;
+      min-width: 190px;
+    }
+
+    .tree-child-wrap::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      height: 10px;
+      border-left: 1px dashed rgba(201, 168, 76, 0.36);
+    }
+
+    .tree-branch.has-children > .tree-node::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -10px;
+      transform: translateX(-50%);
+      height: 10px;
+      border-left: 1px dashed rgba(201, 168, 76, 0.36);
     }
 
     .tree-node {
@@ -659,6 +703,8 @@
       border-radius: 6px;
       background: rgba(19, 32, 50, 0.74);
       padding: 9px;
+      position: relative;
+      width: min(320px, 100%);
     }
 
     .tree-node-name {
@@ -685,6 +731,28 @@
       font-size: 0.86rem;
       line-height: 1.55;
       padding: 8px 2px;
+    }
+
+    @media (max-width: 640px) {
+      .tree-children {
+        justify-content: stretch;
+      }
+
+      .tree-children::before,
+      .tree-child-wrap::before,
+      .tree-branch.has-children > .tree-node::after {
+        display: none;
+      }
+
+      .tree-child-wrap {
+        min-width: 100%;
+        max-width: 100%;
+        padding-top: 0;
+      }
+
+      .tree-node {
+        width: 100%;
+      }
     }
 
     .family-group-card {
@@ -1981,13 +2049,16 @@
       return '';
     }
 
-    const childHtml = (Array.isArray(node.children) ? node.children : [])
+    const childBranches = (Array.isArray(node.children) ? node.children : [])
       .map((child) => renderTreeBranch(child, roleFilter, searchTerm))
-      .filter(Boolean)
+      .filter(Boolean);
+
+    const childHtml = childBranches
+      .map((childMarkup) => `<div class="tree-child-wrap">${childMarkup}</div>`)
       .join('');
 
     return `
-      <div class="tree-branch">
+      <div class="tree-branch ${childBranches.length ? 'has-children' : ''}">
         ${renderTreeNodeCard(node)}
         ${childHtml ? `<div class="tree-children">${childHtml}</div>` : ''}
       </div>
