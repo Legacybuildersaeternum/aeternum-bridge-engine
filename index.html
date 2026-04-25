@@ -789,6 +789,161 @@
       padding: 8px 2px;
     }
 
+    .tree-view-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 10px 0 14px;
+    }
+
+    .tree-view {
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+
+    .tree-view.is-hidden {
+      opacity: 0;
+      transform: translateY(4px);
+      pointer-events: none;
+    }
+
+    .tree-graph-wrap {
+      border: 1px solid rgba(201, 168, 76, 0.26);
+      border-radius: var(--radius);
+      background: radial-gradient(circle at 20% 20%, rgba(201, 168, 76, 0.08), rgba(19, 35, 54, 0.92) 55%);
+      min-height: 460px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .tree-graph-hint {
+      color: var(--secondary-text);
+      font-size: 0.76rem;
+      letter-spacing: 0.03em;
+      line-height: 1.45;
+      margin: 10px 0;
+    }
+
+    .tree-graph-svg {
+      width: 100%;
+      min-height: 460px;
+      display: block;
+    }
+
+    .tree-graph-empty {
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.55;
+      padding: 14px;
+    }
+
+    .graph-edge {
+      stroke: rgba(201, 168, 76, 0.36);
+      stroke-width: 1.8;
+      fill: none;
+      transition: stroke 180ms ease, opacity 180ms ease, stroke-width 180ms ease;
+    }
+
+    .graph-edge.sibling {
+      stroke: rgba(169, 194, 219, 0.36);
+      stroke-dasharray: 5 4;
+      stroke-width: 1.4;
+    }
+
+    .graph-edge.is-highlighted {
+      stroke: rgba(255, 215, 0, 0.92);
+      stroke-width: 2.4;
+      opacity: 1;
+    }
+
+    .graph-edge.is-muted {
+      opacity: 0.2;
+    }
+
+    .graph-node {
+      cursor: pointer;
+      transition: transform 180ms ease;
+    }
+
+    .graph-node-card {
+      fill: rgba(20, 36, 56, 0.94);
+      stroke: rgba(201, 168, 76, 0.36);
+      stroke-width: 1.2;
+      rx: 9;
+      ry: 9;
+      filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.34));
+      transition: stroke 180ms ease, fill 180ms ease, filter 180ms ease;
+    }
+
+    .graph-node:hover .graph-node-card {
+      stroke: rgba(255, 215, 0, 0.88);
+      filter:
+        drop-shadow(0 8px 18px rgba(0, 0, 0, 0.46))
+        drop-shadow(0 0 10px rgba(255, 215, 0, 0.34));
+    }
+
+    .graph-node.is-selected .graph-node-card {
+      stroke: rgba(255, 215, 0, 0.98);
+      stroke-width: 2;
+      fill: rgba(35, 55, 78, 0.96);
+      filter:
+        drop-shadow(0 10px 22px rgba(0, 0, 0, 0.52))
+        drop-shadow(0 0 14px rgba(255, 215, 0, 0.48));
+    }
+
+    .graph-node.is-connected .graph-node-card {
+      stroke: rgba(255, 215, 0, 0.7);
+    }
+
+    .graph-node.is-muted {
+      opacity: 0.38;
+    }
+
+    .graph-avatar {
+      fill: rgba(201, 168, 76, 0.2);
+      stroke: rgba(201, 168, 76, 0.66);
+      stroke-width: 1.2;
+    }
+
+    .graph-avatar-letter {
+      font-size: 11px;
+      font-weight: 700;
+      fill: var(--gold-lt);
+      dominant-baseline: middle;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+
+    .graph-node-name {
+      fill: var(--white);
+      font-size: 11px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    .graph-node-role {
+      fill: var(--secondary-text);
+      font-size: 10px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .graph-toggle-hit {
+      fill: rgba(201, 168, 76, 0.16);
+      stroke: rgba(201, 168, 76, 0.72);
+      stroke-width: 1;
+      cursor: pointer;
+    }
+
+    .graph-toggle-text {
+      fill: var(--gold-lt);
+      font-size: 12px;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+
     @media (max-width: 640px) {
       .tree-children {
         justify-content: stretch;
@@ -808,6 +963,11 @@
 
       .tree-node {
         width: 100%;
+      }
+
+      .tree-graph-wrap,
+      .tree-graph-svg {
+        min-height: 520px;
       }
     }
 
@@ -1813,7 +1973,29 @@
             <input id="treeSearchInput" type="text" placeholder="Search by name, user ID, or role" />
           </div>
         </div>
-        <div id="familyTreeContent" class="tree-empty">Family tree will appear once members are connected.</div>
+        <div class="tree-view-row">
+          <div class="field">
+            <label for="treeViewMode">View Mode</label>
+            <select id="treeViewMode">
+              <option value="list">List View</option>
+              <option value="graph">Graph View</option>
+            </select>
+          </div>
+          <div class="field" id="treeGraphLayoutField" style="display:none;">
+            <label for="treeGraphLayout">Graph Layout</label>
+            <select id="treeGraphLayout">
+              <option value="vertical">Vertical Tree</option>
+              <option value="radial">Radial Tree</option>
+            </select>
+          </div>
+        </div>
+        <p class="tree-graph-hint" id="treeGraphHint" style="display:none;">
+          Click any node to highlight lineage connections. Use + / - on a node to expand or collapse branches.
+        </p>
+        <div id="familyTreeListView" class="tree-view tree-empty">Family tree will appear once members are connected.</div>
+        <div id="familyTreeGraphView" class="tree-view tree-graph-wrap is-hidden" hidden>
+          <svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>
+        </div>
       </div>
     </div>
   </section>
@@ -2066,7 +2248,13 @@
   const linkedToChecklist = document.getElementById('linked_to_user_ids');
   const familyGroupsContent = document.getElementById('familyGroupsContent');
   const registrationsContent = document.getElementById('registrationsContent');
-  const familyTreeContent = document.getElementById('familyTreeContent');
+  const familyTreeListView = document.getElementById('familyTreeListView');
+  const familyTreeGraphView = document.getElementById('familyTreeGraphView');
+  const familyTreeGraphSvg = document.getElementById('familyTreeGraphSvg');
+  const treeViewMode = document.getElementById('treeViewMode');
+  const treeGraphLayout = document.getElementById('treeGraphLayout');
+  const treeGraphLayoutField = document.getElementById('treeGraphLayoutField');
+  const treeGraphHint = document.getElementById('treeGraphHint');
   const activityLogContent = document.getElementById('activityLogContent');
   const activityLogList = document.getElementById('activityLogList');
   const activitySessionFilterInput = document.getElementById('activitySessionFilter');
@@ -2089,6 +2277,10 @@
   let activeEditUserId = null;
   let activeEditInitial = null;
   let activeTreeFamilyId = '';
+  let activeTreeViewMode = 'list';
+  let activeTreeLayout = 'vertical';
+  let activeTreeSelectedNodeKey = '';
+  const collapsedTreeNodeKeys = new Set();
   let latestStatsSnapshot = null;
   let latestActivityEventCount = null;
   const SESSION_STORAGE_KEY = 'aeternum_session_id';
@@ -2384,9 +2576,19 @@
   treeRoleFilter.addEventListener('change', renderVisualFamilyTree);
   treeFamilyFilter.addEventListener('change', () => {
     activeTreeFamilyId = String(treeFamilyFilter.value || '').trim();
+    activeTreeSelectedNodeKey = '';
     renderVisualFamilyTree();
   });
   treeSearchInput.addEventListener('input', renderVisualFamilyTree);
+  treeViewMode?.addEventListener('change', () => {
+    activeTreeViewMode = String(treeViewMode.value || 'list');
+    activeTreeSelectedNodeKey = '';
+    renderVisualFamilyTree();
+  });
+  treeGraphLayout?.addEventListener('change', () => {
+    activeTreeLayout = String(treeGraphLayout.value || 'vertical');
+    renderVisualFamilyTree();
+  });
   pageNavButtons.forEach((button) => {
     button.addEventListener('click', () => {
       const targetPage = button.dataset.pageTarget;
@@ -2948,6 +3150,59 @@
       && nodeMatchesTreeSearch(node, searchTerm);
   }
 
+  function setTreeViewModeUI() {
+    const isGraph = activeTreeViewMode === 'graph';
+    if (treeGraphLayoutField) {
+      treeGraphLayoutField.style.display = isGraph ? '' : 'none';
+    }
+    if (treeGraphHint) {
+      treeGraphHint.style.display = isGraph ? 'block' : 'none';
+    }
+    if (familyTreeListView) {
+      familyTreeListView.hidden = isGraph;
+      familyTreeListView.classList.toggle('is-hidden', isGraph);
+    }
+    if (familyTreeGraphView) {
+      familyTreeGraphView.hidden = !isGraph;
+      familyTreeGraphView.classList.toggle('is-hidden', !isGraph);
+    }
+  }
+
+  function getTreeEmptyMessage() {
+    return 'Family tree will appear once members are connected.';
+  }
+
+  function getTreeNodeKey(familyId, node, pathKey) {
+    const userId = String(node?.user_id || '').trim();
+    const base = userId || `${String(node?.full_name || 'member').toLowerCase().replace(/\s+/g, '_')}_${pathKey}`;
+    return `${familyId}::${base}`;
+  }
+
+  function trimGraphLabel(value, maxLength = 18) {
+    const text = String(value || '').trim();
+    if (!text) return 'Unnamed';
+    return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
+  }
+
+  function filterTreeNodeForCurrentFilters(node, roleFilter, searchTerm) {
+    if (!node) return null;
+
+    const children = Array.isArray(node.children) ? node.children : [];
+    const filteredChildren = children
+      .map((child) => filterTreeNodeForCurrentFilters(child, roleFilter, searchTerm))
+      .filter(Boolean);
+    const hasMatch = treeNodeMatchesFilters(node, roleFilter, searchTerm);
+
+    if (!hasMatch && !filteredChildren.length) {
+      return null;
+    }
+
+    return {
+      ...node,
+      children: filteredChildren,
+    };
+  }
+
   function subtreeHasMatch(node, roleFilter, searchTerm) {
     if (!node) return false;
     if (treeNodeMatchesFilters(node, roleFilter, searchTerm)) {
@@ -3014,13 +3269,236 @@
     return payload;
   }
 
-  async function renderVisualFamilyTree() {
-    const roleFilter = treeRoleFilter.value;
-    const searchTerm = treeSearchInput.value.trim().toLowerCase();
-    const groups = Array.isArray(familiesCache) ? familiesCache : [];
+  function buildGraphTopology(familyId, roots) {
+    const nodes = [];
+    const parentEdges = [];
+    const siblingEdges = [];
+    const childrenMap = new Map();
+    const parentMap = new Map();
 
+    function walk(node, parentKey, depth, pathKey) {
+      const nodeKey = getTreeNodeKey(familyId, node, pathKey);
+      const rawChildren = Array.isArray(node?.children) ? node.children : [];
+      const isCollapsed = collapsedTreeNodeKeys.has(nodeKey);
+      const visibleChildren = isCollapsed ? [] : rawChildren;
+
+      nodes.push({
+        key: nodeKey,
+        familyId,
+        user_id: String(node?.user_id || '').trim(),
+        full_name: String(node?.full_name || 'Unnamed member'),
+        relationship_role: String(node?.relationship_role || 'not_provided'),
+        depth,
+        hasChildren: rawChildren.length > 0,
+        isCollapsed,
+      });
+
+      if (!childrenMap.has(nodeKey)) {
+        childrenMap.set(nodeKey, []);
+      }
+
+      if (parentKey) {
+        parentEdges.push({ from: parentKey, to: nodeKey, type: 'parent' });
+        parentMap.set(nodeKey, parentKey);
+      }
+
+      const visibleChildKeys = [];
+      visibleChildren.forEach((child, index) => {
+        const childKey = getTreeNodeKey(familyId, child, `${pathKey}.${index}`);
+        visibleChildKeys.push(childKey);
+        walk(child, nodeKey, depth + 1, `${pathKey}.${index}`);
+      });
+
+      childrenMap.set(nodeKey, visibleChildKeys);
+      for (let i = 0; i < visibleChildKeys.length - 1; i += 1) {
+        siblingEdges.push({
+          from: visibleChildKeys[i],
+          to: visibleChildKeys[i + 1],
+          type: 'sibling',
+        });
+      }
+    }
+
+    (roots || []).forEach((root, rootIndex) => {
+      walk(root, null, 0, `r${rootIndex}`);
+    });
+
+    const rootKeys = nodes
+      .map((node) => node.key)
+      .filter((key) => !parentMap.has(key));
+
+    return {
+      nodes,
+      edges: [...parentEdges, ...siblingEdges],
+      parentEdges,
+      siblingEdges,
+      childrenMap,
+      parentMap,
+      rootKeys,
+    };
+  }
+
+  function computeVerticalGraphPositions(topology, width, height) {
+    const leafOrder = new Map();
+    const xOrder = new Map();
+    const depthMap = new Map();
+    const nodeByKey = new Map(topology.nodes.map((node) => [node.key, node]));
+    let leafIndex = 0;
+    let maxDepth = 0;
+
+    function assign(nodeKey, depth) {
+      depthMap.set(nodeKey, depth);
+      if (depth > maxDepth) maxDepth = depth;
+
+      const children = topology.childrenMap.get(nodeKey) || [];
+      if (!children.length) {
+        leafOrder.set(nodeKey, leafIndex);
+        xOrder.set(nodeKey, leafIndex);
+        leafIndex += 1;
+        return leafOrder.get(nodeKey);
+      }
+
+      const childPositions = children.map((childKey) => assign(childKey, depth + 1));
+      const avg = childPositions.reduce((sum, value) => sum + value, 0) / childPositions.length;
+      xOrder.set(nodeKey, avg);
+      return avg;
+    }
+
+    topology.rootKeys.forEach((rootKey) => assign(rootKey, 0));
+
+    const leaves = Math.max(leafIndex, 1);
+    const xPadding = 80;
+    const yPadding = 70;
+    const xSpan = Math.max(width - xPadding * 2, 120);
+    const ySpan = Math.max(height - yPadding * 2, 120);
+    const xStep = leaves > 1 ? xSpan / (leaves - 1) : 0;
+    const yStep = maxDepth > 0 ? ySpan / maxDepth : 0;
+
+    const positionMap = new Map();
+    nodeByKey.forEach((node, nodeKey) => {
+      const xIndex = xOrder.get(nodeKey) || 0;
+      const depth = depthMap.get(nodeKey) || 0;
+      const x = xPadding + xIndex * xStep;
+      const y = yPadding + depth * yStep;
+      positionMap.set(nodeKey, { x, y, depth });
+      node.depth = depth;
+    });
+
+    return positionMap;
+  }
+
+  function computeRadialGraphPositions(topology, width, height) {
+    const base = computeVerticalGraphPositions(topology, width, height);
+    const depthValues = Array.from(base.values()).map((value) => value.depth || 0);
+    const maxDepth = Math.max(...depthValues, 0);
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const innerRadius = 44;
+    const outerRadius = Math.max(Math.min(width, height) / 2 - 44, 120);
+    const radiusStep = maxDepth > 0 ? (outerRadius - innerRadius) / maxDepth : 0;
+    const ordered = Array.from(base.entries()).sort((a, b) => a[1].x - b[1].x);
+    const denominator = Math.max(ordered.length - 1, 1);
+    const positionMap = new Map();
+
+    ordered.forEach(([nodeKey, value], index) => {
+      const angle = (index / denominator) * Math.PI * 2 - Math.PI / 2;
+      const radius = innerRadius + (value.depth || 0) * radiusStep;
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+      positionMap.set(nodeKey, { x, y, depth: value.depth || 0 });
+    });
+
+    return positionMap;
+  }
+
+  function isEdgeConnectedToSelection(edge, selectedKey) {
+    if (!selectedKey) return false;
+    return edge.from === selectedKey || edge.to === selectedKey;
+  }
+
+  function renderGraphSvg(svgEl, topology, width = 1100, height = 540) {
+    if (!svgEl) return;
+    if (!topology.nodes.length) {
+      svgEl.innerHTML = '';
+      svgEl.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      return;
+    }
+
+    const positions = activeTreeLayout === 'radial'
+      ? computeRadialGraphPositions(topology, width, height)
+      : computeVerticalGraphPositions(topology, width, height);
+
+    const connectedNodeKeys = new Set();
+    if (activeTreeSelectedNodeKey) {
+      connectedNodeKeys.add(activeTreeSelectedNodeKey);
+      topology.edges.forEach((edge) => {
+        if (edge.from === activeTreeSelectedNodeKey) connectedNodeKeys.add(edge.to);
+        if (edge.to === activeTreeSelectedNodeKey) connectedNodeKeys.add(edge.from);
+      });
+    }
+
+    const edgeMarkup = topology.edges.map((edge) => {
+      const from = positions.get(edge.from);
+      const to = positions.get(edge.to);
+      if (!from || !to) return '';
+
+      const highlighted = isEdgeConnectedToSelection(edge, activeTreeSelectedNodeKey);
+      const muted = activeTreeSelectedNodeKey && !highlighted;
+      const classNames = [
+        'graph-edge',
+        edge.type === 'sibling' ? 'sibling' : '',
+        highlighted ? 'is-highlighted' : '',
+        muted ? 'is-muted' : '',
+      ].filter(Boolean).join(' ');
+
+      return `<line class="${classNames}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}"></line>`;
+    }).join('');
+
+    const nodeWidth = 174;
+    const nodeHeight = 58;
+    const nodeMarkup = topology.nodes.map((node) => {
+      const point = positions.get(node.key);
+      if (!point) return '';
+
+      const x = point.x - nodeWidth / 2;
+      const y = point.y - nodeHeight / 2;
+      const isSelected = node.key === activeTreeSelectedNodeKey;
+      const isConnected = activeTreeSelectedNodeKey && connectedNodeKeys.has(node.key);
+      const isMuted = activeTreeSelectedNodeKey && !connectedNodeKeys.has(node.key);
+      const initial = (String(node.full_name || 'U').trim().charAt(0) || 'U').toUpperCase();
+      const roleLabel = toDisplayLabel(node.relationship_role || 'not_provided');
+      const toggleSymbol = node.isCollapsed ? '+' : '-';
+      const nodeClass = [
+        'graph-node',
+        isSelected ? 'is-selected' : '',
+        isConnected ? 'is-connected' : '',
+        isMuted ? 'is-muted' : '',
+      ].filter(Boolean).join(' ');
+
+      return `
+        <g class="${nodeClass}" data-node-key="${escapeHtml(node.key)}" transform="translate(${x}, ${y})">
+          <rect class="graph-node-card" width="${nodeWidth}" height="${nodeHeight}"></rect>
+          <circle class="graph-avatar" cx="18" cy="18" r="10"></circle>
+          <text class="graph-avatar-letter" x="18" y="18">${escapeHtml(initial)}</text>
+          <text class="graph-node-name" x="34" y="20">${escapeHtml(trimGraphLabel(node.full_name, 22))}</text>
+          <text class="graph-node-role" x="34" y="37">${escapeHtml(trimGraphLabel(roleLabel, 24))}</text>
+          ${node.hasChildren ? `
+            <circle class="graph-toggle-hit" cx="157" cy="12" r="8" data-toggle-key="${escapeHtml(node.key)}"></circle>
+            <text class="graph-toggle-text" x="157" y="12">${toggleSymbol}</text>
+          ` : ''}
+        </g>
+      `;
+    }).join('');
+
+    svgEl.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svgEl.innerHTML = `${edgeMarkup}${nodeMarkup}`;
+  }
+
+  async function renderVisualFamilyTreeList(groups, roleFilter, searchTerm) {
+    if (!familyTreeListView) return;
     if (!groups.length) {
-      familyTreeContent.innerHTML = 'Family tree will appear once members are connected.';
+      familyTreeListView.className = 'tree-view tree-empty';
+      familyTreeListView.innerHTML = getTreeEmptyMessage();
       return;
     }
 
@@ -3037,9 +3515,7 @@
       return String(group.family_id || '') === activeTreeFamilyId;
     });
 
-    let totalRenderedMembers = 0;
     const familyBlocks = [];
-
     for (const family of visibleGroups) {
       let tree;
       try {
@@ -3051,16 +3527,12 @@
       const roots = Array.isArray(tree?.roots) ? tree.roots : [];
       if (!roots.length) continue;
 
-      let forestHtml = roots
+      const forestHtml = roots
         .map((rootNode) => renderTreeBranch(rootNode, roleFilter, searchTerm))
         .filter(Boolean)
         .join('');
 
-      if (!forestHtml) {
-        continue;
-      }
-
-      totalRenderedMembers += roots.length;
+      if (!forestHtml) continue;
 
       familyBlocks.push(`
         <article class="tree-family-card">
@@ -3072,16 +3544,99 @@
     }
 
     if (!familyBlocks.length) {
-      familyTreeContent.innerHTML = 'Family tree will appear once members are connected.';
+      familyTreeListView.className = 'tree-view tree-empty';
+      familyTreeListView.innerHTML = getTreeEmptyMessage();
       return;
     }
 
-    if (!totalRenderedMembers) {
-      familyTreeContent.innerHTML = 'Family tree will appear once members are connected.';
+    familyTreeListView.className = 'tree-view';
+    familyTreeListView.innerHTML = familyBlocks.join('');
+  }
+
+  async function renderVisualFamilyTreeGraph(groups, roleFilter, searchTerm) {
+    if (!familyTreeGraphView) return;
+    familyTreeGraphView.innerHTML = '<svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>';
+    const svg = document.getElementById('familyTreeGraphSvg');
+    if (!svg) return;
+
+    if (!groups.length) {
+      familyTreeGraphView.innerHTML = `<div class="tree-graph-empty">${escapeHtml(getTreeEmptyMessage())}</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>`;
       return;
     }
 
-    familyTreeContent.innerHTML = familyBlocks.join('');
+    const validFamilyIds = new Set(groups.map((group) => String(group.family_id || '')));
+    if (!activeTreeFamilyId || !validFamilyIds.has(activeTreeFamilyId)) {
+      activeTreeFamilyId = String(groups[0]?.family_id || '');
+      if (treeFamilyFilter) {
+        treeFamilyFilter.value = activeTreeFamilyId;
+      }
+    }
+
+    const selectedFamily = groups.find((group) => String(group.family_id || '') === activeTreeFamilyId);
+    if (!selectedFamily) {
+      familyTreeGraphView.innerHTML = `<div class="tree-graph-empty">${escapeHtml(getTreeEmptyMessage())}</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>`;
+      return;
+    }
+
+    let tree;
+    try {
+      tree = await fetchFamilyTreeData(selectedFamily.family_id);
+    } catch {
+      familyTreeGraphView.innerHTML = '<div class="tree-graph-empty">Could not load family graph data.</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>';
+      return;
+    }
+
+    const roots = Array.isArray(tree?.roots) ? tree.roots : [];
+    const filteredRoots = roots
+      .map((rootNode) => filterTreeNodeForCurrentFilters(rootNode, roleFilter, searchTerm))
+      .filter(Boolean);
+
+    if (!filteredRoots.length) {
+      familyTreeGraphView.innerHTML = '<div class="tree-graph-empty">No graph nodes match the current filters.</div><svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>';
+      return;
+    }
+
+    svg.addEventListener('click', (event) => {
+      const toggleEl = event.target.closest('[data-toggle-key]');
+      if (toggleEl) {
+        const toggleKey = String(toggleEl.getAttribute('data-toggle-key') || '');
+        if (toggleKey) {
+          if (collapsedTreeNodeKeys.has(toggleKey)) collapsedTreeNodeKeys.delete(toggleKey);
+          else collapsedTreeNodeKeys.add(toggleKey);
+          renderVisualFamilyTree();
+        }
+        return;
+      }
+
+      const nodeEl = event.target.closest('[data-node-key]');
+      if (!nodeEl) return;
+      const nodeKey = String(nodeEl.getAttribute('data-node-key') || '');
+      if (!nodeKey) return;
+      activeTreeSelectedNodeKey = activeTreeSelectedNodeKey === nodeKey ? '' : nodeKey;
+      renderVisualFamilyTree();
+    });
+
+    const topology = buildGraphTopology(String(selectedFamily.family_id || 'family'), filteredRoots);
+
+    const width = 1100;
+    const nodeCount = topology.nodes.length;
+    const height = Math.max(520, Math.min(940, 380 + nodeCount * 10));
+    renderGraphSvg(svg, topology, width, height);
+  }
+
+  async function renderVisualFamilyTree() {
+    setTreeViewModeUI();
+
+    const roleFilter = treeRoleFilter.value;
+    const searchTerm = treeSearchInput.value.trim().toLowerCase();
+    const groups = Array.isArray(familiesCache) ? familiesCache : [];
+
+    if (activeTreeViewMode === 'graph') {
+      await renderVisualFamilyTreeGraph(groups, roleFilter, searchTerm);
+      return;
+    }
+
+    await renderVisualFamilyTreeList(groups, roleFilter, searchTerm);
   }
 
   function changedFieldsPayload(current, initial) {
