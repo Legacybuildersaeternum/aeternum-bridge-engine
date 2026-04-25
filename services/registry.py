@@ -639,6 +639,14 @@ def get_family_tree(family_id: str) -> dict[str, Any]:
         outgoing[parent_id].append(child_id)
         incoming[child_id] += 1
 
+    def sibling_label_for_role(role: str) -> str:
+        normalized = str(role or "").strip().lower()
+        if normalized in {"son", "brother", "father", "grandson", "grandfather"}:
+            return "Brother"
+        if normalized in {"daughter", "sister", "mother", "granddaughter", "grandmother"}:
+            return "Sister"
+        return "Sibling"
+
     for user_id, node in node_map.items():
         member_role = str(node.get("relationship_role") or "").strip().lower()
         for linked_id in node.get("linked_to_user_ids", []):
@@ -653,6 +661,33 @@ def get_family_tree(family_id: str) -> dict[str, Any]:
                 add_edge(user_id, linked_id)
             else:
                 add_edge(user_id, linked_id)
+
+    sibling_ids_by_member: dict[str, set[str]] = {user_id: set() for user_id in node_map}
+    for child_ids in outgoing.values():
+        for child_id in child_ids:
+            siblings = {sib_id for sib_id in child_ids if sib_id != child_id}
+            sibling_ids_by_member[child_id].update(siblings)
+
+    for user_id, node in node_map.items():
+        siblings = sorted(
+            sibling_ids_by_member.get(user_id, set()),
+            key=lambda sib_id: name_by_id.get(sib_id, "").lower(),
+        )
+        sibling_names = [name_by_id[sib_id] for sib_id in siblings if sib_id in name_by_id]
+
+        base_relationship = str(node.get("relationship_display") or "").strip()
+        sibling_phrase = ""
+        if sibling_names:
+            sibling_phrase = f"{sibling_label_for_role(str(node.get('relationship_role') or ''))} of {_human_join(sibling_names)}"
+
+        if base_relationship and base_relationship != "Relationship not linked yet.":
+            relationship_summary = (
+                f"{base_relationship}; {sibling_phrase}" if sibling_phrase else base_relationship
+            )
+        else:
+            relationship_summary = sibling_phrase or "Relationship not linked yet."
+
+        node["relationship_summary"] = relationship_summary
 
     root_ids = [user_id for user_id, in_count in incoming.items() if in_count == 0]
     if not root_ids:

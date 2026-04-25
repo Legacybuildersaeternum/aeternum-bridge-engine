@@ -2037,6 +2037,7 @@
           <strong>Role:</strong> ${toDisplayLabel(member.relationship_role || 'not_provided')}<br>
           <strong>Household:</strong> ${toDisplayLabel(member.household_position || 'not_provided')}<br>
           <strong>Relationship:</strong> ${escapeHtml(member.relationship_display || 'Relationship not linked yet.')}<br>
+          <strong>Relationship Summary:</strong> ${escapeHtml(member.relationship_summary || member.relationship_display || 'Relationship not linked yet.')}<br>
           <strong>Connected to:</strong> ${escapeHtml(connectedNames)}<br>
           <strong>User ID:</strong> ${escapeHtml(member.user_id || '-')}
         </div>
