@@ -917,7 +917,7 @@
 
     .activity-filter-row {
       display: grid;
-      grid-template-columns: 1fr 1fr auto auto;
+      grid-template-columns: 1fr 1fr 1fr auto auto;
       gap: 8px;
       align-items: end;
       margin-bottom: 10px;
@@ -1436,30 +1436,44 @@
     <div class="home-grid">
       <section class="feature-card" aria-labelledby="mission-title">
         <h2 id="mission-title" class="feature-title">Mission Statement</h2>
+        <div class="status-badge-row" style="margin-bottom:14px;">
+          <span class="status-badge" id="homeLiveStatusBadge">Aeternum Bridge Engine Active</span>
+        </div>
         <p class="mission-text">Aeternum Bridge exists to help dispersed Black families document their bloodlines, reconnect with ancestral regions, and build structured cultural pathways across the diaspora.</p>
         <div class="inline-action-row">
           <button type="button" class="secondary" data-page-target="admin-dashboard">Open Admin Dashboard</button>
         </div>
       </section>
 
-      <section class="feature-card" aria-labelledby="home-summary-title">
-        <h2 id="home-summary-title" class="feature-title">MVP Capabilities</h2>
-        <div class="home-feature-list">
-          <article class="home-feature-item">
-            <strong>Identity Capture</strong>
-            <span>Register family representatives, preserve household context, and keep reconnection details structured.</span>
-          </article>
-          <article class="home-feature-item">
-            <strong>Family Intelligence</strong>
-            <span>Generate visual family trees with parent, sibling, and relationship summaries derived from linked family data.</span>
-          </article>
-          <article class="home-feature-item">
-            <strong>Operational Continuity</strong>
-            <span>Track sessions, preserve activity history, and export registry data for future Vault and archival workflows.</span>
-          </article>
+      <section class="feature-card" aria-labelledby="home-live-stats-title">
+        <h2 id="home-live-stats-title" class="feature-title">Live Registry Stats</h2>
+        <div id="homeStatsGrid" class="stat-grid">
+          <div class="stat-box"><div class="num" id="homeStat_users">--</div><div class="lbl">Total Users</div></div>
+          <div class="stat-box"><div class="num" id="homeStat_families">--</div><div class="lbl">Total Families</div></div>
+          <div class="stat-box"><div class="num" id="homeStat_return">--</div><div class="lbl">Interested in Return</div></div>
+          <div class="stat-box"><div class="num" id="homeStat_contact">--</div><div class="lbl">With Contact Info</div></div>
         </div>
+        <div id="homeStatsDetails" style="margin-top:12px; font-size:0.83rem; color:var(--muted); line-height:1.7;"></div>
       </section>
     </div>
+
+    <section class="feature-card" aria-labelledby="home-summary-title">
+      <h2 id="home-summary-title" class="feature-title">MVP Capabilities</h2>
+      <div class="home-feature-list">
+        <article class="home-feature-item">
+          <strong>Identity Capture</strong>
+          <span>Register family representatives, preserve household context, and keep reconnection details structured.</span>
+        </article>
+        <article class="home-feature-item">
+          <strong>Family Intelligence</strong>
+          <span>Generate visual family trees with parent, child, sibling, and relationship summaries.</span>
+        </article>
+        <article class="home-feature-item">
+          <strong>Operational Continuity</strong>
+          <span>Track sessions, preserve activity history, and export registry data for future Vault and archival workflows.</span>
+        </article>
+      </div>
+    </section>
 
     <section class="feature-card" aria-labelledby="how-title">
       <h2 id="how-title" class="feature-title">How It Works</h2>
@@ -1700,6 +1714,21 @@
             <label for="activityUserFilter">User ID Filter</label>
             <input id="activityUserFilter" type="text" placeholder="Filter by user_id" />
           </div>
+          <div class="field">
+            <label for="activityEventTypeFilter">Event Type</label>
+            <select id="activityEventTypeFilter">
+              <option value="">All Events</option>
+              <option value="user_registered">User Registered</option>
+              <option value="session_started">Session Started</option>
+              <option value="session_active">Session Active</option>
+              <option value="registration_started">Registration Started</option>
+              <option value="export_download_clicked">Export Download</option>
+              <option value="full_backup_downloaded">Full Backup</option>
+              <option value="registration_updated">Registration Updated</option>
+              <option value="registration_deleted">Registration Deleted</option>
+              <option value="relationship_updated">Relationship Updated</option>
+            </select>
+          </div>
           <button type="button" class="secondary activity-filter-btn" id="activityFilterApplyBtn">Apply</button>
           <button type="button" class="secondary activity-filter-btn" id="activityFilterClearBtn">Clear</button>
         </div>
@@ -1737,6 +1766,7 @@
           </button>
         </div>
         <p style="font-size: 0.85em; color: #aaa; margin-top: 1rem;">✓ Read-only exports. No data is modified during download.</p>
+        <div id="exportConfirmMsg" class="message success" style="display:none; margin-top:14px;"></div>
       </div>
     </div>
   </section>
@@ -1782,6 +1812,12 @@
           <summary>Family Groups</summary>
           <div class="family-groups-wrap" id="familyGroupsContent" style="max-height:440px; opacity:1;">
             <p class="stats-loading">Loading family groups...</p>
+          </div>
+        </details>
+        <details class="admin-collapsible" id="activityLogAdminPanel" open>
+          <summary>Recent Activity</summary>
+          <div class="activity-log-wrap" id="activityLogAdminContent" style="max-height:360px; opacity:1; padding:10px 14px 14px;">
+            <p class="stats-loading">Loading recent activity...</p>
           </div>
         </details>
       </div>
@@ -1907,6 +1943,7 @@
   const activityLogList = document.getElementById('activityLogList');
   const activitySessionFilterInput = document.getElementById('activitySessionFilter');
   const activityUserFilterInput = document.getElementById('activityUserFilter');
+  const activityEventTypeFilterInput = document.getElementById('activityEventTypeFilter');
   const activityFilterApplyBtn = document.getElementById('activityFilterApplyBtn');
   const activityFilterClearBtn = document.getElementById('activityFilterClearBtn');
   const treeRoleFilter = document.getElementById('treeRoleFilter');
@@ -1989,6 +2026,7 @@
       'Activity Logging Active',
       'Export Backup Active',
       'Session Tracking Active',
+      'Backend Health Check Connected',
     ].map((label) => `<span class="status-badge">${escapeHtml(label)}</span>`).join('');
   }
 
@@ -2018,6 +2056,9 @@
       button.classList.toggle('is-active', button.dataset.pageTarget === pageName && button.classList.contains('app-nav-link'));
     });
 
+    if (pageName === 'home') {
+      loadHomeDashboard();
+    }
     if (pageName === 'family-tree') {
       renderVisualFamilyTree();
     }
@@ -2029,6 +2070,7 @@
       loadStats();
       loadRegistrations();
       loadFamilies();
+      loadAdminActivityLog();
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -2146,6 +2188,7 @@
   activityFilterClearBtn?.addEventListener('click', () => {
     if (activitySessionFilterInput) activitySessionFilterInput.value = '';
     if (activityUserFilterInput) activityUserFilterInput.value = '';
+    if (activityEventTypeFilterInput) activityEventTypeFilterInput.value = '';
     loadActivityLog();
   });
   activitySessionFilterInput?.addEventListener('keydown', (event) => {
@@ -2254,7 +2297,7 @@
       }
 
       successMsg.innerHTML =
-        `<strong>Registration successful</strong><br>` +
+        `<strong>Registration saved. Family intelligence updated.</strong><br>` +
         `<div class="id-block">User ID: <span>${data.user_id}</span></div>` +
         `<div class="id-block">Family ID: <span>${data.family_id}</span></div>`;
       successMsg.classList.add('show');
@@ -2262,6 +2305,7 @@
       loadStats();
       loadRegistrations();
       loadFamilies();
+      loadActivityLog();
       setActivePage('admin-dashboard');
       successMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (err) {
@@ -3034,6 +3078,36 @@
     `;
   }
 
+  /* ── Home Dashboard ── */
+  async function loadHomeDashboard() {
+    try {
+      const res = await apiFetch('/stats');
+      const data = await res.json();
+      const usersEl = document.getElementById('homeStat_users');
+      const familiesEl = document.getElementById('homeStat_families');
+      const returnEl = document.getElementById('homeStat_return');
+      const contactEl = document.getElementById('homeStat_contact');
+      const detailsEl = document.getElementById('homeStatsDetails');
+      if (usersEl) usersEl.textContent = data.total_users ?? 0;
+      if (familiesEl) familiesEl.textContent = data.total_family_groups ?? data.total_families ?? 0;
+      if (returnEl) returnEl.textContent = data.total_interested_in_return ?? 0;
+      if (contactEl) contactEl.textContent = data.total_with_contact_info ?? 0;
+      if (detailsEl) {
+        const topCountry = Object.entries(data.country_distribution || {}).sort((a,b) => b[1]-a[1])[0]?.[0] || 'Not provided';
+        const topState = Object.entries(data.state_distribution || {}).sort((a,b) => b[1]-a[1])[0]?.[0] || 'Not provided';
+        const topRole = Object.entries(data.role_distribution || {}).sort((a,b) => b[1]-a[1])[0]?.[0] || 'Not provided';
+        const largestFamily = data.largest_family_size ?? 0;
+        detailsEl.innerHTML =
+          `Top Country: <strong style="color:var(--gold-lt)">${escapeHtml(toDisplayLabel(topCountry))}</strong> &nbsp;|&nbsp; ` +
+          `Top State: <strong style="color:var(--gold-lt)">${escapeHtml(toDisplayLabel(topState))}</strong><br>` +
+          `Largest Family: <strong style="color:var(--gold-lt)">${largestFamily}</strong> &nbsp;|&nbsp; ` +
+          `Most Common Role: <strong style="color:var(--gold-lt)">${escapeHtml(toDisplayLabel(topRole))}</strong>`;
+      }
+    } catch {
+      // Non-blocking — home stats are supplemental
+    }
+  }
+
   /* ── Stats ── */
   async function loadStats() {
     const container = document.getElementById('statsContent');
@@ -3202,6 +3276,35 @@
   }
 
   /* ── Family Groups ── */
+  async function loadAdminActivityLog() {
+    const container = document.getElementById('activityLogAdminContent');
+    if (!container) return;
+    try {
+      const response = await apiFetch('/activity-log?limit=20');
+      const rows = await response.json();
+      const events = Array.isArray(rows) ? rows : [];
+      if (!events.length) {
+        container.innerHTML = '<p class="stats-loading">No activity events yet.</p>';
+        return;
+      }
+      const listHtml = events.slice(0, 20).map((event) => {
+        const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleString() : 'Unknown';
+        return `
+          <article class="activity-log-item">
+            <div class="activity-log-meta">
+              <span class="activity-log-type">${escapeHtml(toDisplayLabel(String(event.event_type || 'event')))}</span>
+              &nbsp;•&nbsp;${escapeHtml(timestamp)}
+              ${event.family_name ? `<br>Family: ${escapeHtml(String(event.family_name))}` : ''}
+            </div>
+            <div class="activity-log-message">${escapeHtml(String(event.message || 'No message'))}</div>
+          </article>`;
+      }).join('');
+      container.innerHTML = `<div class="activity-log-list">${listHtml}</div>`;
+    } catch {
+      container.innerHTML = '<p class="stats-loading">Could not load activity.</p>';
+    }
+  }
+
   async function loadFamilies() {
     const container = document.getElementById('familyGroupsContent');
     try {
@@ -3324,6 +3427,12 @@
       successMsg.innerHTML = `<strong>✓ Export downloaded: ${filename}</strong>`;
       successMsg.classList.add('show');
       errorMsg.classList.remove('show');
+      const exportMsg = document.getElementById('exportConfirmMsg');
+      if (exportMsg) {
+        exportMsg.textContent = 'Export downloaded successfully.';
+        exportMsg.style.display = 'block';
+        setTimeout(() => { exportMsg.style.display = 'none'; }, 5000);
+      }
     } catch (err) {
       showError(`Could not export data: ${err.message}`);
     } finally {
@@ -3340,9 +3449,11 @@
     try {
       const sessionFilter = String(activitySessionFilterInput?.value || '').trim();
       const userFilter = String(activityUserFilterInput?.value || '').trim();
+      const eventTypeFilter = String(activityEventTypeFilterInput?.value || '').trim();
       const query = new URLSearchParams();
       if (sessionFilter) query.set('session_id', sessionFilter);
       if (userFilter) query.set('user_id', userFilter);
+      if (eventTypeFilter) query.set('event_type', eventTypeFilter);
       const endpoint = query.toString() ? `/activity-log?${query.toString()}` : '/activity-log';
 
       const response = await apiFetch(endpoint);
@@ -3393,6 +3504,7 @@
   renderSystemStatusBadges();
 
   // Load stats on page open
+  loadHomeDashboard();
   loadStats();
   loadRegistrations();
   loadFamilies();

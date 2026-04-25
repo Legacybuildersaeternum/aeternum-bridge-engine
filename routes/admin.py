@@ -55,9 +55,10 @@ def get_activity_log(
     limit: int = Query(default=200, ge=1, le=1000),
     session_id: Optional[str] = Query(default=None),
     user_id: Optional[str] = Query(default=None),
+    event_type: Optional[str] = Query(default=None),
 ) -> list[dict[str, Any]]:
-    """Return legacy activity log entries with optional session/user filters."""
-    return registry.get_activity_log(limit=limit, session_id=session_id, user_id=user_id)
+    """Return legacy activity log entries with optional session/user/event_type filters."""
+    return registry.get_activity_log(limit=limit, session_id=session_id, user_id=user_id, event_type=event_type)
 
 
 @router.patch("/registrations/{user_id}", response_model=UserRecord)

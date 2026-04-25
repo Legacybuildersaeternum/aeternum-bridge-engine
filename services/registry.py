@@ -184,6 +184,7 @@ def get_activity_log(
     limit: int = 200,
     session_id: Optional[str] = None,
     user_id: Optional[str] = None,
+    event_type: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """Return activity events with optional filters.
 
@@ -204,6 +205,12 @@ def get_activity_log(
             event
             for event in filtered
             if str(event.get("user_id") or "") == user_id
+        ]
+    if event_type:
+        filtered = [
+            event
+            for event in filtered
+            if str(event.get("event_type") or "") == event_type
         ]
 
     if session_id:
