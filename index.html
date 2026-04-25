@@ -691,6 +691,89 @@
       line-height: 1.45;
     }
 
+    .family-status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(201, 168, 76, 0.42);
+      color: var(--gold-lt);
+      background: rgba(19, 35, 54, 0.72);
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .family-status-badge.incomplete {
+      color: #ffb3b3;
+      border-color: rgba(224, 90, 90, 0.58);
+      background: rgba(224, 90, 90, 0.16);
+    }
+
+    .family-status-badge.active {
+      color: #f5d48b;
+      border-color: rgba(201, 168, 76, 0.58);
+      background: rgba(201, 168, 76, 0.18);
+    }
+
+    .family-status-badge.structured {
+      color: #9fe4b6;
+      border-color: rgba(76, 175, 130, 0.56);
+      background: rgba(76, 175, 130, 0.14);
+    }
+
+    .family-status-badge.ready-for-expansion {
+      color: #9ed4ff;
+      border-color: rgba(124, 185, 232, 0.58);
+      background: rgba(124, 185, 232, 0.14);
+    }
+
+    .tree-family-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tree-node-subtag {
+      margin-top: 6px;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold-lt);
+      opacity: 0.9;
+    }
+
+    .lineage-panel {
+      margin-top: 12px;
+      border: 1px solid rgba(201, 168, 76, 0.24);
+      border-radius: var(--radius);
+      background: rgba(17, 33, 52, 0.78);
+      padding: 12px;
+    }
+
+    .lineage-panel h3 {
+      color: var(--gold-lt);
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .lineage-panel-list {
+      margin: 0;
+      padding-left: 16px;
+      color: var(--body-text);
+      font-size: 0.82rem;
+      line-height: 1.52;
+      display: grid;
+      gap: 6px;
+    }
+
     .tree-forest {
       display: grid;
       gap: 10px;
@@ -840,6 +923,7 @@
       stroke: rgba(201, 168, 76, 0.36);
       stroke-width: 1.8;
       fill: none;
+      filter: drop-shadow(0 0 2px rgba(201, 168, 76, 0.14));
       transition: stroke 180ms ease, opacity 180ms ease, stroke-width 180ms ease;
     }
 
@@ -852,6 +936,7 @@
     .graph-edge.is-highlighted {
       stroke: rgba(255, 215, 0, 0.92);
       stroke-width: 2.4;
+      filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5));
       opacity: 1;
     }
 
@@ -896,6 +981,12 @@
 
     .graph-node.is-muted {
       opacity: 0.38;
+    }
+
+    .graph-node.is-pending .graph-node-card {
+      stroke: rgba(201, 168, 76, 0.42);
+      fill: rgba(20, 36, 56, 0.72);
+      stroke-dasharray: 4 3;
     }
 
     .graph-avatar {
@@ -2129,10 +2220,18 @@
         <p class="tree-graph-hint" id="treeGraphHint" style="display:none;">
           Click any node to highlight lineage connections. Use + / - on a node to expand or collapse branches.
         </p>
+        <div class="tree-family-header-row" style="margin-bottom:10px;">
+          <span style="color:var(--secondary-text); font-size:0.72rem; letter-spacing:0.08em; text-transform:uppercase;">Family Status</span>
+          <span id="treeFamilyStatusBadge" class="family-status-badge">--</span>
+        </div>
         <div id="familyTreeListView" class="tree-view tree-empty">Family tree will appear once members are connected.</div>
         <div id="familyTreeGraphView" class="tree-view tree-graph-wrap is-hidden" hidden>
           <svg id="familyTreeGraphSvg" class="tree-graph-svg" role="img" aria-label="Family tree graph view"></svg>
         </div>
+        <section class="lineage-panel" aria-labelledby="lineage-insights-title">
+          <h3 id="lineage-insights-title">Aeternum Lineage Insights</h3>
+          <div id="treeLineageInsights" class="stats-loading">Lineage insights appear once a family is selected.</div>
+        </section>
       </div>
     </div>
   </section>
@@ -2295,6 +2394,11 @@
           <div id="intelActivity" class="stats-loading">Loading activity intelligence...</div>
         </article>
 
+        <article class="intelligence-card" aria-labelledby="lineage-intelligence-title">
+          <h3 id="lineage-intelligence-title">Aeternum Lineage Insights</h3>
+          <div id="intelLineageInsights" class="stats-loading">Loading lineage insights...</div>
+        </article>
+
         <article class="intelligence-card" aria-labelledby="next-action-title">
           <h3 id="next-action-title">Recommended Next Action</h3>
           <div id="intelNextAction" class="next-action-box">Analyzing current registry health...</div>
@@ -2417,7 +2521,10 @@
   const intelFamilySignals = document.getElementById('intelFamilySignals');
   const intelDataHealth = document.getElementById('intelDataHealth');
   const intelActivity = document.getElementById('intelActivity');
+  const intelLineageInsights = document.getElementById('intelLineageInsights');
   const intelNextAction = document.getElementById('intelNextAction');
+  const treeFamilyStatusBadge = document.getElementById('treeFamilyStatusBadge');
+  const treeLineageInsights = document.getElementById('treeLineageInsights');
   const familyNameInput = document.getElementById('family_name');
   const linkedToChecklist = document.getElementById('linked_to_user_ids');
   const familyGroupsContent = document.getElementById('familyGroupsContent');
@@ -2457,6 +2564,7 @@
   const collapsedTreeNodeKeys = new Set();
   let latestStatsSnapshot = null;
   let latestActivitySnapshot = [];
+  let latestLineageSignals = [];
   let latestActivityEventCount = null;
   const SESSION_STORAGE_KEY = 'aeternum_session_id';
   const KNOWN_USER_STORAGE_KEY = 'aeternum_known_user_id';
@@ -2610,6 +2718,213 @@
     return events.find((event) => allowed.has(String(event.event_type || ''))) || null;
   }
 
+  function identitySignature(member) {
+    return [
+      String(member?.full_name || '').trim().toLowerCase(),
+      String(member?.relationship_role || 'not_provided').trim().toLowerCase(),
+      String(member?.household_position || 'not_provided').trim().toLowerCase(),
+    ].join('|');
+  }
+
+  function analyzeDuplicateProfiles(members) {
+    const groups = new Map();
+    (members || []).forEach((member) => {
+      const key = identitySignature(member);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(member);
+    });
+    const duplicateGroups = Array.from(groups.values()).filter((group) => group.length > 1);
+    return {
+      duplicateGroups,
+      duplicateCount: duplicateGroups.reduce((sum, group) => sum + (group.length - 1), 0),
+    };
+  }
+
+  function computeConnectionScore(member) {
+    const linked = Array.isArray(member?.linked_to_user_ids) ? member.linked_to_user_ids.filter(Boolean).length : 0;
+    const roleBoost = String(member?.household_position || '') === 'primary_representative' ? 3 : 0;
+    return linked + roleBoost;
+  }
+
+  function deriveFamilyStatus(family) {
+    const members = Array.isArray(family?.members) ? family.members : [];
+    if (!members.length) return 'incomplete';
+    const total = members.length;
+    const missingLinks = members.filter((member) => {
+      const linked = Array.isArray(member.linked_to_user_ids) ? member.linked_to_user_ids.filter(Boolean) : [];
+      return linked.length === 0;
+    }).length;
+    const missingRoles = members.filter((member) => !String(member.relationship_role || '').trim()).length;
+    const hasPrimary = members.some((member) => String(member.household_position || '') === 'primary_representative');
+
+    if (!hasPrimary || missingLinks >= Math.max(2, Math.ceil(total * 0.4))) return 'incomplete';
+    if (missingLinks === 0 && missingRoles === 0 && total >= 4) return 'ready-for-expansion';
+    if (missingLinks <= 1 && missingRoles <= 1) return 'structured';
+    return 'active';
+  }
+
+  function statusLabelFromKey(status) {
+    const map = {
+      incomplete: 'Incomplete',
+      active: 'Active',
+      structured: 'Structured',
+      'ready-for-expansion': 'Ready for Expansion',
+    };
+    return map[status] || 'Incomplete';
+  }
+
+  function getFamilyById(families, familyId) {
+    return (families || []).find((family) => String(family.family_id || '') === String(familyId || '')) || null;
+  }
+
+  function pickPrimaryRepresentative(family) {
+    const members = Array.isArray(family?.members) ? family.members : [];
+    if (!members.length) return null;
+    const sorted = [...members].sort((a, b) => computeConnectionScore(b) - computeConnectionScore(a));
+    const explicit = sorted.find((member) => String(member.household_position || '') === 'primary_representative');
+    return explicit || sorted[0];
+  }
+
+  function buildLineageInsights(family) {
+    const members = Array.isArray(family?.members) ? family.members : [];
+    if (!members.length) {
+      return ['No lineage records are mapped yet.'];
+    }
+
+    const missingLinks = members.filter((member) => {
+      const linked = Array.isArray(member.linked_to_user_ids) ? member.linked_to_user_ids.filter(Boolean) : [];
+      return linked.length === 0;
+    }).length;
+
+    const hasFatherChildLinks = members.some((member) => {
+      const role = String(member.relationship_role || '').toLowerCase();
+      const linked = Array.isArray(member.linked_to_user_ids) ? member.linked_to_user_ids.filter(Boolean) : [];
+      return role === 'father' && linked.length > 0;
+    });
+
+    const siblingPairs = [];
+    members.forEach((member) => {
+      const summary = String(member.relationship_summary || member.relationship_display || '').toLowerCase();
+      if (summary.includes('sister of') || summary.includes('brother of') || summary.includes('sibling')) {
+        siblingPairs.push(member.full_name || 'Member');
+      }
+    });
+
+    const primary = pickPrimaryRepresentative(family);
+    const duplicateInfo = analyzeDuplicateProfiles(members);
+    const lines = [];
+    if (hasFatherChildLinks) {
+      lines.push('Father -> child relationships are actively mapped.');
+    }
+    if (siblingPairs.length >= 2) {
+      lines.push(`Sibling connection detected across ${siblingPairs.length} lineage members.`);
+    }
+    if (primary) {
+      lines.push(`Primary family structure established around ${primary.full_name || 'the primary representative'}.`);
+    }
+    if (missingLinks > 0) {
+      lines.push(`${missingLinks} member profiles remain unlinked and are marked as pending lineage links.`);
+    } else {
+      lines.push('All current member profiles are linked to an active lineage path.');
+    }
+    if (duplicateInfo.duplicateCount > 0) {
+      lines.push(`${duplicateInfo.duplicateCount} duplicate identity profiles are grouped as pending links to avoid root-level duplication.`);
+    }
+
+    return lines;
+  }
+
+  function renderFamilyStatusBadgeForTree(family) {
+    if (!treeFamilyStatusBadge) return;
+    if (!family) {
+      treeFamilyStatusBadge.className = 'family-status-badge';
+      treeFamilyStatusBadge.textContent = '--';
+      return;
+    }
+
+    const statusKey = deriveFamilyStatus(family);
+    treeFamilyStatusBadge.className = `family-status-badge ${statusKey}`;
+    treeFamilyStatusBadge.textContent = statusLabelFromKey(statusKey);
+  }
+
+  function renderLineageInsightsPanel(lines) {
+    if (!treeLineageInsights) return;
+    const list = Array.isArray(lines) && lines.length
+      ? lines
+      : ['Lineage insights appear once a family is selected.'];
+    treeLineageInsights.innerHTML = `<ul class="lineage-panel-list">${list.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+  }
+
+  function normalizeTreeForVisual(familyId, roots, family) {
+    const baseRoots = Array.isArray(roots) ? [...roots] : [];
+    if (!baseRoots.length) {
+      return { roots: [], primaryRootKey: '', duplicateCount: 0 };
+    }
+
+    const signatureMap = new Map();
+    const rootScoreMap = new Map();
+    baseRoots.forEach((root, index) => {
+      const key = getTreeNodeKey(familyId, root, `r${index}`);
+      const signature = identitySignature(root);
+      if (!signatureMap.has(signature)) signatureMap.set(signature, []);
+      signatureMap.get(signature).push({ root, key, index });
+      const linked = Array.isArray(root.linked_to_user_ids) ? root.linked_to_user_ids.filter(Boolean).length : 0;
+      const childCount = Array.isArray(root.children) ? root.children.length : 0;
+      const isPrimary = String(root.household_position || '') === 'primary_representative' ? 4 : 0;
+      rootScoreMap.set(key, linked + childCount + isPrimary);
+    });
+
+    const duplicateEntries = [];
+    const uniqueRoots = [];
+    signatureMap.forEach((entries) => {
+      if (entries.length === 1) {
+        uniqueRoots.push(entries[0]);
+        return;
+      }
+      const sorted = [...entries].sort((a, b) => (rootScoreMap.get(b.key) || 0) - (rootScoreMap.get(a.key) || 0));
+      uniqueRoots.push(sorted[0]);
+      sorted.slice(1).forEach((entry) => duplicateEntries.push(entry));
+    });
+
+    const sortedRoots = [...uniqueRoots].sort((a, b) => (rootScoreMap.get(b.key) || 0) - (rootScoreMap.get(a.key) || 0));
+    const primaryRoot = sortedRoots[0];
+    if (!primaryRoot) {
+      return { roots: baseRoots, primaryRootKey: '', duplicateCount: duplicateEntries.length };
+    }
+
+    const attachedPending = [];
+    sortedRoots.slice(1).forEach((entry) => {
+      attachedPending.push({
+        ...entry.root,
+        children: [],
+        pending_profile: true,
+        pending_label: 'Pending Link',
+      });
+    });
+    duplicateEntries.forEach((entry) => {
+      attachedPending.push({
+        ...entry.root,
+        children: [],
+        pending_profile: true,
+        pending_label: 'Unlinked Profile',
+      });
+    });
+
+    const primaryWithAttached = {
+      ...primaryRoot.root,
+      children: [
+        ...(Array.isArray(primaryRoot.root.children) ? primaryRoot.root.children : []),
+        ...attachedPending,
+      ],
+    };
+
+    return {
+      roots: [primaryWithAttached],
+      primaryRootKey: primaryRoot.key,
+      duplicateCount: duplicateEntries.length,
+    };
+  }
+
   function renderIntelligenceSummary(stats, families, users, activityEvents) {
     if (!intelSummaryGrid) return;
 
@@ -2617,20 +2932,33 @@
     const nonHeartbeat = (activityEvents || []).filter((event) => String(event.event_type || '') !== 'session_active');
     const latestEvent = nonHeartbeat[0] || activityEvents[0] || null;
     const lastExportEvent = getFirstEventByTypes(activityEvents, ['full_backup_downloaded', 'export_download_clicked']);
+    const totalEvents = Array.isArray(activityEvents) ? activityEvents.length : 0;
+    const activityNarrative = totalEvents >= 200
+      ? 'High system activity detected - users are actively engaging with family structure mapping.'
+      : totalEvents >= 60
+        ? 'Steady engagement is building across lineage and dashboard interactions.'
+        : 'System activity is growing as lineage mapping expands.';
+    const familyNarrative = Number(stats.total_family_groups || stats.total_families || 0) === 1
+      ? 'One active family group is currently mapped in the system.'
+      : `${Number(stats.total_family_groups || stats.total_families || 0)} active family groups are currently mapped in the system.`;
+    const userNarrative = mostActiveFamily
+      ? `The ${mostActiveFamily.family_name || 'primary'} family has ${Number(mostActiveFamily.total_members || 0)} registered members with active lineage connections.`
+      : `${Number(stats.total_users || 0)} lineage profiles are currently registered.`;
+    const statusKey = mostActiveFamily ? deriveFamilyStatus(mostActiveFamily) : 'incomplete';
 
     const cards = [
-      ['Total Users', stats.total_users ?? 0],
-      ['Total Families', stats.total_family_groups ?? stats.total_families ?? 0],
-      ['Largest Family Size', stats.largest_family_size ?? 0],
-      ['Most Common Role', toDisplayLabel(getTopDistributionValue(stats.role_distribution, 'not_provided'))],
-      ['Top State', toDisplayLabel(getTopDistributionValue(stats.state_distribution, 'not_provided'))],
-      ['Top Country', toDisplayLabel(getTopDistributionValue(stats.country_distribution, 'not_provided'))],
-      ['Top Origin Region', toDisplayLabel(getTopDistributionValue(stats.region_distribution, 'unknown'))],
-      ['Interested in Return', stats.total_interested_in_return ?? 0],
-      ['With Contact Info', stats.total_with_contact_info ?? 0],
-      ['Most Active Family Group', mostActiveFamily ? `${mostActiveFamily.family_name || 'Unknown'} (${mostActiveFamily.total_members || 0})` : 'N/A'],
-      ['Latest Activity Event', latestEvent ? `${formatEventType(latestEvent.event_type)} @ ${formatEventTimestamp(latestEvent)}` : 'N/A'],
-      ['Last Backup/Export', lastExportEvent ? `${formatEventType(lastExportEvent.event_type)} @ ${formatEventTimestamp(lastExportEvent)}` : 'N/A'],
+      ['Users', userNarrative],
+      ['Family Groups', familyNarrative],
+      ['Largest Family Size', `Largest active family branch currently spans ${Number(stats.largest_family_size || 0)} members.`],
+      ['Most Common Role', `${toDisplayLabel(getTopDistributionValue(stats.role_distribution, 'not_provided'))} remains the dominant role signal across lineage profiles.`],
+      ['Top State / Country', `${toDisplayLabel(getTopDistributionValue(stats.state_distribution, 'not_provided'))}, ${toDisplayLabel(getTopDistributionValue(stats.country_distribution, 'not_provided'))} is the strongest active location cluster.`],
+      ['Top Origin Region', `${toDisplayLabel(getTopDistributionValue(stats.region_distribution, 'unknown'))} is the strongest origin anchor in this dataset.`],
+      ['Return + Contact', `${Number(stats.total_interested_in_return || 0)} members are marked for reconnection and ${Number(stats.total_with_contact_info || 0)} have reachable contact channels.`],
+      ['Most Active Family Group', mostActiveFamily ? `${mostActiveFamily.family_name || 'Unknown'} is currently leading activity with ${Number(mostActiveFamily.total_members || 0)} mapped members.` : 'No active family group detected yet.'],
+      ['Family Status', `Current family readiness is ${statusLabelFromKey(statusKey)}.`],
+      ['Latest Activity Event', latestEvent ? `${formatEventType(latestEvent.event_type)} most recently logged at ${formatEventTimestamp(latestEvent)}.` : 'No recent activity events available.'],
+      ['Last Backup/Export', lastExportEvent ? `Last export signal: ${formatEventType(lastExportEvent.event_type)} at ${formatEventTimestamp(lastExportEvent)}.` : 'No backup/export event has been detected yet.'],
+      ['Activity Pattern', activityNarrative],
     ];
 
     intelSummaryGrid.innerHTML = cards.map(([label, value]) => `
@@ -2660,13 +2988,16 @@
       ? `${topFamily.family_name || 'Top family'} family currently has ${topFamily.total_members || 0} registered members.`
       : 'No family groups available yet.';
 
+    const familyStatus = topFamily ? statusLabelFromKey(deriveFamilyStatus(topFamily)) : 'Incomplete';
     const lines = [
+      `The ${topFamily?.family_name || 'current'} family has ${topFamily?.total_members || 0} registered members with active lineage connections.`,
+      `${topRole} is currently the strongest relationship signal in the registry.`,
+      `${topCountry} is the top represented country across mapped users.`,
+      `${topState} is the top represented state across active profiles.`,
+      `${contactCount} users have contact information available for reconnection outreach.`,
+      `${returnCount} users are marked interested in return/reconnection pathways.`,
+      `${familyStatus} family readiness has been detected for the currently selected family group.`,
       familyLine,
-      `${topRole} is currently the most common role.`,
-      `${topCountry} is the top represented country.`,
-      `${topState} is the top represented state.`,
-      `${contactCount} users have contact information available.`,
-      `${returnCount} users are marked interested in return/reconnection.`,
     ];
 
     intelFamilySignals.innerHTML = `<ul class="intelligence-list">${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
@@ -2736,16 +3067,36 @@
         .filter(Boolean)
     );
 
+    const totalEvents = activityEvents.length;
+    const activityNarrative = totalEvents >= 200
+      ? 'High system activity detected - users are actively engaging with their family structure.'
+      : totalEvents >= 60
+        ? 'Moderate activity is sustaining lineage progression and data quality.'
+        : 'Early activity signals are visible as users build structure.';
+
     const lines = [
-      ['Total Tracked Events', String(activityEvents.length)],
-      ['Most Recent Event Type', latest ? formatEventType(latest.event_type) : 'N/A'],
+      ['Total Tracked Events', `${totalEvents} events recorded.`],
+      ['Most Recent Event Type', latest ? `${formatEventType(latest.event_type)} is the latest operational signal.` : 'N/A'],
       ['Last Family Tree View', lastTreeView ? formatEventTimestamp(lastTreeView) : 'N/A'],
       ['Last Registration Event', lastRegistrationEvent ? `${formatEventType(lastRegistrationEvent.event_type)} @ ${formatEventTimestamp(lastRegistrationEvent)}` : 'N/A'],
       ['Last Export/Download Event', lastExportEvent ? `${formatEventType(lastExportEvent.event_type)} @ ${formatEventTimestamp(lastExportEvent)}` : 'N/A'],
       ['Session Count', String(sessions.size)],
+      ['Activity Insight', activityNarrative],
     ];
 
     intelActivity.innerHTML = `<ul class="intelligence-list">${lines.map(([label, value]) => `<li><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</li>`).join('')}</ul>`;
+  }
+
+  function renderLineageInsightsCard(families) {
+    if (!intelLineageInsights) return;
+    const topFamily = Array.isArray(families) && families.length ? families[0] : null;
+    if (!topFamily) {
+      intelLineageInsights.innerHTML = '<p class="stats-loading">No lineage insights available yet.</p>';
+      return;
+    }
+    const lines = buildLineageInsights(topFamily);
+    latestLineageSignals = lines;
+    intelLineageInsights.innerHTML = `<ul class="intelligence-list">${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
   }
 
   function renderRecommendedNextAction(users, families, activityEvents) {
@@ -2758,6 +3109,8 @@
     const missingLinks = countMissingRelationshipLinks(users);
     const unknownRegion = countUnknownRegion(users);
     const missingContact = countMissingContact(users);
+    const missingRoles = users.filter((user) => !String(user.relationship_role || '').trim()).length;
+    const elderCount = users.filter((user) => ['elder_ancestor', 'grandmother', 'grandfather'].includes(String(user.relationship_role || ''))).length;
 
     const latestRegistration = getFirstEventByTypes(activityEvents, [
       'registration_submitted',
@@ -2773,13 +3126,17 @@
     let recommendation = 'Registry is healthy. Continue adding family members.';
 
     if (missingLinks > 0) {
-      recommendation = 'Add missing relationship links for unlinked users.';
+      recommendation = 'Link unassigned family members to complete structure.';
+    } else if (missingRoles > 0) {
+      recommendation = 'Add missing relationship roles to sharpen lineage intelligence.';
     } else if (unknownRegion > 0) {
       recommendation = 'Review families with unknown region data.';
     } else if (latestRegistrationTs > latestExportTs) {
-      recommendation = 'Export a full backup after new registrations.';
+      recommendation = 'Export current family structure to Vault after recent updates.';
     } else if (missingContact > 0) {
       recommendation = 'Collect contact details for members missing phone/email data.';
+    } else if (elderCount === 0) {
+      recommendation = 'Add elder generation if available to deepen lineage continuity.';
     }
 
     const familiesWithoutPrimary = countFamiliesWithoutPrimaryRepresentative(families);
@@ -2820,12 +3177,16 @@
       renderFamilySignals(stats || {}, normalizedFamilies);
       renderDataHealth(normalizedUsers, normalizedFamilies);
       renderActivityIntelligence(normalizedActivity);
+      renderLineageInsightsCard(normalizedFamilies);
       renderRecommendedNextAction(normalizedUsers, normalizedFamilies, normalizedActivity);
     } catch {
       intelSummaryGrid.innerHTML = '<p class="stats-loading">Could not load intelligence summary.</p>';
       intelFamilySignals.innerHTML = '<p class="stats-loading">Could not load family signals.</p>';
       intelDataHealth.innerHTML = '<p class="stats-loading">Could not load data health.</p>';
       intelActivity.innerHTML = '<p class="stats-loading">Could not load activity intelligence.</p>';
+      if (intelLineageInsights) {
+        intelLineageInsights.innerHTML = '<p class="stats-loading">Could not load lineage insights.</p>';
+      }
       intelNextAction.textContent = 'Intelligence load failed. Retry from Admin Dashboard once backend is reachable.';
     }
   }
@@ -3687,6 +4048,7 @@
           <strong>Connected to:</strong> ${escapeHtml(connectedNames)}<br>
           <strong>User ID:</strong> ${escapeHtml(member.user_id || '-')}
         </div>
+        ${member.pending_profile ? `<div class="tree-node-subtag">${escapeHtml(member.pending_label || 'Pending Link')}</div>` : ''}
       </div>
     `;
   }
@@ -3747,6 +4109,8 @@
         user_id: String(node?.user_id || '').trim(),
         full_name: String(node?.full_name || 'Unnamed member'),
         relationship_role: String(node?.relationship_role || 'not_provided'),
+        pending_profile: Boolean(node?.pending_profile),
+        pending_label: String(node?.pending_label || ''),
         depth,
         hasChildren: rawChildren.length > 0,
         isCollapsed,
@@ -3826,8 +4190,8 @@
     topology.rootKeys.forEach((rootKey) => assign(rootKey, 0));
 
     const leaves = Math.max(leafIndex, 1);
-    const xPadding = 80;
-    const yPadding = 70;
+    const xPadding = 56;
+    const yPadding = 54;
     const xSpan = Math.max(width - xPadding * 2, 120);
     const ySpan = Math.max(height - yPadding * 2, 120);
     const xStep = leaves > 1 ? xSpan / (leaves - 1) : 0;
@@ -3926,21 +4290,26 @@
       const isMuted = activeTreeSelectedNodeKey && !connectedNodeKeys.has(node.key);
       const initial = (String(node.full_name || 'U').trim().charAt(0) || 'U').toUpperCase();
       const roleLabel = toDisplayLabel(node.relationship_role || 'not_provided');
+      const roleOrPendingLabel = node.pending_profile
+        ? (node.pending_label || 'Pending Link')
+        : roleLabel;
       const toggleSymbol = node.isCollapsed ? '+' : '-';
       const nodeClass = [
         'graph-node',
         isSelected ? 'is-selected' : '',
         isConnected ? 'is-connected' : '',
+        node.pending_profile ? 'is-pending' : '',
         isMuted ? 'is-muted' : '',
       ].filter(Boolean).join(' ');
 
       return `
         <g class="${nodeClass}" data-node-key="${escapeHtml(node.key)}" transform="translate(${x}, ${y})">
+          <title>${escapeHtml(`${node.full_name} | ${roleOrPendingLabel}${node.user_id ? ` | ${node.user_id}` : ''}`)}</title>
           <rect class="graph-node-card" width="${nodeWidth}" height="${nodeHeight}"></rect>
           <circle class="graph-avatar" cx="18" cy="18" r="10"></circle>
           <text class="graph-avatar-letter" x="18" y="18">${escapeHtml(initial)}</text>
           <text class="graph-node-name" x="34" y="20">${escapeHtml(trimGraphLabel(node.full_name, 22))}</text>
-          <text class="graph-node-role" x="34" y="37">${escapeHtml(trimGraphLabel(roleLabel, 24))}</text>
+          <text class="graph-node-role" x="34" y="37">${escapeHtml(trimGraphLabel(roleOrPendingLabel, 24))}</text>
           ${node.hasChildren ? `
             <circle class="graph-toggle-hit" cx="157" cy="12" r="8" data-toggle-key="${escapeHtml(node.key)}"></circle>
             <text class="graph-toggle-text" x="157" y="12">${toggleSymbol}</text>
@@ -3984,9 +4353,12 @@
       }
 
       const roots = Array.isArray(tree?.roots) ? tree.roots : [];
-      if (!roots.length) continue;
+      const normalizedTree = normalizeTreeForVisual(String(family.family_id || 'family'), roots, family);
+      const normalizedRoots = normalizedTree.roots;
+      const statusKey = deriveFamilyStatus(family);
+      if (!normalizedRoots.length) continue;
 
-      const forestHtml = roots
+      const forestHtml = normalizedRoots
         .map((rootNode) => renderTreeBranch(rootNode, roleFilter, searchTerm))
         .filter(Boolean)
         .join('');
@@ -3995,7 +4367,10 @@
 
       familyBlocks.push(`
         <article class="tree-family-card">
-          <div class="tree-family-header">${escapeHtml(tree.family_name || family.family_name || 'Unknown Family')}</div>
+          <div class="tree-family-header-row">
+            <div class="tree-family-header">${escapeHtml(tree.family_name || family.family_name || 'Unknown Family')}</div>
+            <span class="family-status-badge ${escapeHtml(statusKey)}">${escapeHtml(statusLabelFromKey(statusKey))}</span>
+          </div>
           <div class="tree-family-sub">Family ID: ${escapeHtml(tree.family_id || family.family_id || '-')} | Members: ${Number(tree.total_members || 0)}</div>
           <div class="tree-forest">${forestHtml}</div>
         </article>
@@ -4046,7 +4421,8 @@
     }
 
     const roots = Array.isArray(tree?.roots) ? tree.roots : [];
-    const filteredRoots = roots
+    const normalizedTree = normalizeTreeForVisual(String(selectedFamily.family_id || 'family'), roots, selectedFamily);
+    const filteredRoots = normalizedTree.roots
       .map((rootNode) => filterTreeNodeForCurrentFilters(rootNode, roleFilter, searchTerm))
       .filter(Boolean);
 
@@ -4089,6 +4465,21 @@
     const roleFilter = treeRoleFilter.value;
     const searchTerm = treeSearchInput.value.trim().toLowerCase();
     const groups = Array.isArray(familiesCache) ? familiesCache : [];
+
+    if (!groups.length) {
+      renderFamilyStatusBadgeForTree(null);
+      renderLineageInsightsPanel([]);
+      if (activeTreeViewMode === 'graph') {
+        await renderVisualFamilyTreeGraph(groups, roleFilter, searchTerm);
+      } else {
+        await renderVisualFamilyTreeList(groups, roleFilter, searchTerm);
+      }
+      return;
+    }
+
+    const selectedFamily = getFamilyById(groups, activeTreeFamilyId) || groups[0] || null;
+    renderFamilyStatusBadgeForTree(selectedFamily);
+    renderLineageInsightsPanel(buildLineageInsights(selectedFamily));
 
     if (activeTreeViewMode === 'graph') {
       await renderVisualFamilyTreeGraph(groups, roleFilter, searchTerm);
@@ -4578,6 +4969,8 @@
         const regions = Array.isArray(family.origin_regions) && family.origin_regions.length
           ? family.origin_regions.map((r) => toDisplayLabel(r)).join(', ')
           : 'Unknown';
+        const familyStatusKey = deriveFamilyStatus(family);
+        const familyStatusLabel = statusLabelFromKey(familyStatusKey);
 
         const members = (family.members || []).map((member) => `
           <div class="family-member-row">
@@ -4602,6 +4995,7 @@
           <article class="family-group-card">
             <div class="family-group-title">
               <strong>${family.family_name || 'Unknown Family'}</strong>
+              <span class="family-status-badge ${escapeHtml(familyStatusKey)}">${escapeHtml(familyStatusLabel)}</span>
               <span class="family-group-meta">${family.family_id || '-'}</span>
             </div>
             <div class="family-group-meta">
