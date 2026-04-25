@@ -15,6 +15,8 @@
       --gold-dk: #a8893c;
       --white:   #f4f4f4;
       --muted:   #e2ecf6;
+      --body-text: rgba(255, 255, 255, 0.9);
+      --secondary-text: rgba(255, 255, 255, 0.66);
       --error:   #e05a5a;
       --success: #4caf82;
       --radius:  8px;
@@ -22,6 +24,7 @@
 
     body {
       background-color: var(--navy);
+      background-image: radial-gradient(circle at 18% 16%, rgba(201, 168, 76, 0.05), transparent 50%);
       color: var(--white);
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       min-height: 100vh;
@@ -29,12 +32,12 @@
       position: relative;
     }
 
-    /* Base atmospheric tint behind all content. */
+    /* Uniform screen tint to avoid unintentional dark strips. */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
-      background: linear-gradient(180deg, rgba(8, 18, 33, 0.46), rgba(8, 18, 33, 0.56));
+      background: rgba(8, 18, 33, 0.52);
       pointer-events: none;
       z-index: 0;
     }
@@ -91,7 +94,7 @@
 
     header p {
       margin-top: 12px;
-      color: var(--muted);
+      color: var(--secondary-text);
       font-size: 0.8rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -127,7 +130,7 @@
     }
 
     .feature-card:hover {
-      transform: translateY(-2px);
+      transform: translateY(-4px);
       box-shadow:
         0 14px 34px rgba(0, 0, 0, 0.48),
         0 0 20px rgba(201, 168, 76, 0.14),
@@ -144,7 +147,7 @@
     }
 
     .mission-text {
-      color: var(--white);
+      color: var(--body-text);
       font-size: 1.02rem;
       line-height: 1.75;
       max-width: 900px;
@@ -173,7 +176,7 @@
     }
 
     .how-step p {
-      color: #dde7f2;
+      color: var(--body-text);
       font-size: 0.92rem;
       line-height: 1.6;
     }
@@ -207,7 +210,7 @@
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .card:hover {
-      transform: translateY(-2px);
+      transform: translateY(-4px);
       box-shadow:
         0 14px 38px rgba(0, 0, 0, 0.54),
         0 0 24px rgba(201, 168, 76, 0.14),
@@ -224,7 +227,7 @@
     }
 
     .form-helper {
-      color: #dce6f1;
+      color: var(--body-text);
       font-size: 0.88rem;
       line-height: 1.6;
       margin-bottom: 18px;
@@ -235,7 +238,7 @@
     .field label {
       display: block;
       font-size: 0.74rem;
-      color: rgba(255, 255, 255, 0.9);
+      color: var(--secondary-text);
       text-transform: uppercase;
       letter-spacing: 0.08em;
       margin-bottom: 6px;
@@ -329,7 +332,7 @@
     }
 
     .optional-note {
-      color: #d8e3ee;
+      color: var(--secondary-text);
       font-size: 0.82rem;
       margin-bottom: 14px;
       line-height: 1.5;
@@ -372,16 +375,18 @@
       border: none;
       border-radius: var(--radius);
       cursor: pointer;
-      transition: filter 0.2s, box-shadow 0.2s, transform 0.2s ease;
+      transition: all 0.2s ease;
       text-transform: uppercase;
       box-shadow: 0 2px 12px rgba(201, 168, 76, 0.22);
     }
     button:hover {
       filter: brightness(1.13);
-      transform: translateY(-1px) scale(1.01);
-      box-shadow: 0 8px 22px rgba(201, 168, 76, 0.42);
+      transform: translateY(-1px) scale(1.03);
+      box-shadow:
+        0 0 10px rgba(255, 215, 0, 0.4),
+        0 8px 22px rgba(201, 168, 76, 0.42);
     }
-    button:active { transform: scale(0.98); filter: brightness(0.96); }
+    button:active { transform: scale(0.97); filter: brightness(0.96); }
 
     button.secondary {
       background: transparent;
@@ -938,6 +943,10 @@
       gap: 8px;
     }
 
+    .activity-log-item + .activity-log-item {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
     .activity-log-item {
       border: 1px solid rgba(201, 168, 76, 0.28);
       border-radius: 6px;
@@ -957,23 +966,24 @@
     }
 
     .activity-log-meta {
-      color: #dde7f2;
+      color: rgba(255, 255, 255, 0.78);
       font-size: 0.7rem;
       line-height: 1.45;
       margin-bottom: 4px;
     }
     .activity-log-title {
-      color: var(--gold-lt);
+      color: #ffd700;
       font-weight: 700;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       font-size: 0.68rem;
       margin-bottom: 4px;
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.28);
     }
 
     .activity-log-line {
       display: block;
-      color: #dbe5f0;
+      color: rgba(255, 255, 255, 0.82);
       margin-bottom: 2px;
     }
 
@@ -999,9 +1009,27 @@
 
     .activity-log-hint {
       margin-top: 6px;
-      color: #d5e0ec;
+      color: var(--secondary-text);
       font-size: 0.74rem;
       letter-spacing: 0.03em;
+    }
+
+    .activity-log-list.is-applying {
+      animation: filterAppliedPulse 240ms ease;
+    }
+
+    .activity-log-list.is-clearing {
+      animation: filterClearedPulse 240ms ease;
+    }
+
+    @keyframes filterAppliedPulse {
+      0% { opacity: 0.78; transform: translateY(2px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes filterClearedPulse {
+      0% { opacity: 0.65; transform: scale(0.995); }
+      100% { opacity: 1; transform: scale(1); }
     }
 
     .activity-filter-row {
@@ -1301,7 +1329,7 @@
     }
 
     .page-copy {
-      color: #e0e9f3;
+      color: var(--body-text);
       font-size: 0.95rem;
       line-height: 1.7;
       max-width: 860px;
@@ -1360,7 +1388,7 @@
     }
 
     .home-feature-item span {
-      color: #dbe5f0;
+      color: var(--body-text);
       font-size: 0.86rem;
       line-height: 1.55;
       display: block;
@@ -1402,7 +1430,7 @@
     }
 
     .admin-summary-label {
-      color: #dde7f2;
+      color: var(--secondary-text);
       font-size: 0.68rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -2336,6 +2364,18 @@
     postSessionEvent('registration_started', 'Registration flow started by user input.');
   }
 
+  function triggerActivityListFeedback(mode = 'apply') {
+    if (!activityLogList) return;
+    const applyClass = 'is-applying';
+    const clearClass = 'is-clearing';
+    activityLogList.classList.remove(applyClass, clearClass);
+    const activeClass = mode === 'clear' ? clearClass : applyClass;
+    activityLogList.classList.add(activeClass);
+    window.setTimeout(() => {
+      activityLogList.classList.remove(activeClass);
+    }, 280);
+  }
+
   familyNameInput.addEventListener('input', updateConnectedToOptions);
   familyGroupsContent.addEventListener('click', handleFamilyGroupActions);
   registrationsContent.addEventListener('click', handleRegistrationActions);
@@ -2357,6 +2397,7 @@
   });
   activityFilterApplyBtn?.addEventListener('click', () => {
     saveActivityFilterState();
+    triggerActivityListFeedback('apply');
     loadActivityLog();
   });
   activityFilterClearBtn?.addEventListener('click', () => {
@@ -2364,12 +2405,14 @@
     if (activityUserFilterInput) activityUserFilterInput.value = '';
     if (activityEventTypeFilterInput) activityEventTypeFilterInput.value = '';
     saveActivityFilterState();
+    triggerActivityListFeedback('clear');
     loadActivityLog();
   });
   activitySessionFilterInput?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
       saveActivityFilterState();
+      triggerActivityListFeedback('apply');
       loadActivityLog();
     }
   });
@@ -2377,11 +2420,13 @@
     if (event.key === 'Enter') {
       event.preventDefault();
       saveActivityFilterState();
+      triggerActivityListFeedback('apply');
       loadActivityLog();
     }
   });
   activityEventTypeFilterInput?.addEventListener('change', () => {
     saveActivityFilterState();
+    triggerActivityListFeedback('apply');
     loadActivityLog();
   });
   form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
