@@ -1626,6 +1626,143 @@
       box-shadow: 0 0 10px rgba(76, 175, 130, 0.55);
     }
 
+    .intelligence-shell {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin-top: 14px;
+    }
+
+    .intelligence-card {
+      border-radius: 12px;
+      border: 1px solid rgba(201, 168, 76, 0.22);
+      background: linear-gradient(180deg, rgba(21, 37, 57, 0.92), rgba(16, 30, 48, 0.9));
+      padding: 14px;
+      box-shadow: 0 8px 26px rgba(0, 0, 0, 0.3);
+    }
+
+    .intelligence-card h3 {
+      color: var(--gold-lt);
+      font-size: 0.69rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .intelligence-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    }
+
+    .intel-kpi {
+      border: 1px solid rgba(201, 168, 76, 0.2);
+      border-radius: 8px;
+      background: rgba(18, 33, 51, 0.8);
+      padding: 8px;
+      min-height: 72px;
+    }
+
+    .intel-kpi .value {
+      color: var(--gold);
+      font-size: 1.02rem;
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 4px;
+    }
+
+    .intel-kpi .label {
+      color: var(--secondary-text);
+      font-size: 0.64rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1.45;
+    }
+
+    .intelligence-list {
+      margin: 0;
+      padding-left: 16px;
+      color: var(--body-text);
+      font-size: 0.84rem;
+      line-height: 1.55;
+      display: grid;
+      gap: 7px;
+    }
+
+    .health-status-row {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .health-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1px solid rgba(201, 168, 76, 0.18);
+      border-radius: 8px;
+      background: rgba(17, 33, 52, 0.76);
+      padding: 7px 9px;
+      color: var(--body-text);
+      font-size: 0.78rem;
+    }
+
+    .health-item .label {
+      color: var(--body-text);
+      line-height: 1.35;
+    }
+
+    .health-item .count {
+      color: var(--gold);
+      font-weight: 700;
+      margin-left: 8px;
+      white-space: nowrap;
+      font-size: 0.75rem;
+    }
+
+    .health-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 98px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 9px;
+      white-space: nowrap;
+    }
+
+    .health-badge.healthy {
+      color: #9fe4b6;
+      border-color: rgba(90, 180, 120, 0.58);
+      background: rgba(76, 175, 130, 0.15);
+    }
+
+    .health-badge.needs-review {
+      color: #f5d48b;
+      border-color: rgba(201, 168, 76, 0.58);
+      background: rgba(201, 168, 76, 0.16);
+    }
+
+    .health-badge.missing-data {
+      color: #ffb3b3;
+      border-color: rgba(224, 90, 90, 0.58);
+      background: rgba(224, 90, 90, 0.15);
+    }
+
+    .next-action-box {
+      border: 1px solid rgba(201, 168, 76, 0.3);
+      border-radius: 10px;
+      background: rgba(18, 33, 51, 0.84);
+      padding: 10px;
+      color: var(--body-text);
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+
     .inline-action-row {
       display: flex;
       gap: 10px;
@@ -2132,6 +2269,38 @@
         </details>
       </div>
     </div>
+
+    <section class="card" aria-labelledby="intel-snapshot-title">
+      <h2 id="intel-snapshot-title">Aeternum Intelligence Snapshot</h2>
+      <div class="intelligence-shell">
+        <article class="intelligence-card" aria-labelledby="live-registry-summary-title">
+          <h3 id="live-registry-summary-title">Live Registry Summary</h3>
+          <div id="intelSummaryGrid" class="intelligence-grid">
+            <p class="stats-loading">Loading intelligence summary...</p>
+          </div>
+        </article>
+
+        <article class="intelligence-card" aria-labelledby="family-signals-title">
+          <h3 id="family-signals-title">Family Reconnection Signals</h3>
+          <div id="intelFamilySignals" class="stats-loading">Loading family signals...</div>
+        </article>
+
+        <article class="intelligence-card" aria-labelledby="data-health-title">
+          <h3 id="data-health-title">Data Health Check</h3>
+          <div id="intelDataHealth" class="stats-loading">Loading data health...</div>
+        </article>
+
+        <article class="intelligence-card" aria-labelledby="activity-intelligence-title">
+          <h3 id="activity-intelligence-title">Activity Intelligence</h3>
+          <div id="intelActivity" class="stats-loading">Loading activity intelligence...</div>
+        </article>
+
+        <article class="intelligence-card" aria-labelledby="next-action-title">
+          <h3 id="next-action-title">Recommended Next Action</h3>
+          <div id="intelNextAction" class="next-action-box">Analyzing current registry health...</div>
+        </article>
+      </div>
+    </section>
   </section>
 </main>
 
@@ -2244,6 +2413,11 @@
   const activityLogPanel = document.getElementById('activityLogPanel');
   const adminQuickStats = document.getElementById('adminQuickStats');
   const systemStatusBadges = document.getElementById('systemStatusBadges');
+  const intelSummaryGrid = document.getElementById('intelSummaryGrid');
+  const intelFamilySignals = document.getElementById('intelFamilySignals');
+  const intelDataHealth = document.getElementById('intelDataHealth');
+  const intelActivity = document.getElementById('intelActivity');
+  const intelNextAction = document.getElementById('intelNextAction');
   const familyNameInput = document.getElementById('family_name');
   const linkedToChecklist = document.getElementById('linked_to_user_ids');
   const familyGroupsContent = document.getElementById('familyGroupsContent');
@@ -2282,6 +2456,7 @@
   let activeTreeSelectedNodeKey = '';
   const collapsedTreeNodeKeys = new Set();
   let latestStatsSnapshot = null;
+  let latestActivitySnapshot = [];
   let latestActivityEventCount = null;
   const SESSION_STORAGE_KEY = 'aeternum_session_id';
   const KNOWN_USER_STORAGE_KEY = 'aeternum_known_user_id';
@@ -2372,6 +2547,289 @@
     `).join('');
   }
 
+  function getTopDistributionValue(distribution, fallback = 'unknown') {
+    const top = getTopLabel(distribution || {}, fallback);
+    return top || fallback;
+  }
+
+  function countMissingContact(users) {
+    return users.filter((user) => !optionalValue(user.email) && !optionalValue(user.phone)).length;
+  }
+
+  function countMissingRelationshipLinks(users) {
+    return users.filter((user) => {
+      const linked = Array.isArray(user.linked_to_user_ids) ? user.linked_to_user_ids.filter(Boolean) : [];
+      return linked.length === 0;
+    }).length;
+  }
+
+  function countUnknownRegion(users) {
+    return users.filter((user) => String(user.origin_region || '').toLowerCase() === 'unknown').length;
+  }
+
+  function countUnknownLocation(users) {
+    return users.filter((user) => {
+      const state = String(user.state || '').trim().toLowerCase();
+      const country = String(user.country || '').trim().toLowerCase();
+      const unknownState = !state || state === 'not provided' || state === 'unknown';
+      const unknownCountry = !country || country === 'not provided' || country === 'unknown';
+      return unknownState || unknownCountry;
+    }).length;
+  }
+
+  function countFamiliesWithoutPrimaryRepresentative(families) {
+    return families.filter((family) => {
+      const members = Array.isArray(family.members) ? family.members : [];
+      return !members.some((member) => String(member.household_position || '') === 'primary_representative');
+    }).length;
+  }
+
+  function getStatusBadgeState(count, total) {
+    if (count === 0) return { label: 'Healthy', className: 'healthy' };
+    const ratio = total > 0 ? count / total : 1;
+    if (count <= 2 || ratio <= 0.2) {
+      return { label: 'Needs Review', className: 'needs-review' };
+    }
+    return { label: 'Missing Data', className: 'missing-data' };
+  }
+
+  function formatEventType(eventType) {
+    return toDisplayLabel(String(eventType || 'none')) || 'None';
+  }
+
+  function formatEventTimestamp(event) {
+    if (!event || !event.timestamp) return 'N/A';
+    const date = new Date(event.timestamp);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleString();
+  }
+
+  function getFirstEventByTypes(events, allowedTypes) {
+    if (!Array.isArray(events) || !events.length) return null;
+    const allowed = new Set(allowedTypes);
+    return events.find((event) => allowed.has(String(event.event_type || ''))) || null;
+  }
+
+  function renderIntelligenceSummary(stats, families, users, activityEvents) {
+    if (!intelSummaryGrid) return;
+
+    const mostActiveFamily = (families || [])[0] || null;
+    const nonHeartbeat = (activityEvents || []).filter((event) => String(event.event_type || '') !== 'session_active');
+    const latestEvent = nonHeartbeat[0] || activityEvents[0] || null;
+    const lastExportEvent = getFirstEventByTypes(activityEvents, ['full_backup_downloaded', 'export_download_clicked']);
+
+    const cards = [
+      ['Total Users', stats.total_users ?? 0],
+      ['Total Families', stats.total_family_groups ?? stats.total_families ?? 0],
+      ['Largest Family Size', stats.largest_family_size ?? 0],
+      ['Most Common Role', toDisplayLabel(getTopDistributionValue(stats.role_distribution, 'not_provided'))],
+      ['Top State', toDisplayLabel(getTopDistributionValue(stats.state_distribution, 'not_provided'))],
+      ['Top Country', toDisplayLabel(getTopDistributionValue(stats.country_distribution, 'not_provided'))],
+      ['Top Origin Region', toDisplayLabel(getTopDistributionValue(stats.region_distribution, 'unknown'))],
+      ['Interested in Return', stats.total_interested_in_return ?? 0],
+      ['With Contact Info', stats.total_with_contact_info ?? 0],
+      ['Most Active Family Group', mostActiveFamily ? `${mostActiveFamily.family_name || 'Unknown'} (${mostActiveFamily.total_members || 0})` : 'N/A'],
+      ['Latest Activity Event', latestEvent ? `${formatEventType(latestEvent.event_type)} @ ${formatEventTimestamp(latestEvent)}` : 'N/A'],
+      ['Last Backup/Export', lastExportEvent ? `${formatEventType(lastExportEvent.event_type)} @ ${formatEventTimestamp(lastExportEvent)}` : 'N/A'],
+    ];
+
+    intelSummaryGrid.innerHTML = cards.map(([label, value]) => `
+      <article class="intel-kpi">
+        <div class="value">${escapeHtml(String(value))}</div>
+        <div class="label">${escapeHtml(String(label))}</div>
+      </article>
+    `).join('');
+  }
+
+  function renderFamilySignals(stats, families) {
+    if (!intelFamilySignals) return;
+
+    const totalUsers = Number(stats.total_users || 0);
+    if (!totalUsers) {
+      intelFamilySignals.innerHTML = '<p class="stats-loading">No registry data available yet. Submit registrations to activate intelligence.</p>';
+      return;
+    }
+
+    const topFamily = (families || [])[0];
+    const topRole = toDisplayLabel(getTopDistributionValue(stats.role_distribution, 'not_provided'));
+    const topCountry = toDisplayLabel(getTopDistributionValue(stats.country_distribution, 'not_provided'));
+    const topState = toDisplayLabel(getTopDistributionValue(stats.state_distribution, 'not_provided'));
+    const contactCount = Number(stats.total_with_contact_info || 0);
+    const returnCount = Number(stats.total_interested_in_return || 0);
+    const familyLine = topFamily
+      ? `${topFamily.family_name || 'Top family'} family currently has ${topFamily.total_members || 0} registered members.`
+      : 'No family groups available yet.';
+
+    const lines = [
+      familyLine,
+      `${topRole} is currently the most common role.`,
+      `${topCountry} is the top represented country.`,
+      `${topState} is the top represented state.`,
+      `${contactCount} users have contact information available.`,
+      `${returnCount} users are marked interested in return/reconnection.`,
+    ];
+
+    intelFamilySignals.innerHTML = `<ul class="intelligence-list">${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`;
+  }
+
+  function renderDataHealth(users, families) {
+    if (!intelDataHealth) return;
+    const totalUsers = users.length;
+    const totalFamilies = families.length;
+
+    if (!totalUsers) {
+      intelDataHealth.innerHTML = '<p class="stats-loading">No registry data available yet. Submit registrations to activate intelligence.</p>';
+      return;
+    }
+
+    const missingContact = countMissingContact(users);
+    const missingLinks = countMissingRelationshipLinks(users);
+    const unknownRegion = countUnknownRegion(users);
+    const unknownLocation = countUnknownLocation(users);
+    const singleMemberFamilies = families.filter((family) => Number(family.total_members || 0) <= 1).length;
+    const noPrimaryRepFamilies = countFamiliesWithoutPrimaryRepresentative(families);
+
+    const rows = [
+      ['Users missing contact info', missingContact, totalUsers],
+      ['Users missing relationship links', missingLinks, totalUsers],
+      ['Users with unknown region', unknownRegion, totalUsers],
+      ['Users with unknown state/country', unknownLocation, totalUsers],
+      ['Families with only one member', singleMemberFamilies, totalFamilies || 1],
+      ['Families without primary representative', noPrimaryRepFamilies, totalFamilies || 1],
+    ];
+
+    intelDataHealth.innerHTML = `
+      <div class="health-status-row">
+        ${rows.map(([label, count, total]) => {
+          const state = getStatusBadgeState(Number(count), Number(total));
+          return `
+            <article class="health-item">
+              <div class="label">${escapeHtml(String(label))}<span class="count">${escapeHtml(String(count))}</span></div>
+              <span class="health-badge ${escapeHtml(state.className)}">${escapeHtml(state.label)}</span>
+            </article>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function renderActivityIntelligence(activityEvents) {
+    if (!intelActivity) return;
+    if (!activityEvents.length) {
+      intelActivity.innerHTML = '<p class="stats-loading">No activity events available yet.</p>';
+      return;
+    }
+
+    const nonHeartbeat = activityEvents.filter((event) => String(event.event_type || '') !== 'session_active');
+    const latest = nonHeartbeat[0] || activityEvents[0] || null;
+    const lastTreeView = getFirstEventByTypes(activityEvents, ['family_tree_viewed']);
+    const lastRegistrationEvent = getFirstEventByTypes(activityEvents, [
+      'registration_submitted',
+      'registration_started',
+      'registration_updated',
+      'registration_deleted',
+    ]);
+    const lastExportEvent = getFirstEventByTypes(activityEvents, ['export_download_clicked', 'full_backup_downloaded']);
+    const sessions = new Set(
+      activityEvents
+        .map((event) => String(event.session_id || '').trim())
+        .filter(Boolean)
+    );
+
+    const lines = [
+      ['Total Tracked Events', String(activityEvents.length)],
+      ['Most Recent Event Type', latest ? formatEventType(latest.event_type) : 'N/A'],
+      ['Last Family Tree View', lastTreeView ? formatEventTimestamp(lastTreeView) : 'N/A'],
+      ['Last Registration Event', lastRegistrationEvent ? `${formatEventType(lastRegistrationEvent.event_type)} @ ${formatEventTimestamp(lastRegistrationEvent)}` : 'N/A'],
+      ['Last Export/Download Event', lastExportEvent ? `${formatEventType(lastExportEvent.event_type)} @ ${formatEventTimestamp(lastExportEvent)}` : 'N/A'],
+      ['Session Count', String(sessions.size)],
+    ];
+
+    intelActivity.innerHTML = `<ul class="intelligence-list">${lines.map(([label, value]) => `<li><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</li>`).join('')}</ul>`;
+  }
+
+  function renderRecommendedNextAction(users, families, activityEvents) {
+    if (!intelNextAction) return;
+    if (!users.length) {
+      intelNextAction.textContent = 'No registry data available yet. Submit registrations to activate intelligence.';
+      return;
+    }
+
+    const missingLinks = countMissingRelationshipLinks(users);
+    const unknownRegion = countUnknownRegion(users);
+    const missingContact = countMissingContact(users);
+
+    const latestRegistration = getFirstEventByTypes(activityEvents, [
+      'registration_submitted',
+      'registration_started',
+      'registration_updated',
+      'registration_deleted',
+    ]);
+    const latestExport = getFirstEventByTypes(activityEvents, ['export_download_clicked', 'full_backup_downloaded']);
+
+    const latestRegistrationTs = latestRegistration ? new Date(latestRegistration.timestamp).getTime() : 0;
+    const latestExportTs = latestExport ? new Date(latestExport.timestamp).getTime() : 0;
+
+    let recommendation = 'Registry is healthy. Continue adding family members.';
+
+    if (missingLinks > 0) {
+      recommendation = 'Add missing relationship links for unlinked users.';
+    } else if (unknownRegion > 0) {
+      recommendation = 'Review families with unknown region data.';
+    } else if (latestRegistrationTs > latestExportTs) {
+      recommendation = 'Export a full backup after new registrations.';
+    } else if (missingContact > 0) {
+      recommendation = 'Collect contact details for members missing phone/email data.';
+    }
+
+    const familiesWithoutPrimary = countFamiliesWithoutPrimaryRepresentative(families);
+    if (familiesWithoutPrimary > 0 && recommendation === 'Registry is healthy. Continue adding family members.') {
+      recommendation = 'Assign a primary representative to families missing one.';
+    }
+
+    intelNextAction.textContent = recommendation;
+  }
+
+  async function loadIntelligenceDashboard() {
+    if (!intelSummaryGrid || !intelFamilySignals || !intelDataHealth || !intelActivity || !intelNextAction) {
+      return;
+    }
+
+    try {
+      const [statsRes, familiesRes, registrationsRes, activityRes] = await Promise.all([
+        apiFetch('/stats'),
+        apiFetch('/families'),
+        apiFetch('/registrations'),
+        apiFetch('/activity-log?limit=500'),
+      ]);
+
+      const stats = await statsRes.json();
+      const families = await familiesRes.json();
+      const users = await registrationsRes.json();
+      const activityEvents = await activityRes.json();
+
+      const normalizedFamilies = Array.isArray(families) ? families : [];
+      const normalizedUsers = Array.isArray(users) ? users : [];
+      const normalizedActivity = Array.isArray(activityEvents) ? activityEvents : [];
+
+      latestActivitySnapshot = normalizedActivity;
+      latestActivityEventCount = normalizedActivity.length;
+      renderAdminSummary();
+
+      renderIntelligenceSummary(stats || {}, normalizedFamilies, normalizedUsers, normalizedActivity);
+      renderFamilySignals(stats || {}, normalizedFamilies);
+      renderDataHealth(normalizedUsers, normalizedFamilies);
+      renderActivityIntelligence(normalizedActivity);
+      renderRecommendedNextAction(normalizedUsers, normalizedFamilies, normalizedActivity);
+    } catch {
+      intelSummaryGrid.innerHTML = '<p class="stats-loading">Could not load intelligence summary.</p>';
+      intelFamilySignals.innerHTML = '<p class="stats-loading">Could not load family signals.</p>';
+      intelDataHealth.innerHTML = '<p class="stats-loading">Could not load data health.</p>';
+      intelActivity.innerHTML = '<p class="stats-loading">Could not load activity intelligence.</p>';
+      intelNextAction.textContent = 'Intelligence load failed. Retry from Admin Dashboard once backend is reachable.';
+    }
+  }
+
   function setActivePage(pageName) {
     pageSections.forEach((section) => {
       section.classList.toggle('is-active', section.dataset.page === pageName);
@@ -2400,6 +2858,7 @@
       loadRegistrations();
       loadFamilies();
       loadAdminActivityLog();
+      loadIntelligenceDashboard();
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -4201,6 +4660,7 @@
           loadFamilies(),
           loadActivityLog(),
           loadAdminActivityLog(),
+          loadIntelligenceDashboard(),
         ]);
         return;
       } catch {
@@ -4358,6 +4818,7 @@
     loadFamilies();
     loadActivityLog();
     loadAdminActivityLog();
+    loadIntelligenceDashboard();
   }, 15000);
   setInterval(() => {
     sendSessionHeartbeat();
