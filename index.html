@@ -1120,23 +1120,6 @@
       opacity: 1;
     }
 
-    .graph-edge.is-simulated {
-      stroke: rgba(123, 211, 177, 0.9);
-      stroke-width: 2.8;
-      stroke-dasharray: 8 5;
-      filter: drop-shadow(0 0 8px rgba(123, 211, 177, 0.38));
-      animation: simulatedLinkFlow 900ms linear infinite;
-    }
-
-    @keyframes simulatedLinkFlow {
-      0% {
-        stroke-dashoffset: 26;
-      }
-      100% {
-        stroke-dashoffset: 0;
-      }
-    }
-
     .graph-edge.is-muted {
       opacity: 0.2;
     }
@@ -2951,7 +2934,6 @@
   const treeGraphNodeMeta = new Map();
   const treeResolvedNodeKeys = new Set();
   const treeFocusedNodeKeys = new Set();
-  const treeSimulatedLinks = [];
   const treeLinkModeState = {
     active: false,
     sourceKey: '',
@@ -3133,47 +3115,141 @@
     }
   }
 
-  function nodeHasSimulatedLink(nodeKey) {
-    return treeSimulatedLinks.some((link) => link.from === nodeKey || link.to === nodeKey);
-  }
-
-  function resolveNodeInteraction(nodeKey, actionLabel) {
-    if (!nodeKey) return;
-    treeResolvedNodeKeys.add(nodeKey);
-    treeFocusedNodeKeys.add(nodeKey);
-    activeTreeSelectedNodeKey = nodeKey;
-    const meta = treeGraphNodeMeta.get(nodeKey);
-    const name = meta?.full_name || 'Selected profile';
-    triggerTreeRewardFeedback(`${name}: ${actionLabel}. Family structure improved.`);
-    renderVisualFamilyTree();
-  }
-
   function beginTreeLinkMode(nodeKey = '') {
     treeLinkModeState.active = true;
     treeLinkModeState.sourceKey = nodeKey || '';
     updateTreeLinkModeChip();
     if (nodeKey) {
       const meta = treeGraphNodeMeta.get(nodeKey);
-      setTreeGraphFeedback(`${meta?.full_name || 'Source member'} selected. Choose a second node to simulate the family link.`);
+      setTreeGraphFeedback(`${meta?.full_name || 'Source member'} selected. Choose a second node to establish the family link.`);
     } else {
-      setTreeGraphFeedback('Link mode armed. Select the first node to begin a simulated connection.');
+      setTreeGraphFeedback('Link mode armed. Select the first node to begin a connection.');
     }
   }
 
-  function finalizeSimulatedLink(sourceKey, targetKey) {
-    if (!sourceKey || !targetKey || sourceKey === targetKey) return;
-    const exists = treeSimulatedLinks.some((link) => {
-      return (link.from === sourceKey && link.to === targetKey) || (link.from === targetKey && link.to === sourceKey);
-    });
-    if (!exists) {
-      treeSimulatedLinks.push({ from: sourceKey, to: targetKey, type: 'simulated' });
+  async function finalizeRealLink(sourceKey, targetKey) {
+    if (!sourceKey || !targetKey || sourceKey === targetKey) {
+      setTreeGraphFeedback('Cannot link a member to themselves. Select a different target.');
+      return;
     }
-    treeResolvedNodeKeys.add(sourceKey);
-    treeResolvedNodeKeys.add(targetKey);
-    focusTreeNodeKeys([sourceKey, targetKey], 'Simulated lineage link created. Review the highlighted members.');
-    resetTreeLinkMode();
-    triggerTreeRewardFeedback('Family structure improved. Simulated lineage link established.');
-    renderVisualFamilyTree();
+    const sourceMeta = treeGraphNodeMeta.get(sourceKey);
+    const targetMeta = treeGraphNodeMeta.get(targetKey);
+    const sourceUserId = String(sourceMeta?.user_id || '').trim();
+    const targetUserId = String(targetMeta?.user_id || '').trim();
+    if (!sourceUserId || !targetUserId) {
+      setTreeGraphFeedback('One or both selected nodes have no user ID. Cannot persist link.');
+      resetTreeLinkMode();
+      return;
+    }
+    if (sourceUserId === targetUserId) {
+      setTreeGraphFeedback('Cannot link a member to themselves.');
+      resetTreeLinkMode();
+      return;
+    }
+    // Merge with existing linked IDs (no duplicates)
+    const sourceRecord = registrationsCache.find((r) => String(r.user_id || '') === sourceUserId);
+    const existingIds = Array.isArray(sourceRecord?.linked_to_user_ids)
+      ? sourceRecord.linked_to_user_ids.filter(Boolean)
+      : [];
+    if (existingIds.includes(targetUserId)) {
+      setTreeGraphFeedback(`${sourceMeta?.full_name || 'Member'} is already linked to ${targetMeta?.full_name || 'target'}. No change needed.`);
+      resetTreeLinkMode();
+      return;
+    }
+    const mergedIds = [...new Set([...existingIds, targetUserId])];
+    setTreeGraphFeedback('Saving link to registry…');
+    try {
+      const res = await apiFetch(`/registrations/${encodeURIComponent(sourceUserId)}/relationship`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linked_to_user_ids: mergedIds }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setTreeGraphFeedback(`Link failed: ${err.detail || res.statusText}`);
+        resetTreeLinkMode();
+        return;
+      }
+      treeResolvedNodeKeys.add(sourceKey);
+      treeResolvedNodeKeys.add(targetKey);
+      familyTreeCache.clear();
+      resetTreeLinkMode();
+      await loadFamilies();
+      triggerTreeRewardFeedback(`${sourceMeta?.full_name || 'Member'} linked to ${targetMeta?.full_name || 'member'}. Family structure updated.`);
+    } catch (err) {
+      setTreeGraphFeedback(`Link error: ${err.message || 'Unknown error'}`);
+      resetTreeLinkMode();
+    }
+  }
+
+  async function resolveNodeInteraction(nodeKey, action) {
+    if (!nodeKey) return;
+    const meta = treeGraphNodeMeta.get(nodeKey);
+    const userId = String(meta?.user_id || '').trim();
+    if (!userId) {
+      setTreeGraphFeedback('No user ID for this node. Cannot persist change.');
+      return;
+    }
+    if (action === 'assign-relationship') {
+      setTreeGraphFeedback('Assigning relationship role…');
+      try {
+        const res = await apiFetch(`/registrations/${encodeURIComponent(userId)}/relationship`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ relationship_role: 'other' }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setTreeGraphFeedback(`Role assignment failed: ${err.detail || res.statusText}`);
+          return;
+        }
+        familyTreeCache.clear();
+        await loadFamilies();
+        triggerTreeRewardFeedback(`${meta?.full_name || 'Member'} relationship role assigned. Update the full profile to set the exact role.`);
+      } catch (err) {
+        setTreeGraphFeedback(`Role assignment error: ${err.message || 'Unknown error'}`);
+      }
+      return;
+    }
+    if (action === 'merge-duplicate') {
+      // Link this node to the primary root of its family
+      const family = getFamilyById(familiesCache, activeTreeFamilyId) || familiesCache[0] || null;
+      const members = Array.isArray(family?.members) ? family.members : [];
+      const primaryMember = members.find((m) => String(m.user_id || '') !== userId) || members[0] || null;
+      const primaryUserId = primaryMember ? String(primaryMember.user_id || '').trim() : '';
+      if (!primaryUserId || primaryUserId === userId) {
+        setTreeGraphFeedback('No other family member found to merge with.');
+        return;
+      }
+      setTreeGraphFeedback('Merging duplicate profile…');
+      try {
+        const sourceRecord = registrationsCache.find((r) => String(r.user_id || '') === userId);
+        const existingIds = Array.isArray(sourceRecord?.linked_to_user_ids)
+          ? sourceRecord.linked_to_user_ids.filter(Boolean)
+          : [];
+        if (existingIds.includes(primaryUserId)) {
+          setTreeGraphFeedback('Already linked to this member.');
+          return;
+        }
+        const mergedIds = [...new Set([...existingIds, primaryUserId])];
+        const res = await apiFetch(`/registrations/${encodeURIComponent(userId)}/relationship`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ linked_to_user_ids: mergedIds }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setTreeGraphFeedback(`Merge failed: ${err.detail || res.statusText}`);
+          return;
+        }
+        familyTreeCache.clear();
+        await loadFamilies();
+        triggerTreeRewardFeedback(`${meta?.full_name || 'Member'} merged into family structure.`);
+      } catch (err) {
+        setTreeGraphFeedback(`Merge error: ${err.message || 'Unknown error'}`);
+      }
+      return;
+    }
   }
 
   function calculateFamilyCompletion(family) {
@@ -3189,13 +3265,9 @@
       return linked && role && !summary.includes('not linked yet');
     }).length;
 
-    const simulatedResolvedCount = members
-      .map((member) => getNodeKeyFromFamilyMember(family, member))
-      .filter((nodeKey) => nodeKey && (treeResolvedNodeKeys.has(nodeKey) || nodeHasSimulatedLink(nodeKey))).length;
-
-    const linkedRatio = Math.min(total, linkedCount + simulatedResolvedCount) / total;
+    const linkedRatio = linkedCount / total;
     const roleRatio = roleCount / total;
-    const relationshipRatio = Math.min(total, relationshipReadyCount + simulatedResolvedCount) / total;
+    const relationshipRatio = relationshipReadyCount / total;
     const weighted = (linkedRatio * 0.5) + (roleRatio * 0.25) + (relationshipRatio * 0.25);
     return Math.max(0, Math.min(100, Math.round(weighted * 100)));
   }
@@ -3541,7 +3613,7 @@
       return;
     }
 
-    const status = treeResolvedNodeKeys.has(nodeKey) || nodeHasSimulatedLink(nodeKey) ? 'Connected' : (node.pending_label || 'Pending Link');
+    const status = treeResolvedNodeKeys.has(nodeKey) ? 'Connected' : (node.pending_label || 'Pending Link');
     panel.hidden = false;
     panel.innerHTML = `
       <h4>Node Action Engine</h4>
@@ -3549,9 +3621,9 @@
       <div class="tree-node-action-list">
         <button type="button" class="tree-node-action-btn" data-tree-node-action="link-existing" data-node-key="${escapeHtml(nodeKey)}">Link To Existing Member</button>
         <button type="button" class="tree-node-action-btn secondary" data-tree-node-action="assign-relationship" data-node-key="${escapeHtml(nodeKey)}">Assign Relationship</button>
-        <button type="button" class="tree-node-action-btn secondary" data-tree-node-action="merge-duplicate" data-node-key="${escapeHtml(nodeKey)}">Merge Duplicate Profile</button>
+        <button type="button" class="tree-node-action-btn secondary" data-tree-node-action="merge-duplicate" data-node-key="${escapeHtml(nodeKey)}">Link to Primary Member</button>
       </div>
-      <div class="tree-node-action-meta">This panel simulates Phase 22 actions in UI state only. Use graph selection to preview structure repair before persistence is added.</div>
+      <div class="tree-node-action-meta">Actions update the registry directly. Changes persist after refresh.</div>
     `;
   }
 
@@ -4233,11 +4305,11 @@
       return;
     }
     if (action === 'assign-relationship') {
-      resolveNodeInteraction(nodeKey, 'relationship assignment simulated');
+      resolveNodeInteraction(nodeKey, 'assign-relationship');
       return;
     }
     if (action === 'merge-duplicate') {
-      resolveNodeInteraction(nodeKey, 'duplicate merge simulated');
+      resolveNodeInteraction(nodeKey, 'merge-duplicate');
     }
   });
   form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
@@ -5055,7 +5127,7 @@
       });
     }
 
-    const edgeMarkup = [...topology.edges, ...treeSimulatedLinks].map((edge) => {
+    const edgeMarkup = topology.edges.map((edge) => {
       const from = positions.get(edge.from);
       const to = positions.get(edge.to);
       if (!from || !to) return '';
@@ -5065,7 +5137,6 @@
       const classNames = [
         'graph-edge',
         edge.type === 'sibling' ? 'sibling' : '',
-        edge.type === 'simulated' ? 'is-simulated' : '',
         highlighted ? 'is-highlighted' : '',
         muted ? 'is-muted' : '',
       ].filter(Boolean).join(' ');
@@ -5086,7 +5157,7 @@
       const isMuted = activeTreeSelectedNodeKey && !connectedNodeKeys.has(node.key);
       const initial = (String(node.full_name || 'U').trim().charAt(0) || 'U').toUpperCase();
       const roleLabel = toDisplayLabel(node.relationship_role || 'not_provided');
-      const isResolved = treeResolvedNodeKeys.has(node.key) || nodeHasSimulatedLink(node.key);
+      const isResolved = !node.pending_profile || treeResolvedNodeKeys.has(node.key);
       const roleOrPendingLabel = node.pending_profile
         ? (isResolved ? 'Linked' : (node.pending_label || 'Pending Link'))
         : roleLabel;
@@ -5252,15 +5323,15 @@
           treeLinkModeState.sourceKey = nodeKey;
           activeTreeSelectedNodeKey = nodeKey;
           updateTreeLinkModeChip();
-          setTreeGraphFeedback('Source node selected. Choose the target node to complete the simulated link.');
+          setTreeGraphFeedback('Source node selected. Choose the target node to complete the link.');
           renderVisualFamilyTree();
           return;
         }
         if (treeLinkModeState.sourceKey === nodeKey) {
-          setTreeGraphFeedback('Select a different target node to complete the simulated link.');
+          setTreeGraphFeedback('Select a different target node to complete the link.');
           return;
         }
-        finalizeSimulatedLink(treeLinkModeState.sourceKey, nodeKey);
+        finalizeRealLink(treeLinkModeState.sourceKey, nodeKey);
         return;
       }
       activeTreeSelectedNodeKey = activeTreeSelectedNodeKey === nodeKey ? '' : nodeKey;
