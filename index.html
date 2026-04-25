@@ -1222,9 +1222,9 @@
       </div>
     </details>
     <details class="admin-collapsible" id="exportPanel">
-      <summary>Export & Backup</summary>
+      <summary>Admin Export + Backup</summary>
       <div class="export-wrap">
-        <p style="font-size: 0.9em; color: #888; margin-bottom: 1rem;">Download registry data for backup, archival, or future Vault integration.</p>
+        <p style="font-size: 0.9em; color: #888; margin-bottom: 1rem;">Download registry data for backup, records, and future Eternal Vault integration.</p>
         <div class="export-buttons">
           <button class="btn btn-export" id="exportRegistrationsJsonBtn" data-format="registrations-json">
             📥 Registrations JSON
@@ -2545,39 +2545,39 @@
   }
 
   async function handleExport(format) {
+    const exportButtons = Array.from(document.querySelectorAll('.btn-export'));
     try {
-      let endpoint, filename, contentType;
+      let endpoint, filename;
 
       switch (format) {
         case 'registrations-json':
           endpoint = '/export/registrations';
           filename = `diaspora-registrations-${new Date().toISOString().split('T')[0]}.json`;
-          contentType = 'application/json';
           break;
         case 'registrations-csv':
           endpoint = '/export/registrations.csv';
           filename = `diaspora-registrations-${new Date().toISOString().split('T')[0]}.csv`;
-          contentType = 'text/csv';
           break;
         case 'families-json':
           endpoint = '/export/families';
           filename = `diaspora-families-${new Date().toISOString().split('T')[0]}.json`;
-          contentType = 'application/json';
           break;
         case 'stats-json':
           endpoint = '/export/stats';
           filename = `diaspora-stats-${new Date().toISOString().split('T')[0]}.json`;
-          contentType = 'application/json';
           break;
         case 'full-backup':
           endpoint = '/export/full_backup';
           filename = `diaspora-full-backup-${new Date().toISOString().split('T')[0]}.json`;
-          contentType = 'application/json';
           break;
         default:
           showError('Unknown export format.');
           return;
       }
+
+      exportButtons.forEach((button) => {
+        button.disabled = true;
+      });
 
       const response = await fetch(endpoint);
       if (!response.ok) {
@@ -2600,6 +2600,10 @@
       errorMsg.classList.remove('show');
     } catch (err) {
       showError(`Could not export data: ${err.message}`);
+    } finally {
+      exportButtons.forEach((button) => {
+        button.disabled = false;
+      });
     }
   }
 
