@@ -10,6 +10,13 @@ _SESSION_EVENT_TYPES = {
     "session_started",
     "session_active",
     "registration_started",
+    "registration_submitted",
+    "family_group_created",
+    "family_tree_viewed",
+    "export_download_clicked",
+    "full_backup_downloaded",
+    "admin_dashboard_viewed",
+    "activity_log_viewed",
 }
 
 
@@ -22,7 +29,14 @@ def track_session_activity(
     """Record session-level client activity events from the UI."""
     event_type = str(payload.get("event_type") or "").strip()
     if event_type not in _SESSION_EVENT_TYPES:
-        raise HTTPException(status_code=400, detail="Unsupported session activity event")
+        allowed = ", ".join(sorted(_SESSION_EVENT_TYPES))
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unsupported session activity event '{event_type}'. "
+                f"Allowed event types: {allowed}"
+            ),
+        )
 
     message = str(payload.get("message") or "").strip()
     if not message:

@@ -38,7 +38,7 @@
       content: '';
       position: fixed;
       inset: 0;
-      background: rgba(11, 26, 43, 0.74);
+      background: rgba(11, 26, 43, 0.62);
       pointer-events: none;
       z-index: 0;
     }
@@ -895,10 +895,30 @@
     }
 
     .activity-log-meta {
-      color: var(--muted);
+      color: #dde7f2;
       font-size: 0.7rem;
       line-height: 1.45;
       margin-bottom: 4px;
+    }
+    .activity-log-title {
+      color: var(--gold-lt);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      margin-bottom: 4px;
+    }
+
+    .activity-log-line {
+      display: block;
+      color: #dbe5f0;
+      margin-bottom: 2px;
+    }
+
+    .activity-log-line strong {
+      color: var(--gold);
+      font-weight: 600;
+      margin-right: 4px;
     }
 
     .activity-log-message {
@@ -913,6 +933,13 @@
       letter-spacing: 0.04em;
       text-transform: uppercase;
       font-size: 0.66rem;
+    }
+
+    .activity-log-hint {
+      margin-top: 6px;
+      color: #d5e0ec;
+      font-size: 0.74rem;
+      letter-spacing: 0.03em;
     }
 
     .activity-filter-row {
@@ -1723,13 +1750,17 @@
           <div class="field">
             <label for="activityEventTypeFilter">Event Type</label>
             <select id="activityEventTypeFilter">
-              <option value="">All Events</option>
-              <option value="user_registered">User Registered</option>
+              <option value="">All Events (Heartbeat Hidden)</option>
               <option value="session_started">Session Started</option>
               <option value="session_active">Session Active</option>
               <option value="registration_started">Registration Started</option>
+              <option value="registration_submitted">Registration Submitted</option>
+              <option value="family_group_created">Family Group Created</option>
               <option value="export_download_clicked">Export Download</option>
               <option value="full_backup_downloaded">Full Backup</option>
+              <option value="admin_dashboard_viewed">Admin Dashboard Viewed</option>
+              <option value="activity_log_viewed">Activity Log Viewed</option>
+              <option value="family_tree_viewed">Family Tree Viewed</option>
               <option value="registration_updated">Registration Updated</option>
               <option value="registration_deleted">Registration Deleted</option>
               <option value="relationship_updated">Relationship Updated</option>
@@ -1738,6 +1769,7 @@
           <button type="button" class="secondary activity-filter-btn" id="activityFilterApplyBtn">Apply</button>
           <button type="button" class="secondary activity-filter-btn" id="activityFilterClearBtn">Clear</button>
         </div>
+        <p class="activity-log-hint">Heartbeat events are hidden by default to keep timeline entries readable. Select Session Active in Event Type to view them.</p>
         <div id="activityLogList"><p class="stats-loading">Loading activity log...</p></div>
       </div>
     </div>
@@ -1973,6 +2005,8 @@
   const KNOWN_USER_STORAGE_KEY = 'aeternum_known_user_id';
   const REGISTRATION_STARTED_FLAG_KEY = 'aeternum_registration_started_logged';
   const SESSION_STARTED_FLAG_KEY = 'aeternum_session_started_logged';
+  const PAGE_VIEW_LOGGED_KEY_PREFIX = 'aeternum_page_view_logged_';
+  const ACTIVITY_FILTER_STATE_KEY = 'aeternum_activity_filter_state';
 
   const ORIGIN_REGION_OPTIONS = [
     'west_africa',
@@ -2074,9 +2108,11 @@
       renderVisualFamilyTree();
     }
     if (pageName === 'activity-log') {
+      logPageViewOnce('activity-log', 'activity_log_viewed', 'Activity Log tab opened.');
       loadActivityLog();
     }
     if (pageName === 'admin-dashboard') {
+      logPageViewOnce('admin-dashboard', 'admin_dashboard_viewed', 'Admin Dashboard tab opened.');
       renderAdminSummary();
       loadStats();
       loadRegistrations();
@@ -2129,6 +2165,53 @@
       headers['X-User-Id'] = knownUserId;
     }
     return headers;
+  }
+
+  function pageViewFlagKey(pageName) {
+    return `${PAGE_VIEW_LOGGED_KEY_PREFIX}${pageName}`;
+  }
+
+  function loadActivityFilterState() {
+    try {
+      const raw = window.sessionStorage.getItem(ACTIVITY_FILTER_STATE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      return {
+        session_id: String(parsed.session_id || '').trim(),
+        user_id: String(parsed.user_id || '').trim(),
+        event_type: String(parsed.event_type || '').trim(),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function saveActivityFilterState() {
+    const state = {
+      session_id: String(activitySessionFilterInput?.value || '').trim(),
+      user_id: String(activityUserFilterInput?.value || '').trim(),
+      event_type: String(activityEventTypeFilterInput?.value || '').trim(),
+    };
+    window.sessionStorage.setItem(ACTIVITY_FILTER_STATE_KEY, JSON.stringify(state));
+  }
+
+  function restoreActivityFilterState() {
+    const state = loadActivityFilterState();
+    if (!state) return;
+    if (activitySessionFilterInput) activitySessionFilterInput.value = state.session_id;
+    if (activityUserFilterInput) activityUserFilterInput.value = state.user_id;
+    if (activityEventTypeFilterInput) activityEventTypeFilterInput.value = state.event_type;
+  }
+
+  function logPageViewOnce(pageName, eventType, message) {
+    const key = pageViewFlagKey(pageName);
+    const loggedSession = window.sessionStorage.getItem(key);
+    if (loggedSession === sessionId) {
+      return;
+    }
+    window.sessionStorage.setItem(key, sessionId);
+    postSessionEvent(eventType, message);
   }
 
   async function apiFetch(url, options = {}) {
@@ -2211,25 +2294,33 @@
     });
   });
   activityFilterApplyBtn?.addEventListener('click', () => {
+    saveActivityFilterState();
     loadActivityLog();
   });
   activityFilterClearBtn?.addEventListener('click', () => {
     if (activitySessionFilterInput) activitySessionFilterInput.value = '';
     if (activityUserFilterInput) activityUserFilterInput.value = '';
     if (activityEventTypeFilterInput) activityEventTypeFilterInput.value = '';
+    saveActivityFilterState();
     loadActivityLog();
   });
   activitySessionFilterInput?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
+      saveActivityFilterState();
       loadActivityLog();
     }
   });
   activityUserFilterInput?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
+      saveActivityFilterState();
       loadActivityLog();
     }
+  });
+  activityEventTypeFilterInput?.addEventListener('change', () => {
+    saveActivityFilterState();
+    loadActivityLog();
   });
   form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
 
@@ -3468,22 +3559,27 @@
         case 'registrations-json':
           endpoint = '/export/registrations';
           filename = `diaspora-registrations-${new Date().toISOString().split('T')[0]}.json`;
+          postSessionEvent('export_download_clicked', 'Registrations JSON export clicked.');
           break;
         case 'registrations-csv':
           endpoint = '/export/registrations.csv';
           filename = `diaspora-registrations-${new Date().toISOString().split('T')[0]}.csv`;
+          postSessionEvent('export_download_clicked', 'Registrations CSV export clicked.');
           break;
         case 'families-json':
           endpoint = '/export/families';
           filename = `diaspora-families-${new Date().toISOString().split('T')[0]}.json`;
+          postSessionEvent('export_download_clicked', 'Families JSON export clicked.');
           break;
         case 'stats-json':
           endpoint = '/export/stats';
           filename = `diaspora-stats-${new Date().toISOString().split('T')[0]}.json`;
+          postSessionEvent('export_download_clicked', 'Stats JSON export clicked.');
           break;
         case 'full-backup':
           endpoint = '/export/full_backup';
           filename = `diaspora-full-backup-${new Date().toISOString().split('T')[0]}.json`;
+          postSessionEvent('full_backup_downloaded', 'Full backup export clicked.');
           break;
         default:
           showError('Unknown export format.');
@@ -3544,9 +3640,13 @@
 
       const response = await apiFetch(endpoint);
       const rows = await response.json();
-      const events = Array.isArray(rows) ? rows : [];
+      const allEvents = Array.isArray(rows) ? rows : [];
+      const suppressHeartbeat = !sessionFilter && !userFilter && !eventTypeFilter;
+      const events = suppressHeartbeat
+        ? allEvents.filter((event) => String(event?.event_type || '') !== 'session_active')
+        : allEvents;
       if (!sessionFilter && !userFilter) {
-        latestActivityEventCount = events.length;
+        latestActivityEventCount = allEvents.length;
         renderAdminSummary();
       }
 
@@ -3559,20 +3659,18 @@
         const timestamp = event.timestamp
           ? new Date(event.timestamp).toLocaleString()
           : 'Unknown time';
-        const pieces = [
-          event.session_id ? `Session ID: ${escapeHtml(String(event.session_id))}` : '',
-          event.session_sequence ? `Session Seq: ${escapeHtml(String(event.session_sequence))}` : '',
-          event.family_name ? `Family: ${escapeHtml(String(event.family_name))}` : '',
-          event.family_id ? `Family ID: ${escapeHtml(String(event.family_id))}` : '',
-          event.user_id ? `User ID: ${escapeHtml(String(event.user_id))}` : '',
-        ].filter(Boolean).join(' | ');
+        const title = toDisplayLabel(String(event.event_type || 'event'));
 
         return `
           <article class="activity-log-item">
             <div class="activity-log-meta">
-              <span class="activity-log-type">${escapeHtml(toDisplayLabel(String(event.event_type || 'event')))}</span>
-              &nbsp;•&nbsp;${escapeHtml(timestamp)}
-              ${pieces ? `<br>${pieces}` : ''}
+              <div class="activity-log-title">${escapeHtml(title)}</div>
+              <span class="activity-log-line"><strong>Date/Time:</strong> ${escapeHtml(timestamp)}</span>
+              ${event.session_id ? `<span class="activity-log-line"><strong>Session ID:</strong> ${escapeHtml(String(event.session_id))}</span>` : ''}
+              ${event.session_sequence ? `<span class="activity-log-line"><strong>Session Sequence:</strong> ${escapeHtml(String(event.session_sequence))}</span>` : ''}
+              ${event.user_id ? `<span class="activity-log-line"><strong>User ID:</strong> ${escapeHtml(String(event.user_id))}</span>` : ''}
+              ${event.family_id ? `<span class="activity-log-line"><strong>Family ID:</strong> ${escapeHtml(String(event.family_id))}</span>` : ''}
+              ${event.family_name ? `<span class="activity-log-line"><strong>Family Name:</strong> ${escapeHtml(String(event.family_name))}</span>` : ''}
             </div>
             <div class="activity-log-message">${escapeHtml(String(event.message || 'No message'))}</div>
           </article>
@@ -3587,6 +3685,7 @@
 
   ensureSessionStartedEvent();
   sendSessionHeartbeat();
+  restoreActivityFilterState();
   renderSystemStatusBadges();
 
   // Hydrate all key backend-backed sections on page open.
