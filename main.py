@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from routes import users, admin
+from services import registry
 
 _ROOT = Path(__file__).resolve().parent
 
@@ -22,6 +23,12 @@ app.include_router(users.router)
 app.include_router(admin.router)
 
 app.mount("/static", StaticFiles(directory=str(_ROOT / "static")), name="static")
+
+
+@app.on_event("startup")
+def startup_persistence_check() -> None:
+    """Confirm registry and activity persistence files are readable on startup."""
+    registry.run_persistence_safety_check()
 
 
 @app.get("/", tags=["UI"], include_in_schema=False)

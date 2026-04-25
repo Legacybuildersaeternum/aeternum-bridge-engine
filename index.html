@@ -14,7 +14,7 @@
       --gold-lt: #e8c96a;
       --gold-dk: #a8893c;
       --white:   #f4f4f4;
-      --muted:   #8a9bb0;
+      --muted:   #b8c6d8;
       --error:   #e05a5a;
       --success: #4caf82;
       --radius:  8px;
@@ -38,7 +38,7 @@
       content: '';
       position: fixed;
       inset: 0;
-      background: rgba(11, 26, 43, 0.97);
+      background: rgba(11, 26, 43, 0.93);
       pointer-events: none;
       z-index: 0;
     }
@@ -1673,6 +1673,12 @@
       <div class="tree-wrap" style="max-height:none; opacity:1; padding:0;">
         <div class="tree-controls">
           <div class="field">
+            <label for="treeFamilyFilter">Family Group</label>
+            <select id="treeFamilyFilter">
+              <option value="">Auto-select first available family</option>
+            </select>
+          </div>
+          <div class="field">
             <label for="treeRoleFilter">Role Filter</label>
             <select id="treeRoleFilter">
               <option value="all">All Roles</option>
@@ -1947,6 +1953,7 @@
   const activityFilterApplyBtn = document.getElementById('activityFilterApplyBtn');
   const activityFilterClearBtn = document.getElementById('activityFilterClearBtn');
   const treeRoleFilter = document.getElementById('treeRoleFilter');
+  const treeFamilyFilter = document.getElementById('treeFamilyFilter');
   const treeSearchInput = document.getElementById('treeSearchInput');
   const registrationEditModal = document.getElementById('registrationEditModal');
   const registrationEditForm = document.getElementById('registrationEditForm');
@@ -1959,6 +1966,7 @@
   const familyTreeCache = new Map();
   let activeEditUserId = null;
   let activeEditInitial = null;
+  let activeTreeFamilyId = '';
   let latestStatsSnapshot = null;
   let latestActivityEventCount = null;
   const SESSION_STORAGE_KEY = 'aeternum_session_id';
@@ -2060,6 +2068,9 @@
       loadHomeDashboard();
     }
     if (pageName === 'family-tree') {
+      if (!familiesCache.length) {
+        loadFamilies();
+      }
       renderVisualFamilyTree();
     }
     if (pageName === 'activity-log') {
@@ -2122,10 +2133,23 @@
 
   async function apiFetch(url, options = {}) {
     const headers = buildTrackedHeaders(options.headers || {});
-    return fetch(url, {
+    const requestOptions = {
       ...options,
       headers,
-    });
+    };
+
+    // Retry once for startup races so refresh right after reboot can still hydrate UI.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        return await fetch(url, requestOptions);
+      } catch (error) {
+        if (attempt === 1) {
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 650));
+      }
+    }
+    throw new Error('Request failed after retry');
   }
 
   async function postSessionEvent(eventType, message) {
@@ -2173,6 +2197,10 @@
   registrationEditForm.addEventListener('submit', handleRegistrationEditSave);
   editRegCancelBtn.addEventListener('click', closeRegistrationEditModal);
   treeRoleFilter.addEventListener('change', renderVisualFamilyTree);
+  treeFamilyFilter.addEventListener('change', () => {
+    activeTreeFamilyId = String(treeFamilyFilter.value || '').trim();
+    renderVisualFamilyTree();
+  });
   treeSearchInput.addEventListener('input', renderVisualFamilyTree);
   pageNavButtons.forEach((button) => {
     button.addEventListener('click', () => {
@@ -2798,10 +2826,23 @@
       return;
     }
 
+    const validFamilyIds = new Set(groups.map((group) => String(group.family_id || '')));
+    if (!activeTreeFamilyId || !validFamilyIds.has(activeTreeFamilyId)) {
+      activeTreeFamilyId = String(groups[0]?.family_id || '');
+      if (treeFamilyFilter) {
+        treeFamilyFilter.value = activeTreeFamilyId;
+      }
+    }
+
+    const visibleGroups = groups.filter((group) => {
+      if (!activeTreeFamilyId) return true;
+      return String(group.family_id || '') === activeTreeFamilyId;
+    });
+
     let totalRenderedMembers = 0;
     const familyBlocks = [];
 
-    for (const family of groups) {
+    for (const family of visibleGroups) {
       let tree;
       try {
         tree = await fetchFamilyTreeData(family.family_id);
@@ -3363,13 +3404,58 @@
 
       container.innerHTML = cards;
       familiesCache = groups;
+      if (treeFamilyFilter) {
+        const options = groups
+          .map((family) => `
+            <option value="${escapeHtml(String(family.family_id || ''))}">
+              ${escapeHtml(String(family.family_name || 'Unknown Family'))}
+            </option>
+          `)
+          .join('');
+        treeFamilyFilter.innerHTML = '<option value="">Auto-select first available family</option>' + options;
+      }
+      if (!activeTreeFamilyId || !groups.some((family) => String(family.family_id || '') === activeTreeFamilyId)) {
+        activeTreeFamilyId = String(groups[0]?.family_id || '');
+        if (treeFamilyFilter) {
+          treeFamilyFilter.value = activeTreeFamilyId;
+        }
+      }
       familyTreeCache.clear();
       renderVisualFamilyTree();
     } catch {
       container.innerHTML = `<p class="stats-loading">Could not load family groups.</p>`;
       familiesCache = [];
+      activeTreeFamilyId = '';
+      if (treeFamilyFilter) {
+        treeFamilyFilter.innerHTML = '<option value="">Auto-select first available family</option>';
+      }
       familyTreeCache.clear();
       renderVisualFamilyTree();
+    }
+  }
+
+  async function bootstrapHydration(maxAttempts = 6) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const probe = await apiFetch('/stats');
+        if (!probe.ok) {
+          throw new Error(`Stats probe failed: ${probe.status}`);
+        }
+        await Promise.allSettled([
+          loadHomeDashboard(),
+          loadStats(),
+          loadRegistrations(),
+          loadFamilies(),
+          loadActivityLog(),
+          loadAdminActivityLog(),
+        ]);
+        return;
+      } catch {
+        if (attempt === maxAttempts) {
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 900 * attempt));
+      }
     }
   }
 
@@ -3503,17 +3589,14 @@
   sendSessionHeartbeat();
   renderSystemStatusBadges();
 
-  // Load stats on page open
-  loadHomeDashboard();
-  loadStats();
-  loadRegistrations();
-  loadFamilies();
-  loadActivityLog();
+  // Hydrate all key backend-backed sections on page open.
+  bootstrapHydration();
   setInterval(() => {
     loadStats();
     loadRegistrations();
     loadFamilies();
     loadActivityLog();
+    loadAdminActivityLog();
   }, 15000);
   setInterval(() => {
     sendSessionHeartbeat();

@@ -228,12 +228,44 @@ def get_activity_log(
 
 def _load() -> list[dict[str, Any]]:
     _ensure_file()
-    with DATA_FILE.open("r", encoding="utf-8") as f:
-        data = json.load(f)
+    try:
+        with DATA_FILE.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        logger.error("Registry data file is invalid JSON at %s", DATA_FILE)
+        return []
     # Support legacy flat-list format produced before this fix
     if isinstance(data, list):
         return data
     return data.get("users", [])
+
+
+def run_persistence_safety_check() -> dict[str, Any]:
+    """Validate persistence files on startup without mutating existing data."""
+    _ensure_file()
+    _ensure_activity_file()
+    users = _load()
+    events = _load_activity_events()
+    diagnostics = {
+        "registry_path": str(DATA_FILE),
+        "registry_exists": DATA_FILE.exists(),
+        "registry_bytes": DATA_FILE.stat().st_size if DATA_FILE.exists() else 0,
+        "registry_users": len(users),
+        "activity_path": str(ACTIVITY_LOG_FILE),
+        "activity_exists": ACTIVITY_LOG_FILE.exists(),
+        "activity_bytes": ACTIVITY_LOG_FILE.stat().st_size if ACTIVITY_LOG_FILE.exists() else 0,
+        "activity_events": len(events),
+    }
+    logger.info(
+        "Persistence safety check — registry: %s (%d bytes, %d users), activity: %s (%d bytes, %d events)",
+        diagnostics["registry_path"],
+        diagnostics["registry_bytes"],
+        diagnostics["registry_users"],
+        diagnostics["activity_path"],
+        diagnostics["activity_bytes"],
+        diagnostics["activity_events"],
+    )
+    return diagnostics
 
 
 def _save(users: list[dict[str, Any]]) -> None:
