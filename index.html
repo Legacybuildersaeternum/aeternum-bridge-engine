@@ -1368,6 +1368,7 @@
 
   let registrationsCache = [];
   let familiesCache = [];
+  const familyTreeCache = new Map();
   let activeEditUserId = null;
   let activeEditInitial = null;
 
@@ -1942,6 +1943,20 @@
     return haystack.includes(searchTerm);
   }
 
+  function treeNodeMatchesFilters(node, roleFilter, searchTerm) {
+    return roleMatchesTreeFilter(node.relationship_role, roleFilter)
+      && nodeMatchesTreeSearch(node, searchTerm);
+  }
+
+  function subtreeHasMatch(node, roleFilter, searchTerm) {
+    if (!node) return false;
+    if (treeNodeMatchesFilters(node, roleFilter, searchTerm)) {
+      return true;
+    }
+    const children = Array.isArray(node.children) ? node.children : [];
+    return children.some((child) => subtreeHasMatch(child, roleFilter, searchTerm));
+  }
+
   function renderTreeNodeCard(member) {
     const connectedNames = (Array.isArray(member.linked_to_full_names) && member.linked_to_full_names.length)
       ? member.linked_to_full_names.join(', ')
@@ -1961,7 +1976,41 @@
     `;
   }
 
-  function renderVisualFamilyTree() {
+  function renderTreeBranch(node, roleFilter, searchTerm) {
+    if (!node || !subtreeHasMatch(node, roleFilter, searchTerm)) {
+      return '';
+    }
+
+    const childHtml = (Array.isArray(node.children) ? node.children : [])
+      .map((child) => renderTreeBranch(child, roleFilter, searchTerm))
+      .filter(Boolean)
+      .join('');
+
+    return `
+      <div class="tree-branch">
+        ${renderTreeNodeCard(node)}
+        ${childHtml ? `<div class="tree-children">${childHtml}</div>` : ''}
+      </div>
+    `;
+  }
+
+  async function fetchFamilyTreeData(familyId) {
+    if (!familyId) return null;
+    if (familyTreeCache.has(familyId)) {
+      return familyTreeCache.get(familyId);
+    }
+
+    const response = await fetch(`/family-tree/${encodeURIComponent(familyId)}`);
+    if (!response.ok) {
+      throw new Error(`Could not load tree for ${familyId}`);
+    }
+
+    const payload = await response.json();
+    familyTreeCache.set(familyId, payload);
+    return payload;
+  }
+
+  async function renderVisualFamilyTree() {
     const roleFilter = treeRoleFilter.value;
     const searchTerm = treeSearchInput.value.trim().toLowerCase();
     const groups = Array.isArray(familiesCache) ? familiesCache : [];
@@ -1971,97 +2020,35 @@
       return;
     }
 
-    let totalConnectedMembers = 0;
+    let totalRenderedMembers = 0;
     const familyBlocks = [];
 
     for (const family of groups) {
-      const members = Array.isArray(family.members) ? family.members : [];
-      if (!members.length) continue;
-
-      const byId = new Map();
-      for (const member of members) {
-        byId.set(member.user_id, member);
+      let tree;
+      try {
+        tree = await fetchFamilyTreeData(family.family_id);
+      } catch {
+        continue;
       }
 
-      const outgoing = new Map();
-      const targeted = new Set();
+      const roots = Array.isArray(tree?.roots) ? tree.roots : [];
+      if (!roots.length) continue;
 
-      for (const member of members) {
-        const links = getLinkedIdsFromRecord(member)
-          .filter((id) => id !== member.user_id && byId.has(id));
-        outgoing.set(member.user_id, links);
-        if (links.length) {
-          totalConnectedMembers += 1;
-        }
-        for (const linkedId of links) {
-          targeted.add(linkedId);
-        }
-      }
-
-      const filterSet = new Set(
-        members
-          .filter((member) => roleMatchesTreeFilter(member.relationship_role, roleFilter))
-          .filter((member) => nodeMatchesTreeSearch(member, searchTerm))
-          .map((member) => member.user_id)
-      );
-
-      const subtreeHasMatch = (userId, trail = new Set()) => {
-        if (filterSet.has(userId)) return true;
-        if (trail.has(userId)) return false;
-        const nextTrail = new Set(trail);
-        nextTrail.add(userId);
-        const children = outgoing.get(userId) || [];
-        return children.some((childId) => subtreeHasMatch(childId, nextTrail));
-      };
-
-      const renderBranch = (userId, trail = new Set()) => {
-        if (trail.has(userId)) return '';
-        if (!subtreeHasMatch(userId)) return '';
-        const member = byId.get(userId);
-        if (!member) return '';
-
-        const nextTrail = new Set(trail);
-        nextTrail.add(userId);
-        const childHtml = (outgoing.get(userId) || [])
-          .map((childId) => renderBranch(childId, nextTrail))
-          .filter(Boolean)
-          .join('');
-
-        return `
-          <div class="tree-branch">
-            ${renderTreeNodeCard(member)}
-            ${childHtml ? `<div class="tree-children">${childHtml}</div>` : ''}
-          </div>
-        `;
-      };
-
-      const roots = members
-        .filter((member) => (outgoing.get(member.user_id) || []).length > 0)
-        .filter((member) => !targeted.has(member.user_id));
-      const fallbackRoots = roots.length
-        ? roots
-        : members.filter((member) => (outgoing.get(member.user_id) || []).length > 0);
-
-      let forestHtml = fallbackRoots
-        .map((member) => renderBranch(member.user_id, new Set()))
+      let forestHtml = roots
+        .map((rootNode) => renderTreeBranch(rootNode, roleFilter, searchTerm))
         .filter(Boolean)
         .join('');
-
-      if (!forestHtml && filterSet.size) {
-        forestHtml = members
-          .filter((member) => filterSet.has(member.user_id))
-          .map((member) => `<div class="tree-branch">${renderTreeNodeCard(member)}</div>`)
-          .join('');
-      }
 
       if (!forestHtml) {
         continue;
       }
 
+      totalRenderedMembers += roots.length;
+
       familyBlocks.push(`
         <article class="tree-family-card">
-          <div class="tree-family-header">${escapeHtml(family.family_name || 'Unknown Family')}</div>
-          <div class="tree-family-sub">Family ID: ${escapeHtml(family.family_id || '-')}</div>
+          <div class="tree-family-header">${escapeHtml(tree.family_name || family.family_name || 'Unknown Family')}</div>
+          <div class="tree-family-sub">Family ID: ${escapeHtml(tree.family_id || family.family_id || '-')} | Members: ${Number(tree.total_members || 0)}</div>
           <div class="tree-forest">${forestHtml}</div>
         </article>
       `);
@@ -2072,7 +2059,7 @@
       return;
     }
 
-    if (!totalConnectedMembers) {
+    if (!totalRenderedMembers) {
       familyTreeContent.innerHTML = 'Family tree will appear once members are connected.';
       return;
     }
@@ -2490,6 +2477,7 @@
       if (!groups.length) {
         container.innerHTML = `<p class="stats-loading">No family groups yet.</p>`;
         familiesCache = [];
+        familyTreeCache.clear();
         renderVisualFamilyTree();
         return;
       }
@@ -2536,10 +2524,12 @@
 
       container.innerHTML = cards;
       familiesCache = groups;
+      familyTreeCache.clear();
       renderVisualFamilyTree();
     } catch {
       container.innerHTML = `<p class="stats-loading">Could not load family groups.</p>`;
       familiesCache = [];
+      familyTreeCache.clear();
       renderVisualFamilyTree();
     }
   }

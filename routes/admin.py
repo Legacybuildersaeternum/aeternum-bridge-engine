@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 from datetime import datetime, timezone
+from typing import Any
 from models.user import (
     BackupResponse,
     FamilyGroupResponse,
@@ -30,6 +31,15 @@ def get_registrations() -> list[UserRecord]:
 def get_families() -> list[FamilyGroupResponse]:
     """Return grouped family data with member relationship graph details."""
     return registry.get_families()
+
+
+@router.get("/family-tree/{family_id}")
+def get_family_tree(family_id: str) -> dict[str, Any]:
+    """Return hierarchical family tree data for a specific family."""
+    try:
+        return registry.get_family_tree(family_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.patch("/registrations/{user_id}", response_model=UserRecord)

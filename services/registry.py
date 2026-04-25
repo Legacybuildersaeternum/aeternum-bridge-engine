@@ -551,6 +551,143 @@ def get_families() -> list[FamilyGroupResponse]:
     return families
 
 
+def get_family_tree(family_id: str) -> dict[str, Any]:
+    """Build a lightweight hierarchical family tree for a single family group."""
+    users = [_normalize_user(u) for u in _load()]
+    family_members = [u for u in users if u.get("family_id") == family_id]
+    if not family_members:
+        raise ValueError("Family not found")
+
+    family_name = str(family_members[0].get("family_name") or "Unknown")
+    id_set = {
+        str(member.get("user_id"))
+        for member in family_members
+        if member.get("user_id")
+    }
+
+    role_by_id = {
+        str(member.get("user_id")): str(member.get("relationship_role") or "")
+        for member in family_members
+        if member.get("user_id")
+    }
+    name_by_id = {
+        str(member.get("user_id")): str(member.get("full_name") or "Unnamed member")
+        for member in family_members
+        if member.get("user_id")
+    }
+
+    parent_roles = {
+        "father",
+        "mother",
+        "parent",
+        "grandfather",
+        "grandmother",
+        "grandparent",
+        "elder_ancestor",
+    }
+    child_roles = {
+        "son",
+        "daughter",
+        "child",
+        "grandson",
+        "granddaughter",
+        "dependent",
+    }
+
+    node_map: dict[str, dict[str, Any]] = {}
+    outgoing: dict[str, list[str]] = {}
+    incoming: dict[str, int] = {}
+
+    for member in family_members:
+        user_id = str(member.get("user_id") or "").strip()
+        if not user_id:
+            continue
+
+        linked_ids = [
+            linked_id
+            for linked_id in _normalize_linked_to_user_ids(
+                member.get("linked_to_user_ids"),
+                member.get("linked_to_user_id"),
+            )
+            if linked_id in id_set and linked_id != user_id
+        ]
+        linked_names = [name_by_id[linked_id] for linked_id in linked_ids if linked_id in name_by_id]
+
+        node_map[user_id] = {
+            "user_id": user_id,
+            "full_name": str(member.get("full_name") or "Unnamed member"),
+            "relationship_role": member.get("relationship_role"),
+            "household_position": member.get("household_position"),
+            "relationship_notes": member.get("relationship_notes"),
+            "linked_to_user_ids": linked_ids,
+            "linked_to_full_names": linked_names,
+            "relationship_display": _build_relationship_display(
+                member.get("relationship_role"),
+                linked_names,
+            ),
+        }
+        outgoing[user_id] = []
+        incoming[user_id] = 0
+
+    def add_edge(parent_id: str, child_id: str) -> None:
+        if parent_id == child_id:
+            return
+        if parent_id not in node_map or child_id not in node_map:
+            return
+        if child_id in outgoing[parent_id]:
+            return
+        outgoing[parent_id].append(child_id)
+        incoming[child_id] += 1
+
+    for user_id, node in node_map.items():
+        member_role = str(node.get("relationship_role") or "").strip().lower()
+        for linked_id in node.get("linked_to_user_ids", []):
+            linked_role = str(role_by_id.get(linked_id) or "").strip().lower()
+            if member_role in parent_roles:
+                add_edge(user_id, linked_id)
+            elif member_role in child_roles:
+                add_edge(linked_id, user_id)
+            elif linked_role in parent_roles:
+                add_edge(linked_id, user_id)
+            elif linked_role in child_roles:
+                add_edge(user_id, linked_id)
+            else:
+                add_edge(user_id, linked_id)
+
+    root_ids = [user_id for user_id, in_count in incoming.items() if in_count == 0]
+    if not root_ids:
+        root_ids = [
+            user_id
+            for user_id, role in role_by_id.items()
+            if str(role or "").strip().lower() in parent_roles
+        ]
+    if not root_ids:
+        root_ids = sorted(node_map.keys())
+
+    def build_node(user_id: str, trail: set[str]) -> dict[str, Any]:
+        base = dict(node_map[user_id])
+        if user_id in trail:
+            base["children"] = []
+            return base
+        next_trail = set(trail)
+        next_trail.add(user_id)
+        base["children"] = [
+            build_node(child_id, next_trail)
+            for child_id in outgoing.get(user_id, [])
+        ]
+        return base
+
+    roots = [build_node(root_id, set()) for root_id in root_ids if root_id in node_map]
+
+    return {
+        "family_id": family_id,
+        "family_name": family_name,
+        "total_members": len(node_map),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "roots": roots,
+    }
+
+
 def export_registrations_csv() -> str:
     """Export all registrations as CSV format for spreadsheet import."""
     registrations = get_registrations()
