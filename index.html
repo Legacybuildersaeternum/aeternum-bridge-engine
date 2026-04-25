@@ -869,6 +869,52 @@
       opacity: 1;
     }
 
+    .activity-log-wrap {
+      padding: 10px 14px 14px;
+      max-height: 0;
+      opacity: 0;
+      overflow-y: auto;
+      transition: max-height 260ms ease, opacity 180ms ease;
+    }
+
+    .admin-collapsible[open] .activity-log-wrap {
+      max-height: 360px;
+      opacity: 1;
+    }
+
+    .activity-log-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .activity-log-item {
+      border: 1px solid rgba(201, 168, 76, 0.16);
+      border-radius: 6px;
+      background: rgba(19, 32, 50, 0.68);
+      padding: 9px 10px;
+    }
+
+    .activity-log-meta {
+      color: var(--muted);
+      font-size: 0.7rem;
+      line-height: 1.45;
+      margin-bottom: 4px;
+    }
+
+    .activity-log-message {
+      color: var(--white);
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+
+    .activity-log-type {
+      color: var(--gold-lt);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 0.66rem;
+    }
+
     .export-buttons {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -1313,6 +1359,12 @@
         <p style="font-size: 0.85em; color: #aaa; margin-top: 1rem;">✓ Read-only exports. No data is modified during download.</p>
       </div>
     </details>
+    <details class="admin-collapsible" id="activityLogPanel">
+      <summary>Legacy Activity Log</summary>
+      <div class="activity-log-wrap" id="activityLogContent">
+        <p class="stats-loading">Loading activity log...</p>
+      </div>
+    </details>
   </div>
 
 </div>
@@ -1421,11 +1473,13 @@
   const registrationsPanel = document.getElementById('registrationsPanel');
   const familyGroupsPanel = document.getElementById('familyGroupsPanel');
   const visualFamilyTreePanel = document.getElementById('visualFamilyTreePanel');
+  const activityLogPanel = document.getElementById('activityLogPanel');
   const familyNameInput = document.getElementById('family_name');
   const linkedToChecklist = document.getElementById('linked_to_user_ids');
   const familyGroupsContent = document.getElementById('familyGroupsContent');
   const registrationsContent = document.getElementById('registrationsContent');
   const familyTreeContent = document.getElementById('familyTreeContent');
+  const activityLogContent = document.getElementById('activityLogContent');
   const treeRoleFilter = document.getElementById('treeRoleFilter');
   const treeSearchInput = document.getElementById('treeSearchInput');
   const registrationEditModal = document.getElementById('registrationEditModal');
@@ -1502,6 +1556,11 @@
   visualFamilyTreePanel.addEventListener('toggle', () => {
     if (visualFamilyTreePanel.open) {
       renderVisualFamilyTree();
+    }
+  });
+  activityLogPanel.addEventListener('toggle', () => {
+    if (activityLogPanel.open) {
+      loadActivityLog();
     }
   });
 
@@ -2669,14 +2728,58 @@
     }
   }
 
+  /* ── Legacy Activity Log ── */
+  async function loadActivityLog() {
+    if (!activityLogContent) return;
+
+    try {
+      const response = await fetch('/activity-log');
+      const rows = await response.json();
+      const events = Array.isArray(rows) ? rows : [];
+
+      if (!events.length) {
+        activityLogContent.innerHTML = '<p class="stats-loading">No activity events yet.</p>';
+        return;
+      }
+
+      const listHtml = events.map((event) => {
+        const timestamp = event.timestamp
+          ? new Date(event.timestamp).toLocaleString()
+          : 'Unknown time';
+        const pieces = [
+          event.family_name ? `Family: ${escapeHtml(String(event.family_name))}` : '',
+          event.family_id ? `Family ID: ${escapeHtml(String(event.family_id))}` : '',
+          event.user_id ? `User ID: ${escapeHtml(String(event.user_id))}` : '',
+        ].filter(Boolean).join(' | ');
+
+        return `
+          <article class="activity-log-item">
+            <div class="activity-log-meta">
+              <span class="activity-log-type">${escapeHtml(toDisplayLabel(String(event.event_type || 'event')))}</span>
+              &nbsp;•&nbsp;${escapeHtml(timestamp)}
+              ${pieces ? `<br>${pieces}` : ''}
+            </div>
+            <div class="activity-log-message">${escapeHtml(String(event.message || 'No message'))}</div>
+          </article>
+        `;
+      }).join('');
+
+      activityLogContent.innerHTML = `<div class="activity-log-list">${listHtml}</div>`;
+    } catch {
+      activityLogContent.innerHTML = '<p class="stats-loading">Could not load activity log.</p>';
+    }
+  }
+
   // Load stats on page open
   loadStats();
   loadRegistrations();
   loadFamilies();
+  loadActivityLog();
   setInterval(() => {
     loadStats();
     loadRegistrations();
     loadFamilies();
+    loadActivityLog();
   }, 15000);
 </script>
 </body>

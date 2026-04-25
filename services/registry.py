@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "diaspora_registry.json"
 _EMPTY_STORE: dict[str, Any] = {"users": []}
+ACTIVITY_LOG_FILE = Path(__file__).resolve().parents[1] / "data" / "legacy_activity_log.json"
+_EMPTY_ACTIVITY_STORE: dict[str, Any] = {"events": []}
 
 
 def _normalize_dropdown_token(value: str) -> str:
@@ -109,6 +111,62 @@ def _ensure_file() -> None:
         logger.info("Created new data file at %s", DATA_FILE)
 
 
+def _ensure_activity_file() -> None:
+    """Create activity log file with empty structure if it does not exist."""
+    ACTIVITY_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if not ACTIVITY_LOG_FILE.exists():
+        with ACTIVITY_LOG_FILE.open("w", encoding="utf-8") as f:
+            json.dump(_EMPTY_ACTIVITY_STORE, f, indent=2)
+        logger.info("Created new activity log file at %s", ACTIVITY_LOG_FILE)
+
+
+def _load_activity_events() -> list[dict[str, Any]]:
+    _ensure_activity_file()
+    with ACTIVITY_LOG_FILE.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    if isinstance(data, list):
+        return data
+    return data.get("events", [])
+
+
+def _save_activity_events(events: list[dict[str, Any]]) -> None:
+    _ensure_activity_file()
+    with ACTIVITY_LOG_FILE.open("w", encoding="utf-8") as f:
+        json.dump({"events": events}, f, indent=2, ensure_ascii=False)
+
+
+def write_activity_event(
+    event_type: str,
+    message: str,
+    user_id: Optional[str] = None,
+    family_id: Optional[str] = None,
+    family_name: Optional[str] = None,
+) -> dict[str, Any]:
+    """Write one legacy activity entry and return the stored record."""
+    events = _load_activity_events()
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "event_type": event_type,
+        "user_id": user_id,
+        "family_id": family_id,
+        "family_name": family_name,
+        "message": message,
+    }
+    events.append(entry)
+    # Keep file size bounded for MVP operations.
+    if len(events) > 1000:
+        events = events[-1000:]
+    _save_activity_events(events)
+    return entry
+
+
+def get_activity_log(limit: int = 200) -> list[dict[str, Any]]:
+    """Return activity log events ordered newest-first."""
+    events = _load_activity_events()
+    ordered = sorted(events, key=lambda item: str(item.get("timestamp", "")), reverse=True)
+    return ordered[: max(1, min(limit, 1000))]
+
+
 def _load() -> list[dict[str, Any]]:
     _ensure_file()
     with DATA_FILE.open("r", encoding="utf-8") as f:
@@ -187,6 +245,7 @@ def _generate_family_id(family_name: str) -> str:
 def register_user(payload: UserRegistration) -> UserRecord:
     users = _load()
     family_id = _generate_family_id(payload.family_name)
+    family_exists = any(user.get("family_id") == family_id for user in users)
     user_id = "usr_" + uuid.uuid4().hex[:12]
     registered_at = datetime.now(timezone.utc).isoformat()
 
@@ -228,6 +287,25 @@ def register_user(payload: UserRegistration) -> UserRecord:
     )
     users.append(record.model_dump(mode="json"))
     _save(users)
+
+    write_activity_event(
+        event_type="registration_submitted",
+        message=f"New registration submitted for {record.full_name}.",
+        user_id=record.user_id,
+        family_id=record.family_id,
+        family_name=record.family_name,
+    )
+    write_activity_event(
+        event_type="family_group_updated" if family_exists else "family_group_created",
+        message=(
+            f"Family group {record.family_name} updated with new member {record.full_name}."
+            if family_exists
+            else f"Family group {record.family_name} created with founding member {record.full_name}."
+        ),
+        user_id=record.user_id,
+        family_id=record.family_id,
+        family_name=record.family_name,
+    )
     return record
 
 
@@ -360,6 +438,33 @@ def update_registration_relationship(
     updated_record = UserRecord.model_validate(merged)
     users[user_index] = updated_record.model_dump(mode="json")
     _save(users)
+
+    had_relationship = bool(
+        current.get("relationship_role")
+        or current.get("relationship_notes")
+        or _normalize_linked_to_user_ids(
+            current.get("linked_to_user_ids"),
+            current.get("linked_to_user_id"),
+        )
+    )
+    write_activity_event(
+        event_type="relationship_updated" if had_relationship else "relationship_created",
+        message=(
+            f"Relationship updated for {updated_record.full_name}."
+            if had_relationship
+            else f"Relationship created for {updated_record.full_name}."
+        ),
+        user_id=updated_record.user_id,
+        family_id=updated_record.family_id,
+        family_name=updated_record.family_name,
+    )
+    write_activity_event(
+        event_type="family_group_updated",
+        message=f"Family group {updated_record.family_name} relationship graph updated.",
+        user_id=updated_record.user_id,
+        family_id=updated_record.family_id,
+        family_name=updated_record.family_name,
+    )
     return updated_record
 
 
@@ -385,6 +490,13 @@ def delete_registration(user_id: str) -> dict[str, str]:
         remaining_users.append(updated_user)
 
     _save(remaining_users)
+    write_activity_event(
+        event_type="family_group_updated",
+        message=f"Registration removed for {target.get('full_name', 'Unknown member')} and family links were recalculated.",
+        user_id=str(target.get("user_id") or user_id),
+        family_id=str(target.get("family_id") or "") or None,
+        family_name=str(target.get("family_name") or "") or None,
+    )
     return {"message": "Registration deleted successfully."}
 
 
@@ -475,6 +587,22 @@ def update_registration(user_id: str, payload: RegistrationUpdateRequest) -> Use
         updated_users.append(normalized_user)
 
     _save(updated_users)
+
+    write_activity_event(
+        event_type="family_group_updated",
+        message=f"Registration updated for {updated_record.full_name} in family {updated_record.family_name}.",
+        user_id=updated_record.user_id,
+        family_id=updated_record.family_id,
+        family_name=updated_record.family_name,
+    )
+    if any(field in updates for field in ["relationship_role", "household_position", "relationship_notes", "linked_to_user_ids", "linked_to_user_id"]):
+        write_activity_event(
+            event_type="relationship_updated",
+            message=f"Relationship details updated for {updated_record.full_name}.",
+            user_id=updated_record.user_id,
+            family_id=updated_record.family_id,
+            family_name=updated_record.family_name,
+        )
     return updated_record
 
 
@@ -714,13 +842,22 @@ def get_family_tree(family_id: str) -> dict[str, Any]:
 
     roots = [build_node(root_id, set()) for root_id in root_ids if root_id in node_map]
 
-    return {
+    tree_payload = {
         "family_id": family_id,
         "family_name": family_name,
         "total_members": len(node_map),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "roots": roots,
     }
+
+    write_activity_event(
+        event_type="family_tree_viewed",
+        message=f"Family tree generated and viewed for {family_name}.",
+        family_id=family_id,
+        family_name=family_name,
+    )
+
+    return tree_payload
 
 
 def export_registrations_csv() -> str:

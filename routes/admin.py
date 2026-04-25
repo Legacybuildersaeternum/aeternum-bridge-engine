@@ -42,6 +42,12 @@ def get_family_tree(family_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.get("/activity-log")
+def get_activity_log() -> list[dict[str, Any]]:
+    """Return newest-first legacy activity log entries."""
+    return registry.get_activity_log()
+
+
 @router.patch("/registrations/{user_id}", response_model=UserRecord)
 def patch_registration(user_id: str, payload: RegistrationUpdateRequest) -> UserRecord:
     """Update any editable registration fields for an existing user."""
@@ -79,32 +85,52 @@ def delete_registration(user_id: str) -> dict[str, str]:
 @router.get("/export/registrations", response_model=list[UserRecord])
 def export_registrations() -> list[UserRecord]:
     """Export all registrations as JSON for backup and records."""
-    return registry.get_registrations()
+    data = registry.get_registrations()
+    registry.write_activity_event(
+        event_type="export_download_clicked",
+        message="Registrations JSON export downloaded.",
+    )
+    return data
 
 
 @router.get("/export/registrations.csv", response_class=PlainTextResponse)
 def export_registrations_csv() -> str:
     """Export all registrations as CSV for spreadsheet import."""
-    return registry.export_registrations_csv()
+    data = registry.export_registrations_csv()
+    registry.write_activity_event(
+        event_type="export_download_clicked",
+        message="Registrations CSV export downloaded.",
+    )
+    return data
 
 
 @router.get("/export/families", response_model=list[FamilyGroupResponse])
 def export_families() -> list[FamilyGroupResponse]:
     """Export all family groups as JSON for backup."""
-    return registry.get_families()
+    data = registry.get_families()
+    registry.write_activity_event(
+        event_type="export_download_clicked",
+        message="Families JSON export downloaded.",
+    )
+    return data
 
 
 @router.get("/export/stats", response_model=StatsResponse)
 def export_stats() -> StatsResponse:
     """Export aggregate statistics as JSON for records."""
-    return registry.get_stats()
+    data = registry.get_stats()
+    registry.write_activity_event(
+        event_type="export_download_clicked",
+        message="Stats JSON export downloaded.",
+    )
+    return data
 
 
 @router.get("/export/full_backup", response_model=BackupResponse)
 def export_full_backup() -> BackupResponse:
     """Export complete diaspora registry backup with timestamp and all data."""
     stats = registry.get_stats()
-    return BackupResponse(
+    payload = BackupResponse(
         generated_at=datetime.now(timezone.utc).isoformat(),
         registrations=registry.get_registrations(),
         families=registry.get_families(),
@@ -116,3 +142,8 @@ def export_full_backup() -> BackupResponse:
             "with_contact_info": str(stats.total_with_contact_info),
         },
     )
+    registry.write_activity_event(
+        event_type="full_backup_downloaded",
+        message="Full backup JSON downloaded.",
+    )
+    return payload
