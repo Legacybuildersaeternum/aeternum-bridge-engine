@@ -83,6 +83,30 @@ class UserRegistration(BaseModel):
     relationship_notes: Optional[str] = None
     notes: Optional[str] = None
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "full_name": "Joshua Ward",
+                "family_name": "Ward",
+                "family_size": 3,
+                "origin_region": "west_africa",
+                "interested_in_return": True,
+                "email": "ward.family@example.com",
+                "phone": "+1-555-0100",
+                "city": "Chicago",
+                "state": "IL",
+                "country": "USA",
+                "age_range": "35-44",
+                "preferred_contact_method": "email",
+                "travel_timeframe": "1-3_years",
+                "relationship_role": "father",
+                "household_position": "primary_representative",
+                "relationship_notes": "Primary household contact",
+                "notes": "Ward family reconnection profile",
+            }
+        }
+    }
+
     @field_validator("full_name", "family_name")
     @classmethod
     def must_not_be_blank(cls, v: str) -> str:

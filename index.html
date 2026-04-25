@@ -14,7 +14,7 @@
       --gold-lt: #e8c96a;
       --gold-dk: #a8893c;
       --white:   #f4f4f4;
-      --muted:   #b8c6d8;
+      --muted:   #d1deec;
       --error:   #e05a5a;
       --success: #4caf82;
       --radius:  8px;
@@ -33,12 +33,12 @@
       position: relative;
     }
 
-    /* Overlay dims watermark to ~3% effective opacity */
+    /* Keep watermark subtle without washing out foreground content. */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
-      background: rgba(11, 26, 43, 0.93);
+      background: rgba(11, 26, 43, 0.74);
       pointer-events: none;
       z-index: 0;
     }
@@ -62,9 +62,9 @@
         sepia(0.6)
         saturate(1.8)
         hue-rotate(8deg)
-        brightness(0.82)
+        brightness(0.94)
         drop-shadow(0 0 10px rgba(201, 168, 76, 0.55));
-      opacity: 0.93;
+      opacity: 0.98;
     }
 
     header h1 {
@@ -92,7 +92,7 @@
       background: linear-gradient(90deg, transparent, var(--gold), transparent);
       margin: 18px auto 0;
       border-radius: 2px;
-      opacity: 0.65;
+      opacity: 0.85;
     }
 
     /* ── Top content stack ── */
@@ -104,8 +104,8 @@
     }
 
     .feature-card {
-      background: rgba(19, 32, 50, 0.9);
-      border: 1px solid rgba(201, 168, 76, 0.16);
+      background: linear-gradient(180deg, rgba(26, 43, 65, 0.95), rgba(16, 31, 49, 0.94));
+      border: 1px solid rgba(201, 168, 76, 0.28);
       border-radius: var(--radius);
       padding: 24px;
       box-shadow:
@@ -118,7 +118,7 @@
       text-transform: uppercase;
       letter-spacing: 0.14em;
       color: var(--gold);
-      opacity: 0.9;
+      opacity: 1;
       margin-bottom: 10px;
     }
 
@@ -136,8 +136,8 @@
     }
 
     .how-step {
-      background: rgba(11, 26, 43, 0.8);
-      border: 1px solid rgba(201, 168, 76, 0.14);
+      background: rgba(19, 35, 54, 0.9);
+      border: 1px solid rgba(201, 168, 76, 0.26);
       border-radius: var(--radius);
       padding: 16px;
     }
@@ -152,7 +152,7 @@
     }
 
     .how-step p {
-      color: var(--muted);
+      color: #dde7f2;
       font-size: 0.92rem;
       line-height: 1.6;
     }
@@ -174,8 +174,8 @@
 
     /* ── Cards ── */
     .card {
-      background: var(--navy2);
-      border: 1px solid rgba(201, 168, 76, 0.18);
+      background: linear-gradient(180deg, rgba(24, 40, 62, 0.96), rgba(16, 31, 49, 0.94));
+      border: 1px solid rgba(201, 168, 76, 0.3);
       border-radius: var(--radius);
       padding: 28px 24px;
       box-shadow:
@@ -196,11 +196,11 @@
       margin-bottom: 22px;
       text-transform: uppercase;
       letter-spacing: 0.16em;
-      opacity: 0.8;
+      opacity: 0.96;
     }
 
     .form-helper {
-      color: var(--muted);
+      color: #dce6f1;
       font-size: 0.88rem;
       line-height: 1.6;
       margin-bottom: 18px;
@@ -211,7 +211,7 @@
     .field label {
       display: block;
       font-size: 0.74rem;
-      color: var(--muted);
+      color: #d7e3ef;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       margin-bottom: 6px;
@@ -291,9 +291,9 @@
     .optional-section {
       margin: 20px 0 18px;
       padding: 16px;
-      border: 1px solid rgba(201, 168, 76, 0.14);
+      border: 1px solid rgba(201, 168, 76, 0.28);
       border-radius: var(--radius);
-      background: rgba(11, 26, 43, 0.45);
+      background: rgba(20, 36, 56, 0.86);
     }
 
     .optional-section h3 {
@@ -305,7 +305,7 @@
     }
 
     .optional-note {
-      color: var(--muted);
+      color: #d8e3ee;
       font-size: 0.82rem;
       margin-bottom: 14px;
       line-height: 1.5;
@@ -409,8 +409,8 @@
       margin-bottom: 24px;
     }
     .stat-box {
-      background: var(--navy);
-      border: 1px solid rgba(201, 168, 76, 0.1);
+      background: rgba(16, 31, 48, 0.9);
+      border: 1px solid rgba(201, 168, 76, 0.24);
       border-radius: var(--radius);
       padding: 14px 10px;
       text-align: center;
@@ -451,7 +451,7 @@
 
     .stats-meta {
       margin-top: 10px;
-      color: var(--muted);
+      color: #d8e3ef;
       font-size: 0.72rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
@@ -488,9 +488,9 @@
 
     .admin-collapsible {
       margin-top: 16px;
-      border: 1px solid rgba(201, 168, 76, 0.14);
+      border: 1px solid rgba(201, 168, 76, 0.26);
       border-radius: var(--radius);
-      background: rgba(11, 26, 43, 0.4);
+      background: rgba(17, 33, 52, 0.84);
       overflow: hidden;
     }
 
@@ -613,9 +613,9 @@
     }
 
     .tree-family-card {
-      border: 1px solid rgba(201, 168, 76, 0.16);
+      border: 1px solid rgba(201, 168, 76, 0.26);
       border-radius: var(--radius);
-      background: rgba(11, 26, 43, 0.54);
+      background: rgba(19, 35, 54, 0.88);
       padding: 12px;
       margin-bottom: 12px;
     }
@@ -699,9 +699,9 @@
     }
 
     .tree-node {
-      border: 1px solid rgba(201, 168, 76, 0.14);
+      border: 1px solid rgba(201, 168, 76, 0.24);
       border-radius: 6px;
-      background: rgba(19, 32, 50, 0.74);
+      background: rgba(24, 40, 61, 0.9);
       padding: 9px;
       position: relative;
       width: min(320px, 100%);
@@ -756,9 +756,9 @@
     }
 
     .family-group-card {
-      border: 1px solid rgba(201, 168, 76, 0.16);
+      border: 1px solid rgba(201, 168, 76, 0.26);
       border-radius: var(--radius);
-      background: rgba(11, 26, 43, 0.5);
+      background: rgba(20, 36, 56, 0.86);
       padding: 12px;
       margin-bottom: 12px;
     }
@@ -796,10 +796,10 @@
     }
 
     .family-member-row {
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(201, 168, 76, 0.2);
       border-radius: 6px;
       padding: 8px;
-      background: rgba(19, 32, 50, 0.65);
+      background: rgba(24, 40, 61, 0.84);
       font-size: 0.78rem;
       line-height: 1.5;
     }
@@ -888,9 +888,9 @@
     }
 
     .activity-log-item {
-      border: 1px solid rgba(201, 168, 76, 0.16);
+      border: 1px solid rgba(201, 168, 76, 0.28);
       border-radius: 6px;
-      background: rgba(19, 32, 50, 0.68);
+      background: rgba(24, 40, 61, 0.88);
       padding: 9px 10px;
     }
 
@@ -1023,7 +1023,7 @@
     .admin-modal {
       position: fixed;
       inset: 0;
-      background: rgba(5, 12, 22, 0.7);
+      background: rgba(5, 12, 22, 0.58);
       display: none;
       align-items: center;
       justify-content: center;
@@ -1106,9 +1106,9 @@
 
     .insights-card {
       margin-top: 16px;
-      border: 1px solid rgba(201, 168, 76, 0.14);
+      border: 1px solid rgba(201, 168, 76, 0.24);
       border-radius: var(--radius);
-      background: rgba(11, 26, 43, 0.45);
+      background: rgba(20, 36, 56, 0.84);
       padding: 14px;
     }
 
@@ -1137,9 +1137,9 @@
       flex-wrap: wrap;
       gap: 10px;
       padding: 12px;
-      border: 1px solid rgba(201, 168, 76, 0.16);
+      border: 1px solid rgba(201, 168, 76, 0.24);
       border-radius: 14px;
-      background: rgba(19, 32, 50, 0.78);
+      background: rgba(22, 39, 60, 0.9);
       box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32);
       position: sticky;
       top: 14px;
@@ -1152,9 +1152,9 @@
       padding: 10px 14px;
       font-size: 0.68rem;
       letter-spacing: 0.1em;
-      background: rgba(11, 26, 43, 0.75);
+      background: rgba(17, 33, 52, 0.9);
       color: var(--gold-lt);
-      border: 1px solid rgba(201, 168, 76, 0.22);
+      border: 1px solid rgba(201, 168, 76, 0.3);
       box-shadow: none;
     }
 
@@ -1259,8 +1259,8 @@
     .home-feature-item {
       padding: 14px;
       border-radius: 10px;
-      border: 1px solid rgba(201, 168, 76, 0.14);
-      background: rgba(11, 26, 43, 0.58);
+      border: 1px solid rgba(201, 168, 76, 0.24);
+      background: rgba(20, 36, 56, 0.84);
     }
 
     .home-feature-item strong {
@@ -1298,8 +1298,8 @@
 
     .admin-summary-tile {
       border-radius: 12px;
-      border: 1px solid rgba(201, 168, 76, 0.16);
-      background: rgba(11, 26, 43, 0.62);
+      border: 1px solid rgba(201, 168, 76, 0.26);
+      background: rgba(20, 36, 56, 0.86);
       padding: 16px 14px;
       min-height: 104px;
     }
@@ -1332,8 +1332,8 @@
       gap: 8px;
       padding: 8px 12px;
       border-radius: 999px;
-      border: 1px solid rgba(201, 168, 76, 0.18);
-      background: rgba(11, 26, 43, 0.58);
+      border: 1px solid rgba(201, 168, 76, 0.28);
+      background: rgba(20, 36, 56, 0.86);
       color: var(--white);
       font-size: 0.72rem;
       letter-spacing: 0.08em;
@@ -1392,7 +1392,7 @@
       max-width: 1040px;
       margin: 36px auto 0;
       text-align: center;
-      color: rgba(244, 244, 244, 0.7);
+      color: rgba(244, 244, 244, 0.88);
       font-size: 0.74rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
