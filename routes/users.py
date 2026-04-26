@@ -18,6 +18,8 @@ _SESSION_EVENT_TYPES = {
     "full_backup_downloaded",
     "admin_dashboard_viewed",
     "activity_log_viewed",
+    "find_family_request_clicked",
+    "find_family_not_a_match",
 }
 
 

@@ -104,10 +104,13 @@ def get_duplicate_profiles_by_family(family_id: str) -> DuplicateFamilyGroupResp
 
 
 @router.post("/find-family/search", response_model=list[FindFamilyMatchResult])
-def search_find_family(payload: FindFamilySearchRequest) -> list[FindFamilyMatchResult]:
+def search_find_family(
+    payload: FindFamilySearchRequest,
+    x_session_id: Optional[str] = Header(default=None),
+) -> list[FindFamilyMatchResult]:
     """Search possible family matches using safe identity hints without auto-linking."""
     try:
-        return registry.find_family_matches(payload)
+        return registry.find_family_matches(payload, session_id=x_session_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

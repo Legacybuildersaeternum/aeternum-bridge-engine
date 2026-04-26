@@ -765,7 +765,7 @@ def _search_confidence_level(score: int) -> str:
     return "low"
 
 
-def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatchResult]:
+def find_family_matches(payload: FindFamilySearchRequest, session_id: Optional[str] = None) -> list[FindFamilyMatchResult]:
     users = [_normalize_user(u) for u in _load()]
     users = [u for u in users if _is_tree_active(u)]
 
@@ -778,7 +778,10 @@ def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatc
     search_relative = str(payload.known_relative_name or "").strip().lower()
     search_role = str(payload.relationship_guess or "").strip().lower()
     search_dob = _parse_iso_date(payload.date_of_birth)
-    requester_user_id = str(payload.requester_user_id or "").strip()
+    requester_user_id = str(payload.requester_user_id or "").strip().lower()
+    users_by_id = {str(user.get("user_id") or "").strip().lower(): user for user in users}
+    requester_profile = users_by_id.get(requester_user_id) if requester_user_id else None
+    requester_name = str(requester_profile.get("full_name") or "").strip().lower() if requester_profile else ""
 
     members_by_family: dict[str, list[dict[str, Any]]] = {}
     for user in users:
@@ -791,7 +794,8 @@ def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatc
         user_id = str(user.get("user_id") or "").strip()
         if not user_id:
             continue
-        if requester_user_id and requester_user_id == user_id:
+        normalized_user_id = user_id.lower()
+        if requester_user_id and requester_user_id == normalized_user_id:
             continue
 
         full_name = str(user.get("full_name") or "").strip()
@@ -802,18 +806,51 @@ def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatc
             continue
 
         score = 20
+        reason_tokens: list[str] = ["Last name aligned"]
         user_first = name_parts[0] if name_parts else ""
-        if search_first and user_first and user_first != search_first:
-            if not user_first.startswith(search_first) and not search_first.startswith(user_first):
+        exact_first_name_match = False
+        if search_first:
+            if user_first == search_first:
+                score += 20
+                exact_first_name_match = True
+                reason_tokens.append("First name matched")
+            elif user_first and (user_first.startswith(search_first) or search_first.startswith(user_first)):
+                score += 10
+                reason_tokens.append("First name closely matched")
+            else:
                 continue
 
+        family_name_matched = bool(family_name and family_name == search_last)
+        if family_name_matched:
+            score += 20
+            reason_tokens.append("Family name matched")
+
         user_dob = _parse_iso_date(user.get("date_of_birth"))
+        dob_status = "DOB not searched"
+        dob_matched = False
+        dob_conflict = False
         if search_dob and user_dob:
             gap_days = abs((search_dob.date() - user_dob.date()).days)
             if gap_days == 0:
                 score += 40
+                dob_matched = True
+                dob_status = "DOB matched"
+                reason_tokens.append("Exact DOB matched")
             elif gap_days <= 365 * 5:
                 score += 20
+                dob_status = "DOB close age range"
+                reason_tokens.append("DOB close age range")
+            else:
+                dob_conflict = True
+                dob_status = "DOB conflict"
+                score -= 35
+                reason_tokens.append("DOB conflict")
+        elif search_dob and not user_dob:
+            dob_status = "DOB not on file"
+            reason_tokens.append("Low Confidence - DOB not on file")
+
+        if not search_dob:
+            dob_status = "DOB not searched"
 
         user_country = str(user.get("country") or "").strip().lower()
         user_state = str(user.get("state") or "").strip().lower()
@@ -824,6 +861,7 @@ def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatc
             region_match = True
         if region_match:
             score += 10
+            reason_tokens.append("Region matched")
 
         role = str(user.get("relationship_role") or "").strip().lower()
         relationship_hint_match = bool(search_role and role and search_role == role)
@@ -839,11 +877,31 @@ def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatc
 
         if relationship_hint_match:
             score += 10
+            reason_tokens.append("Relationship hint matched")
+
+        # Legacy profiles without DOB can still appear, but should remain low/medium confidence.
+        if search_dob and not user_dob:
+            score = min(score, 40)
+
+        # DOB conflict should generally stay weak unless multiple other fields strongly justify review.
+        if dob_conflict:
+            strong_non_dob_signals = int(exact_first_name_match) + int(family_name_matched) + int(region_match) + int(relationship_hint_match)
+            if strong_non_dob_signals < 3:
+                score = min(score, 35)
+            else:
+                score = min(score, 50)
+
+        if search_dob and dob_matched and exact_first_name_match and family_name_matched:
+            reason_tokens.append("High confidence identity alignment")
+
+        if requester_name and full_name.lower() == requester_name and normalized_user_id != requester_user_id:
+            reason_tokens.append("Possible duplicate profile - review needed")
 
         score = max(0, min(100, score))
         region = str(user.get("origin_region") or "unknown")
         country = str(user.get("country") or "Not provided")
         state = str(user.get("state") or "Not provided")
+        reason_summary = "; ".join(reason_tokens[:4]) if reason_tokens else "Possible family match"
         results.append(
             FindFamilyMatchResult(
                 user_id=user_id,
@@ -852,13 +910,43 @@ def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatc
                 region=f"{region} | {state}, {country}",
                 masked_identifier=_mask_identifier(user_id),
                 age_display=_age_display(user),
+                dob_status=dob_status,
+                reason_summary=reason_summary,
                 confidence_level=_search_confidence_level(score),
                 confidence_score=score,
             )
         )
 
     results.sort(key=lambda item: (-item.confidence_score, item.full_name.lower(), item.user_id))
-    return results[:25]
+    trimmed = results[:25]
+
+    requester_family_id = None
+    requester_family_name = None
+    if requester_profile:
+        requester_family_id = str(requester_profile.get("family_id") or "") or None
+        requester_family_name = str(requester_profile.get("family_name") or "") or None
+
+    write_activity_event(
+        event_type="find_family_search",
+        message=(
+            f"Find-family search executed for last name '{search_last}' "
+            f"with requester {requester_user_id or 'unknown'}."
+        ),
+        user_id=requester_user_id or None,
+        family_id=requester_family_id,
+        family_name=requester_family_name,
+        session_id=session_id,
+    )
+    write_activity_event(
+        event_type="find_family_results_shown",
+        message=f"Find-family results shown: {len(trimmed)} candidate(s).",
+        user_id=requester_user_id or None,
+        family_id=requester_family_id,
+        family_name=requester_family_name,
+        session_id=session_id,
+    )
+
+    return trimmed
 
 
 def _normalize_connection_request(raw: dict[str, Any]) -> dict[str, Any]:

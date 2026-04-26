@@ -562,6 +562,8 @@ class FindFamilyMatchResult(BaseModel):
     region: str
     masked_identifier: str
     age_display: Optional[str] = None
+    dob_status: str
+    reason_summary: str
     confidence_level: str
     confidence_score: int
 

@@ -3033,6 +3033,9 @@
 
       <div class="card">
         <h2>Match Results</h2>
+        <p class="optional-note" style="margin-bottom:10px;">
+          Older profiles may appear as low-confidence matches when no date of birth is stored. Request connection only when you recognize the person or can verify outside the app.
+        </p>
         <div id="findFamilyResults" class="stats-loading">Run a search to view possible match cards.</div>
       </div>
     </div>
@@ -3103,6 +3106,10 @@
               <option value="request_received">Request Received</option>
               <option value="verification_started">Verification Started</option>
               <option value="verification_confirmed">Verification Confirmed</option>
+              <option value="find_family_search">Find Family Search</option>
+              <option value="find_family_results_shown">Find Family Results Shown</option>
+              <option value="find_family_request_clicked">Find Family Request Clicked</option>
+              <option value="find_family_not_a_match">Find Family Not A Match</option>
             </select>
           </div>
           <button type="button" class="secondary activity-filter-btn" id="activityFilterApplyBtn">Apply</button>
@@ -4983,6 +4990,7 @@
     findFamilyResults.className = 'find-match-list';
     findFamilyResults.innerHTML = rows.map((row) => {
       const confidence = String(row.confidence_level || 'low').toLowerCase();
+      const confidenceLabel = confidence === 'high' ? 'High' : confidence === 'medium' ? 'Medium' : 'Low';
       return `
         <article class="find-match-card">
           <div class="find-match-head">
@@ -4990,9 +4998,12 @@
               <strong>${escapeHtml(row.full_name || 'Unknown')}</strong><br>
               <span style="font-size:0.69rem; color:var(--secondary-text);">${escapeHtml(row.masked_identifier || '****')}</span>
             </div>
-            <span class="find-confidence ${escapeHtml(confidence)}">${escapeHtml(confidence)} (${escapeHtml(String(row.confidence_score || 0))}%)</span>
+            <span class="find-confidence ${escapeHtml(confidence)}">${escapeHtml(confidenceLabel)} (${escapeHtml(String(row.confidence_score || 0))}%)</span>
           </div>
           <div class="find-match-meta">
+            Confidence: ${escapeHtml(confidenceLabel)}<br>
+            Reason: ${escapeHtml(row.reason_summary || 'Review candidate details carefully')}<br>
+            DOB Status: ${escapeHtml(row.dob_status || 'DOB not searched')}<br>
             Role: ${escapeHtml(row.relationship_role || 'not provided')}<br>
             ${row.age_display ? `Identity: ${escapeHtml(row.age_display)}<br>` : ''}
             Region: ${escapeHtml(row.region || 'Unknown region')}
@@ -5677,6 +5688,7 @@
     if (!targetUserId) return;
 
     if (action === 'not-match') {
+      postSessionEvent('find_family_not_a_match', `Marked not a match for candidate ${targetUserId || 'unknown'}.`);
       const card = actionBtn.closest('.find-match-card');
       if (card) {
         card.style.opacity = '0.45';
@@ -5699,6 +5711,7 @@
 
     actionBtn.disabled = true;
     try {
+      postSessionEvent('find_family_request_clicked', `Requested connection to candidate ${targetUserId}.`);
       const res = await apiFetch('/connection-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
