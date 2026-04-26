@@ -4,6 +4,7 @@ import json
 import uuid
 import hashlib
 import logging
+import shutil
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,10 +40,12 @@ from models.user import (
 logger = logging.getLogger(__name__)
 
 DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "diaspora_registry.json"
+REGISTRY_BACKUP_FILE = Path(__file__).resolve().parents[1] / "data" / "diaspora_registry_backup.json"
 _EMPTY_STORE: dict[str, Any] = {"users": [], "connection_requests": []}
 ACTIVITY_LOG_FILE = Path(__file__).resolve().parents[1] / "data" / "legacy_activity_log.json"
 _EMPTY_ACTIVITY_STORE: dict[str, Any] = {"events": []}
 _ACTIVITY_LOG_LOCK = threading.RLock()
+_REGISTRY_FILE_LOCK = threading.RLock()
 
 
 def _empty_registry_store() -> dict[str, Any]:
@@ -1526,13 +1529,14 @@ def _load() -> list[dict[str, Any]]:
 
 
 def _load_store() -> dict[str, Any]:
-    _ensure_file()
-    try:
-        with DATA_FILE.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-    except json.JSONDecodeError:
-        logger.error("Registry data file is invalid JSON at %s", DATA_FILE)
-        return _empty_registry_store()
+    with _REGISTRY_FILE_LOCK:
+        _ensure_file()
+        try:
+            with DATA_FILE.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError:
+            logger.error("Registry data file is invalid JSON at %s", DATA_FILE)
+            return _empty_registry_store()
     if isinstance(data, list):
         return {"users": data, "connection_requests": []}
     if not isinstance(data, dict):
@@ -1545,15 +1549,52 @@ def _load_store() -> dict[str, Any]:
     }
 
 
-def _save_store(store: dict[str, Any]) -> None:
-    _ensure_file()
-    normalized = _empty_registry_store()
-    normalized["users"] = store.get("users") if isinstance(store.get("users"), list) else []
-    normalized["connection_requests"] = (
-        store.get("connection_requests") if isinstance(store.get("connection_requests"), list) else []
-    )
-    with DATA_FILE.open("w", encoding="utf-8") as f:
-        json.dump(normalized, f, indent=2, ensure_ascii=False)
+def _validate_store_shape(store: dict[str, Any]) -> None:
+    if not isinstance(store, dict):
+        raise ValueError("Registry write aborted: store payload must be an object.")
+    users = store.get("users")
+    requests = store.get("connection_requests")
+    if not isinstance(users, list) or not isinstance(requests, list):
+        raise ValueError(
+            "Registry write aborted: expected {'users': [...], 'connection_requests': [...]} structure."
+        )
+
+
+def _write_store_with_backup(existing_store: dict[str, Any], new_store: dict[str, Any], *, reason: str) -> None:
+    with _REGISTRY_FILE_LOCK:
+        _ensure_file()
+        _validate_store_shape(existing_store)
+        _validate_store_shape(new_store)
+
+        existing_users = existing_store.get("users", [])
+        new_users = new_store.get("users", [])
+        if len(new_users) < len(existing_users):
+            raise ValueError("Registry write aborted: append-safe mode forbids removing existing users.")
+        for index, user in enumerate(existing_users):
+            if new_users[index] != user:
+                raise ValueError("Registry write aborted: append-safe mode forbids mutating existing users.")
+
+        REGISTRY_BACKUP_FILE.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(DATA_FILE, REGISTRY_BACKUP_FILE)
+        logger.debug("Registry backup created at %s", REGISTRY_BACKUP_FILE)
+
+        temp_file = DATA_FILE.with_suffix(".json.tmp")
+        try:
+            with temp_file.open("w", encoding="utf-8") as f:
+                json.dump(new_store, f, indent=2, ensure_ascii=False)
+            temp_file.replace(DATA_FILE)
+        except Exception:
+            logger.exception("Registry write failed during '%s'. Write aborted; backup retained.", reason)
+            if temp_file.exists():
+                temp_file.unlink(missing_ok=True)
+            raise
+
+        logger.debug(
+            "Registry file rewritten for '%s' (users=%d, connection_requests=%d)",
+            reason,
+            len(new_store.get("users", [])),
+            len(new_store.get("connection_requests", [])),
+        )
 
 
 def run_persistence_safety_check() -> dict[str, Any]:
@@ -1586,10 +1627,40 @@ def run_persistence_safety_check() -> dict[str, Any]:
 
 def _save(users: list[dict[str, Any]]) -> None:
     store = _load_store()
-    store["users"] = users
-    _save_store(store)
-    print("User saved successfully")
-    logger.info("Data file updated — total users: %d", len(users))
+    existing_users = store.get("users") if isinstance(store.get("users"), list) else []
+    existing_ids = {
+        str(item.get("user_id") or "").strip()
+        for item in existing_users
+        if isinstance(item, dict) and str(item.get("user_id") or "").strip()
+    }
+
+    users_to_append: list[dict[str, Any]] = []
+    for item in users:
+        if not isinstance(item, dict):
+            continue
+        user_id = str(item.get("user_id") or "").strip()
+        if not user_id:
+            continue
+        if user_id in existing_ids:
+            continue
+        users_to_append.append(dict(item))
+        existing_ids.add(user_id)
+
+    if not users_to_append:
+        logger.debug("Registry user append skipped: no new user IDs to add.")
+        return
+
+    for user in users_to_append:
+        logger.info("Registry append-safe write: new user added user_id=%s", str(user.get("user_id") or ""))
+
+    updated_store = {
+        "users": [*existing_users, *users_to_append],
+        "connection_requests": store.get("connection_requests")
+        if isinstance(store.get("connection_requests"), list)
+        else [],
+    }
+    _write_store_with_backup(store, updated_store, reason="append_user")
+    logger.info("Data file updated append-safe — total users: %d", len(updated_store["users"]))
 
 
 def _load_connection_requests() -> list[dict[str, Any]]:
@@ -1598,8 +1669,43 @@ def _load_connection_requests() -> list[dict[str, Any]]:
 
 def _save_connection_requests(connection_requests: list[dict[str, Any]]) -> None:
     store = _load_store()
-    store["connection_requests"] = connection_requests
-    _save_store(store)
+    existing_connection_requests = (
+        store.get("connection_requests") if isinstance(store.get("connection_requests"), list) else []
+    )
+    existing_request_ids = {
+        str(item.get("request_id") or "").strip()
+        for item in existing_connection_requests
+        if isinstance(item, dict) and str(item.get("request_id") or "").strip()
+    }
+
+    requests_to_append: list[dict[str, Any]] = []
+    for item in connection_requests:
+        if not isinstance(item, dict):
+            continue
+        request_id = str(item.get("request_id") or "").strip()
+        if request_id and request_id in existing_request_ids:
+            continue
+        requests_to_append.append(dict(item))
+        if request_id:
+            existing_request_ids.add(request_id)
+
+    if not requests_to_append:
+        logger.debug("Registry connection-request append skipped: no new request records to add.")
+        return
+
+    for request in requests_to_append:
+        logger.info(
+            "Registry append-safe write: connection request added request_id=%s requester=%s target=%s",
+            str(request.get("request_id") or ""),
+            str(request.get("requester_user_id") or ""),
+            str(request.get("target_user_id") or ""),
+        )
+
+    updated_store = {
+        "users": store.get("users") if isinstance(store.get("users"), list) else [],
+        "connection_requests": [*existing_connection_requests, *requests_to_append],
+    }
+    _write_store_with_backup(store, updated_store, reason="append_connection_request")
 
 
 def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
