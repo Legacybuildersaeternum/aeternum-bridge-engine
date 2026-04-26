@@ -10,6 +10,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 from models.user import (
+    DuplicateActionResponse,
+    DuplicateFamilyGroupResponse,
+    DuplicateProfileCandidate,
     FamilyGroupResponse,
     FamilyMemberSummary,
     HouseholdPosition,
@@ -132,6 +135,179 @@ _PEER_ROLES = {
     "self",
     "other",
 }
+
+_STATUS_ACTIVE = "active"
+_STATUS_PENDING_LINK = "pending_link"
+_STATUS_MERGED_ARCHIVED = "merged_archived"
+_STATUS_IGNORED_DUPLICATE = "ignored_duplicate"
+
+
+def _get_profile_status(record: dict[str, Any]) -> str:
+    raw_status = str(record.get("profile_status") or "").strip().lower()
+    if raw_status in {
+        _STATUS_ACTIVE,
+        _STATUS_PENDING_LINK,
+        _STATUS_MERGED_ARCHIVED,
+        _STATUS_IGNORED_DUPLICATE,
+    }:
+        return raw_status
+    return _STATUS_ACTIVE
+
+
+def _effective_profile_status(record: dict[str, Any]) -> str:
+    profile_status = _get_profile_status(record)
+    if profile_status == _STATUS_MERGED_ARCHIVED:
+        return _STATUS_MERGED_ARCHIVED
+    linked_ids = _normalize_linked_to_user_ids(
+        record.get("linked_to_user_ids"),
+        record.get("linked_to_user_id"),
+    )
+    if profile_status == _STATUS_IGNORED_DUPLICATE:
+        return _STATUS_IGNORED_DUPLICATE
+    if not linked_ids:
+        return _STATUS_PENDING_LINK
+    return _STATUS_ACTIVE
+
+
+def _is_tree_active(record: dict[str, Any]) -> bool:
+    return _effective_profile_status(record) != _STATUS_MERGED_ARCHIVED
+
+
+def _name_similarity_score(name_a: str, name_b: str) -> float:
+    a = str(name_a or "").strip().lower()
+    b = str(name_b or "").strip().lower()
+    if not a or not b:
+        return 0.0
+    if a == b:
+        return 1.0
+    tokens_a = {token for token in a.split() if token}
+    tokens_b = {token for token in b.split() if token}
+    if not tokens_a or not tokens_b:
+        return 0.0
+    overlap = len(tokens_a.intersection(tokens_b))
+    return overlap / max(len(tokens_a), len(tokens_b))
+
+
+def _build_duplicate_candidate(
+    primary: dict[str, Any],
+    duplicate: dict[str, Any],
+) -> tuple[int, list[str]]:
+    score = 0
+    reasons: list[str] = []
+
+    name_similarity = _name_similarity_score(primary.get("full_name"), duplicate.get("full_name"))
+    if name_similarity >= 0.99:
+        score += 35
+        reasons.append("exact_full_name")
+    elif name_similarity >= 0.75:
+        score += 22
+        reasons.append("similar_full_name")
+
+    family_name_a = str(primary.get("family_name") or "").strip().lower()
+    family_name_b = str(duplicate.get("family_name") or "").strip().lower()
+    if family_name_a and family_name_a == family_name_b:
+        score += 20
+        reasons.append("same_family_name")
+
+    role_a = str(primary.get("relationship_role") or "").strip().lower()
+    role_b = str(duplicate.get("relationship_role") or "").strip().lower()
+    if role_a and role_a == role_b:
+        score += 10
+        reasons.append("same_relationship_role")
+
+    position_a = str(primary.get("household_position") or "").strip().lower()
+    position_b = str(duplicate.get("household_position") or "").strip().lower()
+    if position_a and position_a == position_b:
+        score += 10
+        reasons.append("same_household_position")
+
+    linked_a = set(_normalize_linked_to_user_ids(primary.get("linked_to_user_ids"), primary.get("linked_to_user_id")))
+    linked_b = set(_normalize_linked_to_user_ids(duplicate.get("linked_to_user_ids"), duplicate.get("linked_to_user_id")))
+    shared_links = linked_a.intersection(linked_b)
+    if shared_links:
+        score += 12
+        reasons.append("shared_linked_profiles")
+
+    email_a = str(primary.get("email") or "").strip().lower()
+    email_b = str(duplicate.get("email") or "").strip().lower()
+    if email_a and email_a == email_b:
+        score += 18
+        reasons.append("same_email")
+
+    phone_a = "".join(ch for ch in str(primary.get("phone") or "") if ch.isdigit())
+    phone_b = "".join(ch for ch in str(duplicate.get("phone") or "") if ch.isdigit())
+    if phone_a and phone_a == phone_b:
+        score += 14
+        reasons.append("same_phone")
+
+    if str(primary.get("age_range") or "").strip() and str(primary.get("age_range") or "").strip() == str(duplicate.get("age_range") or "").strip():
+        score += 5
+        reasons.append("same_age_range")
+
+    return min(score, 100), reasons
+
+
+def _detect_duplicate_candidates_for_family(
+    family_members: list[dict[str, Any]],
+) -> list[DuplicateProfileCandidate]:
+    candidates: list[DuplicateProfileCandidate] = []
+    for i, left in enumerate(family_members):
+        left_id = str(left.get("user_id") or "").strip()
+        if not left_id:
+            continue
+        for right in family_members[i + 1 :]:
+            right_id = str(right.get("user_id") or "").strip()
+            if not right_id:
+                continue
+            score, reasons = _build_duplicate_candidate(left, right)
+            if score < 35:
+                continue
+
+            left_strength = len(_normalize_linked_to_user_ids(left.get("linked_to_user_ids"), left.get("linked_to_user_id")))
+            right_strength = len(_normalize_linked_to_user_ids(right.get("linked_to_user_ids"), right.get("linked_to_user_id")))
+            if left_strength > right_strength:
+                primary, duplicate = left, right
+            elif right_strength > left_strength:
+                primary, duplicate = right, left
+            else:
+                primary, duplicate = (left, right) if str(left.get("registered_at") or "") <= str(right.get("registered_at") or "") else (right, left)
+
+            candidates.append(
+                DuplicateProfileCandidate(
+                    primary_user_id=str(primary.get("user_id") or ""),
+                    duplicate_user_id=str(duplicate.get("user_id") or ""),
+                    primary_full_name=str(primary.get("full_name") or "Unnamed member"),
+                    duplicate_full_name=str(duplicate.get("full_name") or "Unnamed member"),
+                    family_id=str(primary.get("family_id") or duplicate.get("family_id") or ""),
+                    confidence_score=score,
+                    match_reasons=reasons,
+                    review_only=score < 70,
+                )
+            )
+
+    deduped: dict[tuple[str, str], DuplicateProfileCandidate] = {}
+    for candidate in candidates:
+        key = tuple(sorted([candidate.primary_user_id, candidate.duplicate_user_id]))
+        existing = deduped.get(key)
+        if existing is None or candidate.confidence_score > existing.confidence_score:
+            deduped[key] = candidate
+    final_candidates = list(deduped.values())
+    final_candidates.sort(key=lambda c: (-c.confidence_score, c.primary_full_name.lower(), c.duplicate_full_name.lower()))
+    return final_candidates
+
+
+def _append_merge_details(
+    base_message: str,
+    primary_user_id: str,
+    duplicate_user_id: str,
+    confidence_score: int,
+    reasons: list[str],
+) -> str:
+    reasons_text = ",".join(reasons) if reasons else "none"
+    return (
+        f"{base_message} primary_user_id={primary_user_id} duplicate_user_id={duplicate_user_id} "
+        f"confidence_score={confidence_score} reasons={reasons_text}"
+    )
 
 
 def _normalize_role(value: Optional[str]) -> str:
@@ -276,6 +452,8 @@ def get_relationship_suggestions(
     users = [_normalize_user(u) for u in _load()]
     grouped: dict[str, list[dict[str, Any]]] = {}
     for user in users:
+        if not _is_tree_active(user):
+            continue
         current_family_id = str(user.get("family_id") or "").strip()
         if not current_family_id:
             continue
@@ -543,6 +721,8 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
         "linked_to_user_ids",
         "linked_to_user_id",
         "relationship_notes",
+        "profile_status",
+        "merged_into_user_id",
         "notes",
     ]:
         normalized.setdefault(key, None)
@@ -567,6 +747,9 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
         normalized["relationship_role"] = _normalize_dropdown_token(str(normalized["relationship_role"]))
     if normalized.get("household_position"):
         normalized["household_position"] = _normalize_dropdown_token(str(normalized["household_position"]))
+    normalized["profile_status"] = _get_profile_status(normalized)
+    if not normalized.get("merged_into_user_id"):
+        normalized["merged_into_user_id"] = None
     if not normalized.get("state"):
         normalized["state"] = "Not provided"
     if not normalized.get("country"):
@@ -620,6 +803,8 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
         linked_to_user_ids=linked_ids,
         linked_to_user_id=linked_ids[0] if linked_ids else None,
         relationship_notes=payload.relationship_notes,
+        profile_status=_STATUS_ACTIVE,
+        merged_into_user_id=None,
         user_stage=_derive_user_stage(
             (payload.travel_timeframe or TravelTimeframe.not_sure_yet).value
         ),
@@ -654,6 +839,7 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
 
 def get_stats() -> StatsResponse:
     users = [_normalize_user(u) for u in _load()]
+    users = [u for u in users if _is_tree_active(u)]
 
     total_users = len(users)
     family_member_counts: dict[str, int] = {}
@@ -727,6 +913,8 @@ def get_stats() -> StatsResponse:
 
 def get_registrations() -> list[UserRecord]:
     users = [_normalize_user(u) for u in _load()]
+    for user in users:
+        user["profile_status"] = _effective_profile_status(user)
     users.sort(key=lambda r: r.get("registered_at", ""), reverse=True)
     return [UserRecord.model_validate(u) for u in users]
 
@@ -961,6 +1149,7 @@ def update_registration(
 
 def get_families() -> list[FamilyGroupResponse]:
     users = [_normalize_user(u) for u in _load()]
+    users = [u for u in users if _is_tree_active(u)]
     grouped: dict[str, dict[str, Any]] = {}
 
     for r in users:
@@ -1012,6 +1201,7 @@ def get_families() -> list[FamilyGroupResponse]:
                     full_name=member.get("full_name", ""),
                     relationship_role=member.get("relationship_role"),
                     household_position=member.get("household_position"),
+                    profile_status=_effective_profile_status(member),
                     linked_to_user_ids=linked_to_user_ids,
                     linked_to_user_id=linked_to_user_ids[0] if linked_to_user_ids else None,
                     relationship_notes=member.get("relationship_notes"),
@@ -1039,6 +1229,7 @@ def get_family_tree(
 ) -> dict[str, Any]:
     """Build a lightweight hierarchical family tree for a single family group."""
     users = [_normalize_user(u) for u in _load()]
+    users = [u for u in users if _is_tree_active(u)]
     family_members = [u for u in users if u.get("family_id") == family_id]
     if not family_members:
         raise ValueError("Family not found")
@@ -1247,6 +1438,8 @@ def export_registrations_csv() -> str:
         "household_position",
         "linked_to_user_ids",
         "relationship_notes",
+        "profile_status",
+        "merged_into_user_id",
         "user_stage",
         "notes",
         "registered_at",
@@ -1275,6 +1468,8 @@ def export_registrations_csv() -> str:
             reg.household_position or "",
             ",".join(reg.linked_to_user_ids) if reg.linked_to_user_ids else "",
             reg.relationship_notes or "",
+            reg.profile_status or "",
+            reg.merged_into_user_id or "",
             reg.user_stage,
             reg.notes or "",
             reg.registered_at,
@@ -1282,3 +1477,231 @@ def export_registrations_csv() -> str:
         writer.writerow(row)
     
     return output.getvalue()
+
+
+def get_duplicate_profiles(
+    family_id: Optional[str] = None,
+) -> list[DuplicateFamilyGroupResponse]:
+    users = [_normalize_user(u) for u in _load()]
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    family_name_by_id: dict[str, str] = {}
+    for user in users:
+        if not _is_tree_active(user):
+            continue
+        current_family_id = str(user.get("family_id") or "").strip()
+        if not current_family_id:
+            continue
+        if family_id and current_family_id != family_id:
+            continue
+        grouped.setdefault(current_family_id, []).append(user)
+        family_name_by_id[current_family_id] = str(user.get("family_name") or "Unknown")
+
+    responses: list[DuplicateFamilyGroupResponse] = []
+    for current_family_id, members in grouped.items():
+        candidates = _detect_duplicate_candidates_for_family(members)
+        if not candidates:
+            continue
+        responses.append(
+            DuplicateFamilyGroupResponse(
+                family_id=current_family_id,
+                family_name=family_name_by_id.get(current_family_id, "Unknown"),
+                candidates=candidates,
+            )
+        )
+        for candidate in candidates:
+            write_activity_event(
+                event_type="duplicate_detected",
+                message=_append_merge_details(
+                    "Duplicate profile candidate detected.",
+                    candidate.primary_user_id,
+                    candidate.duplicate_user_id,
+                    candidate.confidence_score,
+                    candidate.match_reasons,
+                ),
+                user_id=candidate.primary_user_id,
+                family_id=current_family_id,
+                family_name=family_name_by_id.get(current_family_id, "Unknown"),
+            )
+
+    responses.sort(key=lambda item: item.family_name.lower())
+    return responses
+
+
+def merge_duplicate_profile(
+    primary_user_id: str,
+    duplicate_user_id: str,
+    session_id: Optional[str] = None,
+) -> DuplicateActionResponse:
+    users = [_normalize_user(u) for u in _load()]
+    primary = next((u for u in users if str(u.get("user_id") or "") == primary_user_id), None)
+    duplicate = next((u for u in users if str(u.get("user_id") or "") == duplicate_user_id), None)
+    if not primary or not duplicate:
+        raise ValueError("Primary or duplicate profile not found")
+    if primary_user_id == duplicate_user_id:
+        raise ValueError("Primary and duplicate users must be different")
+    if str(primary.get("family_id") or "") != str(duplicate.get("family_id") or ""):
+        raise ValueError("Profiles must belong to the same family")
+
+    family_id = str(primary.get("family_id") or "")
+    family_name = str(primary.get("family_name") or duplicate.get("family_name") or "Unknown")
+
+    candidates = _detect_duplicate_candidates_for_family([u for u in users if str(u.get("family_id") or "") == family_id and _is_tree_active(u)])
+    candidate = next(
+        (
+            c for c in candidates
+            if c.primary_user_id == primary_user_id and c.duplicate_user_id == duplicate_user_id
+        ),
+        DuplicateProfileCandidate(
+            primary_user_id=primary_user_id,
+            duplicate_user_id=duplicate_user_id,
+            primary_full_name=str(primary.get("full_name") or "Unnamed member"),
+            duplicate_full_name=str(duplicate.get("full_name") or "Unnamed member"),
+            family_id=family_id,
+            confidence_score=0,
+            match_reasons=[],
+            review_only=True,
+        ),
+    )
+
+    merged_primary = dict(primary)
+    primary_links = set(_normalize_linked_to_user_ids(primary.get("linked_to_user_ids"), primary.get("linked_to_user_id")))
+    duplicate_links = set(_normalize_linked_to_user_ids(duplicate.get("linked_to_user_ids"), duplicate.get("linked_to_user_id")))
+    merged_links = sorted((primary_links.union(duplicate_links)) - {primary_user_id, duplicate_user_id})
+    _set_linked_fields(merged_primary, merged_links)
+
+    for field in [
+        "email",
+        "phone",
+        "city",
+        "state",
+        "country",
+        "age_range",
+        "preferred_contact_method",
+        "relationship_notes",
+        "notes",
+    ]:
+        if not merged_primary.get(field) and duplicate.get(field):
+            merged_primary[field] = duplicate.get(field)
+
+    merged_primary["profile_status"] = _STATUS_ACTIVE
+    merged_primary["merged_into_user_id"] = None
+
+    merged_duplicate = dict(duplicate)
+    merged_duplicate["profile_status"] = _STATUS_MERGED_ARCHIVED
+    merged_duplicate["merged_into_user_id"] = primary_user_id
+    _set_linked_fields(merged_duplicate, [])
+
+    updated_users: list[dict[str, Any]] = []
+    for user in users:
+        user_id = str(user.get("user_id") or "")
+        if user_id == primary_user_id:
+            updated_users.append(_normalize_user(merged_primary))
+            continue
+        if user_id == duplicate_user_id:
+            updated_users.append(_normalize_user(merged_duplicate))
+            continue
+        linked_ids = _normalize_linked_to_user_ids(user.get("linked_to_user_ids"), user.get("linked_to_user_id"))
+        replaced = [primary_user_id if linked_id == duplicate_user_id else linked_id for linked_id in linked_ids]
+        deduped: list[str] = []
+        for linked_id in replaced:
+            if linked_id and linked_id != user_id and linked_id not in deduped:
+                deduped.append(linked_id)
+        updated_user = dict(user)
+        _set_linked_fields(updated_user, deduped)
+        updated_users.append(_normalize_user(updated_user))
+
+    _save(updated_users)
+
+    write_activity_event(
+        event_type="duplicate_merged",
+        message=_append_merge_details(
+            f"Duplicate profile merged safely into primary profile.",
+            primary_user_id,
+            duplicate_user_id,
+            candidate.confidence_score,
+            candidate.match_reasons,
+        ),
+        user_id=primary_user_id,
+        family_id=family_id,
+        family_name=family_name,
+        session_id=session_id,
+    )
+    write_activity_event(
+        event_type="family_group_updated",
+        message=f"Family group {family_name} duplicate queue updated after merge.",
+        user_id=primary_user_id,
+        family_id=family_id,
+        family_name=family_name,
+        session_id=session_id,
+    )
+
+    return DuplicateActionResponse(
+        success=True,
+        message="Duplicate profile merged safely.",
+        primary_user_id=primary_user_id,
+        duplicate_user_id=duplicate_user_id,
+        family_id=family_id,
+    )
+
+
+def ignore_duplicate_profile(
+    primary_user_id: str,
+    duplicate_user_id: str,
+    session_id: Optional[str] = None,
+) -> DuplicateActionResponse:
+    users = [_normalize_user(u) for u in _load()]
+    primary = next((u for u in users if str(u.get("user_id") or "") == primary_user_id), None)
+    duplicate = next((u for u in users if str(u.get("user_id") or "") == duplicate_user_id), None)
+    if not primary or not duplicate:
+        raise ValueError("Primary or duplicate profile not found")
+    if str(primary.get("family_id") or "") != str(duplicate.get("family_id") or ""):
+        raise ValueError("Profiles must belong to the same family")
+
+    family_id = str(primary.get("family_id") or "")
+    family_name = str(primary.get("family_name") or duplicate.get("family_name") or "Unknown")
+
+    updated_users: list[dict[str, Any]] = []
+    for user in users:
+        user_id = str(user.get("user_id") or "")
+        if user_id == duplicate_user_id:
+            updated_user = dict(user)
+            updated_user["profile_status"] = _STATUS_IGNORED_DUPLICATE
+            updated_user["merged_into_user_id"] = None
+            updated_users.append(_normalize_user(updated_user))
+        else:
+            updated_users.append(user)
+    _save(updated_users)
+
+    candidates = _detect_duplicate_candidates_for_family([u for u in users if str(u.get("family_id") or "") == family_id and _is_tree_active(u)])
+    candidate = next(
+        (
+            c for c in candidates
+            if c.primary_user_id == primary_user_id and c.duplicate_user_id == duplicate_user_id
+        ),
+        None,
+    )
+    confidence = candidate.confidence_score if candidate else 0
+    reasons = candidate.match_reasons if candidate else []
+
+    write_activity_event(
+        event_type="duplicate_ignored",
+        message=_append_merge_details(
+            "Duplicate profile candidate marked as ignored/reviewed.",
+            primary_user_id,
+            duplicate_user_id,
+            confidence,
+            reasons,
+        ),
+        user_id=primary_user_id,
+        family_id=family_id,
+        family_name=family_name,
+        session_id=session_id,
+    )
+
+    return DuplicateActionResponse(
+        success=True,
+        message="Duplicate candidate marked as ignored.",
+        primary_user_id=primary_user_id,
+        duplicate_user_id=duplicate_user_id,
+        family_id=family_id,
+    )

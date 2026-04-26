@@ -4,6 +4,10 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from models.user import (
     BackupResponse,
+    DuplicateActionResponse,
+    DuplicateFamilyGroupResponse,
+    DuplicateIgnoreRequest,
+    DuplicateMergeRequest,
     FamilyGroupResponse,
     RegistrationUpdateRequest,
     RelationshipSuggestionResponse,
@@ -68,6 +72,65 @@ def get_relationship_suggestions(
 ) -> list[RelationshipSuggestionResponse]:
     """Return confidence-scored candidate relationships for currently unlinked or incomplete profiles."""
     return registry.get_relationship_suggestions(family_id=family_id)
+
+
+@router.get("/duplicate-profiles", response_model=list[DuplicateFamilyGroupResponse])
+def get_duplicate_profiles() -> list[DuplicateFamilyGroupResponse]:
+    """Return duplicate profile candidates grouped by family."""
+    return registry.get_duplicate_profiles()
+
+
+@router.get("/duplicate-profiles/{family_id}", response_model=DuplicateFamilyGroupResponse)
+def get_duplicate_profiles_by_family(family_id: str) -> DuplicateFamilyGroupResponse:
+    """Return duplicate profile candidates for one family."""
+    groups = registry.get_duplicate_profiles(family_id=family_id)
+    if groups:
+        return groups[0]
+
+    family = next((item for item in registry.get_families() if item.family_id == family_id), None)
+    if not family:
+        raise HTTPException(status_code=404, detail="Family not found")
+    return DuplicateFamilyGroupResponse(
+        family_id=family.family_id,
+        family_name=family.family_name,
+        candidates=[],
+    )
+
+
+@router.post("/duplicate-profiles/merge", response_model=DuplicateActionResponse)
+def merge_duplicate_profiles(
+    payload: DuplicateMergeRequest,
+    x_session_id: Optional[str] = Header(default=None),
+) -> DuplicateActionResponse:
+    """Safely merge duplicate profile into a primary profile without deleting records."""
+    try:
+        return registry.merge_duplicate_profile(
+            payload.primary_user_id,
+            payload.duplicate_user_id,
+            session_id=x_session_id,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.post("/duplicate-profiles/ignore", response_model=DuplicateActionResponse)
+def ignore_duplicate_profile(
+    payload: DuplicateIgnoreRequest,
+    x_session_id: Optional[str] = Header(default=None),
+) -> DuplicateActionResponse:
+    """Mark duplicate candidate as reviewed/ignored without merging records."""
+    try:
+        return registry.ignore_duplicate_profile(
+            payload.primary_user_id,
+            payload.duplicate_user_id,
+            session_id=x_session_id,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
 
 
 @router.patch("/registrations/{user_id}", response_model=UserRecord)

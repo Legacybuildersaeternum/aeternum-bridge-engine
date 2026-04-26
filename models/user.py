@@ -228,6 +228,8 @@ class UserRecord(BaseModel):
     linked_to_user_ids: Optional[list[str]] = None
     linked_to_user_id: Optional[str] = None
     relationship_notes: Optional[str] = None
+    profile_status: Optional[str] = None
+    merged_into_user_id: Optional[str] = None
     user_stage: UserStage
     notes: Optional[str] = None
     registered_at: str
@@ -436,6 +438,7 @@ class FamilyMemberSummary(BaseModel):
     full_name: str
     relationship_role: Optional[str] = None
     household_position: Optional[str] = None
+    profile_status: Optional[str] = None
     linked_to_user_ids: list[str] = Field(default_factory=list)
     linked_to_user_id: Optional[str] = None
     relationship_notes: Optional[str] = None
@@ -465,6 +468,41 @@ class RelationshipSuggestionResponse(BaseModel):
     full_name: str
     unlinked_reasons: list[str] = Field(default_factory=list)
     possible_matches: list[RelationshipSuggestionCandidate] = Field(default_factory=list)
+
+
+class DuplicateProfileCandidate(BaseModel):
+    primary_user_id: str
+    duplicate_user_id: str
+    primary_full_name: str
+    duplicate_full_name: str
+    family_id: str
+    confidence_score: int
+    match_reasons: list[str] = Field(default_factory=list)
+    review_only: bool = True
+
+
+class DuplicateFamilyGroupResponse(BaseModel):
+    family_id: str
+    family_name: str
+    candidates: list[DuplicateProfileCandidate] = Field(default_factory=list)
+
+
+class DuplicateMergeRequest(BaseModel):
+    primary_user_id: str
+    duplicate_user_id: str
+
+
+class DuplicateIgnoreRequest(BaseModel):
+    primary_user_id: str
+    duplicate_user_id: str
+
+
+class DuplicateActionResponse(BaseModel):
+    success: bool
+    message: str
+    primary_user_id: str
+    duplicate_user_id: str
+    family_id: str
 
 
 class BackupResponse(BaseModel):

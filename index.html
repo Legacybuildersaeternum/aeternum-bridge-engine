@@ -2168,6 +2168,61 @@
       gap: 7px;
     }
 
+    .duplicate-review-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .duplicate-review-card {
+      border: 1px solid rgba(201, 168, 76, 0.2);
+      border-radius: 10px;
+      background: rgba(17, 33, 52, 0.76);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .duplicate-review-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      color: var(--body-text);
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+
+    .duplicate-review-confidence {
+      border-radius: 999px;
+      border: 1px solid rgba(201, 168, 76, 0.32);
+      background: rgba(201, 168, 76, 0.1);
+      color: var(--gold-lt);
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      white-space: nowrap;
+    }
+
+    .duplicate-review-reasons {
+      font-size: 0.72rem;
+      color: var(--secondary-text);
+      line-height: 1.45;
+    }
+
+    .duplicate-review-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .duplicate-review-actions button {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 0.66rem;
+      letter-spacing: 0.06em;
+    }
+
     .health-status-row {
       display: grid;
       gap: 8px;
@@ -2757,6 +2812,9 @@
               <option value="registration_updated">Registration Updated</option>
               <option value="registration_deleted">Registration Deleted</option>
               <option value="relationship_updated">Relationship Updated</option>
+              <option value="duplicate_detected">Duplicate Detected</option>
+              <option value="duplicate_merged">Duplicate Merged</option>
+              <option value="duplicate_ignored">Duplicate Ignored</option>
             </select>
           </div>
           <button type="button" class="secondary activity-filter-btn" id="activityFilterApplyBtn">Apply</button>
@@ -2883,6 +2941,11 @@
         <article class="intelligence-card" aria-labelledby="lineage-intelligence-title">
           <h3 id="lineage-intelligence-title">Aeternum Lineage Insights</h3>
           <div id="intelLineageInsights" class="stats-loading">Loading lineage insights...</div>
+        </article>
+
+        <article class="intelligence-card" aria-labelledby="duplicate-review-title">
+          <h3 id="duplicate-review-title">Duplicate Profile Review</h3>
+          <div id="duplicateReviewList" class="stats-loading">Scanning duplicate profile candidates...</div>
         </article>
 
         <article class="intelligence-card" aria-labelledby="next-action-title">
@@ -3012,6 +3075,7 @@
   const intelDataHealth = document.getElementById('intelDataHealth');
   const intelActivity = document.getElementById('intelActivity');
   const intelLineageInsights = document.getElementById('intelLineageInsights');
+  const duplicateReviewList = document.getElementById('duplicateReviewList');
   const intelNextAction = document.getElementById('intelNextAction');
   const treeFamilyStatusBadge = document.getElementById('treeFamilyStatusBadge');
   const treeLineageInsights = document.getElementById('treeLineageInsights');
@@ -4255,6 +4319,91 @@
     }).join('')}</ul>`;
   }
 
+  function toDisplayReasonLabel(reason) {
+    return toDisplayLabel(String(reason || '').replace(/duplicate/gi, 'duplicate profile'));
+  }
+
+  function renderDuplicateReview(groups) {
+    if (!duplicateReviewList) return;
+    const families = Array.isArray(groups) ? groups : [];
+    const flat = families.flatMap((family) => {
+      const candidates = Array.isArray(family?.candidates) ? family.candidates : [];
+      return candidates.map((candidate) => ({
+        ...candidate,
+        family_name: String(family?.family_name || 'Unknown'),
+      }));
+    });
+
+    if (!flat.length) {
+      duplicateReviewList.className = 'stats-loading';
+      duplicateReviewList.textContent = 'No duplicate candidates detected for active families.';
+      return;
+    }
+
+    duplicateReviewList.className = 'duplicate-review-list';
+    duplicateReviewList.innerHTML = flat.map((candidate) => {
+      const confidence = Number(candidate.confidence_score || 0);
+      const confidenceLabel = `${confidence}% ${candidate.review_only ? 'Review Only' : 'Strong Match'}`;
+      const reasons = Array.isArray(candidate.match_reasons) ? candidate.match_reasons : [];
+      return `
+        <article class="duplicate-review-card">
+          <div class="duplicate-review-head">
+            <div>
+              <strong>${escapeHtml(candidate.primary_full_name || 'Primary profile')}</strong><br>
+              <span>${escapeHtml(candidate.primary_user_id || '-')}</span>
+            </div>
+            <div>Possible duplicate</div>
+            <div>
+              <strong>${escapeHtml(candidate.duplicate_full_name || 'Duplicate profile')}</strong><br>
+              <span>${escapeHtml(candidate.duplicate_user_id || '-')}</span>
+            </div>
+            <span class="duplicate-review-confidence">${escapeHtml(confidenceLabel)}</span>
+          </div>
+          <div class="duplicate-review-reasons">
+            Family: ${escapeHtml(candidate.family_name || 'Unknown')}<br>
+            Reasons: ${escapeHtml(reasons.length ? reasons.map(toDisplayReasonLabel).join(', ') : 'Review required')}
+          </div>
+          <div class="duplicate-review-actions">
+            <button
+              type="button"
+              data-duplicate-action="merge"
+              data-primary-user-id="${escapeHtml(candidate.primary_user_id || '')}"
+              data-duplicate-user-id="${escapeHtml(candidate.duplicate_user_id || '')}"
+              data-confidence="${escapeHtml(String(confidence))}"
+            >Merge Safely</button>
+            <button
+              type="button"
+              class="secondary"
+              data-duplicate-action="ignore"
+              data-primary-user-id="${escapeHtml(candidate.primary_user_id || '')}"
+              data-duplicate-user-id="${escapeHtml(candidate.duplicate_user_id || '')}"
+              data-confidence="${escapeHtml(String(confidence))}"
+            >Ignore</button>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  async function loadDuplicateProfileReview() {
+    if (!duplicateReviewList) return;
+    duplicateReviewList.className = 'stats-loading';
+    duplicateReviewList.textContent = 'Scanning duplicate profile candidates...';
+    try {
+      const res = await apiFetch('/duplicate-profiles');
+      if (!res.ok) {
+        duplicateReviewList.className = 'stats-loading';
+        duplicateReviewList.textContent = 'Could not load duplicate review queue.';
+        return;
+      }
+      const rows = await res.json();
+      renderDuplicateReview(rows);
+    } catch {
+      duplicateReviewList.className = 'stats-loading';
+      duplicateReviewList.textContent = 'Could not load duplicate review queue.';
+    }
+  }
+
   function renderRecommendedNextAction(users, families, activityEvents) {
     if (!intelNextAction) return;
     if (!users.length) {
@@ -4337,6 +4486,7 @@
       renderGuidanceActions(buildGuidanceActions(normalizedUsers, normalizedFamilies, normalizedActivity));
       renderRecommendedNextAction(normalizedUsers, normalizedFamilies, normalizedActivity);
       renderSystemStatusBadges();
+      loadDuplicateProfileReview();
     } catch {
       intelSummaryGrid.innerHTML = '<p class="stats-loading">Could not load intelligence summary.</p>';
       intelFamilySignals.innerHTML = '<p class="stats-loading">Could not load family signals.</p>';
@@ -4344,6 +4494,10 @@
       intelActivity.innerHTML = '<p class="stats-loading">Could not load activity intelligence.</p>';
       if (intelLineageInsights) {
         intelLineageInsights.innerHTML = '<p class="stats-loading">Could not load lineage insights.</p>';
+      }
+      if (duplicateReviewList) {
+        duplicateReviewList.className = 'stats-loading';
+        duplicateReviewList.textContent = 'Could not load duplicate review queue.';
       }
       intelNextAction.textContent = 'Intelligence load failed. Retry from Admin Dashboard once backend is reachable.';
     }
@@ -4656,6 +4810,59 @@
     const insights = buildLineageInsights(family);
     const insight = insights[index];
     handleLineageResolveNow(insight, family);
+  });
+  duplicateReviewList?.addEventListener('click', async (event) => {
+    const actionBtn = event.target.closest('[data-duplicate-action]');
+    if (!actionBtn) return;
+    const action = String(actionBtn.getAttribute('data-duplicate-action') || '').trim();
+    const primaryUserId = String(actionBtn.getAttribute('data-primary-user-id') || '').trim();
+    const duplicateUserId = String(actionBtn.getAttribute('data-duplicate-user-id') || '').trim();
+    if (!primaryUserId || !duplicateUserId) return;
+
+    if (action === 'merge') {
+      const approved = window.confirm('This will archive the duplicate profile and preserve relationships under the primary record.');
+      if (!approved) return;
+    }
+
+    const endpoint = action === 'merge' ? '/duplicate-profiles/merge' : '/duplicate-profiles/ignore';
+    try {
+      const res = await apiFetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          primary_user_id: primaryUserId,
+          duplicate_user_id: duplicateUserId,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (guidanceFeedback) {
+          guidanceFeedback.textContent = data?.detail || 'Duplicate queue action failed.';
+          guidanceFeedback.classList.remove('is-success');
+        }
+        return;
+      }
+      if (guidanceFeedback) {
+        guidanceFeedback.textContent = data?.message || 'Duplicate queue action completed.';
+        guidanceFeedback.classList.add('is-success');
+      }
+      familyTreeCache.clear();
+      await Promise.all([
+        loadStats(),
+        loadFamilies(),
+        loadRegistrations(),
+        loadAdminActivityLog(),
+      ]);
+      await loadIntelligenceDashboard();
+      if (String(document.querySelector('.page-section.is-active')?.dataset?.page || '') === 'family-tree') {
+        renderVisualFamilyTree();
+      }
+    } catch {
+      if (guidanceFeedback) {
+        guidanceFeedback.textContent = 'Duplicate queue action failed.';
+        guidanceFeedback.classList.remove('is-success');
+      }
+    }
   });
   familyTreeGraphView?.addEventListener('click', (event) => {
       const suggestionBtn = event.target.closest('[data-tree-suggestion-action]');
