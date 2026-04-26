@@ -2720,6 +2720,11 @@
         <input id="family_name" type="text" placeholder="e.g. Diallo" required />
       </div>
       <div class="field">
+        <label for="date_of_birth">Date of Birth</label>
+        <input id="date_of_birth" type="date" required />
+        <small class="optional-note">Date of birth helps verify real family connections.</small>
+      </div>
+      <div class="field">
         <label for="family_size">Family Size</label>
         <input id="family_size" type="number" min="1" placeholder="e.g. 4" required />
       </div>
@@ -2748,8 +2753,8 @@
             <input id="email" type="email" placeholder="name@example.com" />
           </div>
           <div class="field">
-            <label for="phone">Phone</label>
-            <input id="phone" type="text" placeholder="+1 555 123 4567" />
+            <label for="phone_number">Phone Number</label>
+            <input id="phone_number" type="text" placeholder="+1 555 123 4567" />
           </div>
           <div class="field">
             <label for="city">City</label>
@@ -4989,6 +4994,7 @@
           </div>
           <div class="find-match-meta">
             Role: ${escapeHtml(row.relationship_role || 'not provided')}<br>
+            ${row.age_display ? `Identity: ${escapeHtml(row.age_display)}<br>` : ''}
             Region: ${escapeHtml(row.region || 'Unknown region')}
           </div>
           <div class="find-match-actions">
@@ -5797,11 +5803,12 @@
 
     const full_name        = document.getElementById('full_name').value.trim();
     const family_name      = document.getElementById('family_name').value.trim();
+    const date_of_birth    = document.getElementById('date_of_birth').value;
     const family_size      = parseInt(document.getElementById('family_size').value, 10);
     const origin_region    = document.getElementById('origin_region').value;
     const interested_in_return = document.getElementById('interested_in_return').checked;
     const email = optionalValue(document.getElementById('email').value);
-    const phone = optionalValue(document.getElementById('phone').value);
+    const phone_number = optionalValue(document.getElementById('phone_number').value);
     const city = optionalValue(document.getElementById('city').value);
     const state = optionalValue(document.getElementById('state').value);
     const country = optionalValue(document.getElementById('country').value);
@@ -5815,6 +5822,11 @@
     const notes = optionalValue(document.getElementById('notes').value);
 
     // Basic client-side validation
+    if (!date_of_birth) {
+      showError('Date of birth helps verify real family connections.');
+      return;
+    }
+
     if (!full_name || !family_name || !origin_region || isNaN(family_size) || family_size < 1) {
       showError('Please fill in all required fields with valid values.');
       return;
@@ -5832,8 +5844,10 @@
         family_size,
         origin_region,
         interested_in_return,
+        date_of_birth,
         email,
-        phone,
+        phone_number,
+        phone: phone_number,
         city,
         state,
         country,

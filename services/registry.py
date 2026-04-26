@@ -361,8 +361,8 @@ def _build_duplicate_candidate(
         reasons.append("same_email")
         identity_signal = True
 
-    phone_a = "".join(ch for ch in str(primary.get("phone") or "") if ch.isdigit())
-    phone_b = "".join(ch for ch in str(duplicate.get("phone") or "") if ch.isdigit())
+    phone_a = _phone_digits(primary)
+    phone_b = _phone_digits(duplicate)
     phone_match = bool(phone_a and phone_a == phone_b)
     if phone_match:
         score += 14
@@ -742,6 +742,21 @@ def _parse_iso_date(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def _phone_digits(record: dict[str, Any]) -> str:
+    value = str(record.get("phone_number") or record.get("phone") or "")
+    return "".join(ch for ch in value if ch.isdigit())
+
+
+def _age_display(user: dict[str, Any]) -> Optional[str]:
+    user_dob = _parse_iso_date(user.get("date_of_birth"))
+    if user_dob:
+        return f"Birth Year: {user_dob.year}"
+    age_range = str(user.get("age_range") or "").strip()
+    if age_range:
+        return f"Age: {age_range}"
+    return None
+
+
 def _search_confidence_level(score: int) -> str:
     if score >= 70:
         return "high"
@@ -786,39 +801,32 @@ def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatc
         if user_last != search_last and family_name != search_last:
             continue
 
-        score = 40
-        if family_name == search_last:
-            score += 10
-
-        if search_first:
-            user_first = name_parts[0] if name_parts else ""
-            if user_first == search_first:
-                score += 20
-            elif user_first.startswith(search_first) or search_first.startswith(user_first):
-                score += 12
-            elif _name_similarity_score(user_first, search_first) >= 0.72:
-                score += 8
+        score = 20
+        user_first = name_parts[0] if name_parts else ""
+        if search_first and user_first and user_first != search_first:
+            if not user_first.startswith(search_first) and not search_first.startswith(user_first):
+                continue
 
         user_dob = _parse_iso_date(user.get("date_of_birth"))
         if search_dob and user_dob:
             gap_days = abs((search_dob.date() - user_dob.date()).days)
             if gap_days == 0:
+                score += 40
+            elif gap_days <= 365 * 5:
                 score += 20
-            elif gap_days <= 365:
-                score += 15
-            elif gap_days <= 365 * 3:
-                score += 8
 
         user_country = str(user.get("country") or "").strip().lower()
         user_state = str(user.get("state") or "").strip().lower()
+        region_match = False
         if search_country and user_country and search_country == user_country:
-            score += 10
+            region_match = True
         if search_state and user_state and search_state == user_state:
-            score += 8
+            region_match = True
+        if region_match:
+            score += 10
 
         role = str(user.get("relationship_role") or "").strip().lower()
-        if search_role and role and search_role == role:
-            score += 8
+        relationship_hint_match = bool(search_role and role and search_role == role)
 
         if search_relative:
             family_members = members_by_family.get(str(user.get("family_id") or ""), [])
@@ -827,8 +835,10 @@ def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatc
                 for member in family_members
                 if str(member.get("user_id") or "") != user_id
             )
-            if relative_hit:
-                score += 10
+            relationship_hint_match = relationship_hint_match or relative_hit
+
+        if relationship_hint_match:
+            score += 10
 
         score = max(0, min(100, score))
         region = str(user.get("origin_region") or "unknown")
@@ -841,6 +851,7 @@ def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatc
                 relationship_role=str(user.get("relationship_role") or "") or None,
                 region=f"{region} | {state}, {country}",
                 masked_identifier=_mask_identifier(user_id),
+                age_display=_age_display(user),
                 confidence_level=_search_confidence_level(score),
                 confidence_score=score,
             )
@@ -1256,6 +1267,7 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(record)
     for key in [
         "email",
+        "phone_number",
         "phone",
         "city",
         "state",
@@ -1275,6 +1287,11 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
         "duplicate_pair_flags",
     ]:
         normalized.setdefault(key, None)
+
+    if normalized.get("phone_number") and not normalized.get("phone"):
+        normalized["phone"] = normalized.get("phone_number")
+    if normalized.get("phone") and not normalized.get("phone_number"):
+        normalized["phone_number"] = normalized.get("phone")
 
     linked_ids = _normalize_linked_to_user_ids(
         normalized.get("linked_to_user_ids"),
@@ -1341,7 +1358,8 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
         origin_region=payload.origin_region,
         interested_in_return=payload.interested_in_return,
         email=payload.email,
-        phone=payload.phone,
+        phone_number=payload.phone_number or payload.phone,
+        phone=payload.phone or payload.phone_number,
         city=payload.city,
         state=payload.state,
         country=payload.country,
@@ -1403,7 +1421,7 @@ def get_stats() -> StatsResponse:
     total_families = total_family_groups
     largest_family_size = max(family_member_counts.values(), default=0)
     total_interested = sum(1 for r in users if r.get("interested_in_return"))
-    total_with_contact_info = sum(1 for r in users if r.get("email") or r.get("phone"))
+    total_with_contact_info = sum(1 for r in users if r.get("email") or r.get("phone") or r.get("phone_number"))
 
     region_distribution: dict[str, int] = {}
     travel_timeframe_distribution: dict[str, int] = {}
@@ -1607,6 +1625,7 @@ def update_registration(
         "origin_region",
         "interested_in_return",
         "email",
+        "phone_number",
         "phone",
         "city",
         "state",
@@ -1623,6 +1642,11 @@ def update_registration(
     for field in editable_fields:
         if field in updates:
             merged[field] = updates[field]
+
+    if "phone_number" in updates and "phone" not in updates:
+        merged["phone"] = merged.get("phone_number")
+    if "phone" in updates and "phone_number" not in updates:
+        merged["phone_number"] = merged.get("phone")
 
     if "linked_to_user_ids" in updates:
         linked_ids = _normalize_linked_to_user_ids(updates.get("linked_to_user_ids"), None)
@@ -1980,6 +2004,7 @@ def export_registrations_csv() -> str:
         "origin_region",
         "interested_in_return",
         "email",
+        "phone_number",
         "phone",
         "city",
         "state",
@@ -2011,6 +2036,7 @@ def export_registrations_csv() -> str:
             reg.origin_region,
             str(reg.interested_in_return),
             reg.email or "",
+            reg.phone_number or reg.phone or "",
             reg.phone or "",
             reg.city or "",
             reg.state or "",
@@ -2128,6 +2154,7 @@ def merge_duplicate_profile(
 
     for field in [
         "email",
+        "phone_number",
         "phone",
         "city",
         "state",

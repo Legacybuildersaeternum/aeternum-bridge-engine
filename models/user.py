@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from enum import Enum
 from typing import Optional
 
@@ -69,11 +69,12 @@ class UserRegistration(BaseModel):
     origin_region: OriginRegion
     interested_in_return: bool
     email: Optional[str] = None
+    phone_number: Optional[str] = None
     phone: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
-    date_of_birth: Optional[str] = None
+    date_of_birth: str
     age_range: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     travel_timeframe: Optional[TravelTimeframe] = None
@@ -93,10 +94,11 @@ class UserRegistration(BaseModel):
                 "origin_region": "west_africa",
                 "interested_in_return": True,
                 "email": "ward.family@example.com",
-                "phone": "+1-555-0100",
+                "phone_number": "+1-555-0100",
                 "city": "Chicago",
                 "state": "IL",
                 "country": "USA",
+                "date_of_birth": "1988-04-12",
                 "age_range": "35-44",
                 "preferred_contact_method": "email",
                 "travel_timeframe": "1-3_years",
@@ -165,6 +167,7 @@ class UserRegistration(BaseModel):
 
     @field_validator(
         "email",
+        "phone_number",
         "phone",
         "city",
         "state",
@@ -182,6 +185,14 @@ class UserRegistration(BaseModel):
             return None
         value = str(v).strip()
         return value or None
+
+    @model_validator(mode="after")
+    def normalize_phone_aliases(self) -> "UserRegistration":
+        if self.phone_number and not self.phone:
+            self.phone = self.phone_number
+        if self.phone and not self.phone_number:
+            self.phone_number = self.phone
+        return self
 
     @field_validator("email")
     @classmethod
@@ -218,6 +229,7 @@ class UserRecord(BaseModel):
     origin_region: OriginRegion
     interested_in_return: bool
     email: Optional[str] = None
+    phone_number: Optional[str] = None
     phone: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
@@ -292,6 +304,7 @@ class RegistrationUpdateRequest(BaseModel):
     origin_region: Optional[OriginRegion] = None
     interested_in_return: Optional[bool] = None
     email: Optional[str] = None
+    phone_number: Optional[str] = None
     phone: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
@@ -371,6 +384,7 @@ class RegistrationUpdateRequest(BaseModel):
 
     @field_validator(
         "email",
+        "phone_number",
         "phone",
         "city",
         "state",
@@ -388,6 +402,14 @@ class RegistrationUpdateRequest(BaseModel):
             return None
         value = str(v).strip()
         return value or None
+
+    @model_validator(mode="after")
+    def normalize_phone_aliases(self) -> "RegistrationUpdateRequest":
+        if self.phone_number is not None and self.phone is None:
+            self.phone = self.phone_number
+        if self.phone is not None and self.phone_number is None:
+            self.phone_number = self.phone
+        return self
 
     @field_validator("email")
     @classmethod
@@ -539,6 +561,7 @@ class FindFamilyMatchResult(BaseModel):
     relationship_role: Optional[str] = None
     region: str
     masked_identifier: str
+    age_display: Optional[str] = None
     confidence_level: str
     confidence_score: int
 
