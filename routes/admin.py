@@ -8,6 +8,7 @@ from models.user import (
     DuplicateFamilyGroupResponse,
     DuplicateIgnoreRequest,
     DuplicateMergeRequest,
+    DuplicateReviewLaterRequest,
     FamilyGroupResponse,
     RegistrationUpdateRequest,
     RelationshipSuggestionResponse,
@@ -123,6 +124,24 @@ def ignore_duplicate_profile(
     """Mark duplicate candidate as reviewed/ignored without merging records."""
     try:
         return registry.ignore_duplicate_profile(
+            payload.primary_user_id,
+            payload.duplicate_user_id,
+            session_id=x_session_id,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.post("/duplicate-profiles/review-later", response_model=DuplicateActionResponse)
+def review_later_duplicate_profile(
+    payload: DuplicateReviewLaterRequest,
+    x_session_id: Optional[str] = Header(default=None),
+) -> DuplicateActionResponse:
+    """Mark duplicate candidate as review-later for deferred assessment without merging records."""
+    try:
+        return registry.review_later_duplicate_profile(
             payload.primary_user_id,
             payload.duplicate_user_id,
             session_id=x_session_id,

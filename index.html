@@ -2254,6 +2254,55 @@
       margin-top: 6px;
     }
 
+    .tree-duplicate-queue-group {
+      display: grid;
+      gap: 8px;
+    }
+
+    .tree-duplicate-queue-group h4 {
+      margin: 0;
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--secondary-text);
+    }
+
+    .tree-duplicate-label {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 0.64rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      border: 1px solid rgba(201, 168, 76, 0.28);
+      color: var(--gold-lt);
+      background: rgba(201, 168, 76, 0.1);
+      margin-top: 6px;
+    }
+
+    .tree-duplicate-label.review-later {
+      border-color: rgba(125, 191, 255, 0.35);
+      color: #c7e4ff;
+      background: rgba(80, 130, 180, 0.18);
+    }
+
+    .tree-duplicate-label.likely-separate {
+      border-color: rgba(165, 204, 140, 0.35);
+      color: #b7e4a0;
+      background: rgba(102, 156, 87, 0.18);
+    }
+
+    .tree-dev-note {
+      margin-top: 14px;
+      border: 1px dashed rgba(201, 168, 76, 0.28);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--secondary-text);
+      background: rgba(11, 18, 31, 0.6);
+      font-size: 0.72rem;
+      line-height: 1.55;
+    }
+
     .health-status-row {
       display: grid;
       gap: 8px;
@@ -2809,6 +2858,10 @@
       <h2 id="tree-duplicate-review-title">Duplicate Identity Review</h2>
       <p class="page-copy" style="margin-bottom:12px;">Profiles flagged as possible duplicates appear below. Review each pair and choose an action to resolve the duplicate queue and improve family structure completion.</p>
       <div id="treeDuplicateReviewList" class="stats-loading">Scanning for duplicate profiles…</div>
+      <div class="tree-dev-note" aria-label="Future family reconnection workflow note">
+        <strong>Developer Note - Future Family Reconnection Request (Scaffold Only)</strong><br>
+        Potential relative discovery should create a reconnection request, never an automatic merge. Future matching can use safe fields such as family name, birth-year range, region/state/country, relationship clues, and contact preference. Before any merge or persistent lineage link is accepted, both parties must first confirm outside contact (phone, text, email, or mail).
+      </div>
     </section>
   </section>
 
@@ -3170,6 +3223,7 @@
   const treeFocusedNodeKeys = new Set();
   const treeSuggestionCache = new Map();
   const treeSuggestionLoadingFamilies = new Set();
+  const treeDuplicateQueueStateByFamilyId = new Map();
   const treeLinkModeState = {
     active: false,
     sourceKey: '',
@@ -3663,7 +3717,13 @@
     const roleRatio = roleCount / total;
     const relationshipRatio = relationshipReadyCount / total;
     const weighted = (linkedRatio * 0.5) + (roleRatio * 0.25) + (relationshipRatio * 0.25);
-    return Math.max(0, Math.min(100, Math.round(weighted * 100)));
+
+    const familyId = String(family?.family_id || '').trim();
+    const duplicateState = treeDuplicateQueueStateByFamilyId.get(familyId) || { activeCount: 0, reviewLaterCount: 0 };
+    const activePenalty = Math.min(0.2, duplicateState.activeCount * 0.04);
+    const reviewLaterPenalty = Math.min(0.05, duplicateState.reviewLaterCount * 0.01);
+    const adjusted = weighted - activePenalty - reviewLaterPenalty;
+    return Math.max(0, Math.min(100, Math.round(adjusted * 100)));
   }
 
   function updateTreeCompletionUI(family) {
@@ -4441,6 +4501,18 @@
     }
   }
 
+  function syncTreeDuplicateQueueState(groups) {
+    treeDuplicateQueueStateByFamilyId.clear();
+    (Array.isArray(groups) ? groups : []).forEach((family) => {
+      const familyId = String(family?.family_id || '').trim();
+      if (!familyId) return;
+      const candidates = Array.isArray(family?.candidates) ? family.candidates : [];
+      const activeCount = candidates.filter((c) => String(c?.queue_state || 'active') !== 'review_later').length;
+      const reviewLaterCount = candidates.filter((c) => String(c?.queue_state || '') === 'review_later').length;
+      treeDuplicateQueueStateByFamilyId.set(familyId, { activeCount, reviewLaterCount });
+    });
+  }
+
   function renderTreeDuplicateReview(groups) {
     if (!treeDuplicateReviewList) return;
     const flat = (Array.isArray(groups) ? groups : []).flatMap((family) => {
@@ -4450,22 +4522,25 @@
         family_name: String(family?.family_name || 'Unknown'),
       }));
     });
+    const activeItems = flat.filter((item) => String(item.queue_state || 'active') !== 'review_later');
+    const reviewLaterItems = flat.filter((item) => String(item.queue_state || '') === 'review_later');
 
-    if (!flat.length) {
+    if (!activeItems.length && !reviewLaterItems.length) {
       treeDuplicateReviewList.className = 'stats-loading';
-      treeDuplicateReviewList.textContent = 'No duplicate candidates detected. Family identity records look clean.';
+      treeDuplicateReviewList.textContent = 'No active duplicate identity issues. Family identity review is clear.';
       return;
     }
 
-    treeDuplicateReviewList.className = 'duplicate-review-list';
-    treeDuplicateReviewList.innerHTML = flat.map((candidate) => {
+    const cardMarkup = (candidate, isReviewLater = false) => {
       const confidence = Number(candidate.confidence_score || 0);
-      const isStrong = !candidate.review_only;
-      const confidenceLabel = `${confidence}% ${isStrong ? 'Strong Match' : 'Review Only'}`;
       const reasons = Array.isArray(candidate.match_reasons) ? candidate.match_reasons : [];
-      const role = escapeHtml(candidate.duplicate_role || candidate.relationship_role || '');
-      const status = escapeHtml(candidate.duplicate_status || candidate.profile_status || 'pending_link');
-      const links = Array.isArray(candidate.duplicate_linked_to) ? candidate.duplicate_linked_to : [];
+      const role = escapeHtml(candidate.duplicate_relationship_role || 'not provided');
+      const status = escapeHtml(candidate.duplicate_profile_status || 'pending_link');
+      const links = Array.isArray(candidate.duplicate_linked_to_user_ids) ? candidate.duplicate_linked_to_user_ids : [];
+      const recommendationLabel = String(candidate.recommendation_label || (candidate.review_only ? 'Weak Match — Review Only' : 'Strong Duplicate Candidate'));
+      const labelClass = recommendationLabel.toLowerCase().includes('review later')
+        ? 'review-later'
+        : (recommendationLabel.toLowerCase().includes('likely separate') ? 'likely-separate' : '');
       return `
         <article class="duplicate-review-card" data-candidate-primary="${escapeHtml(candidate.primary_user_id || '')}" data-candidate-duplicate="${escapeHtml(candidate.duplicate_user_id || '')}">
           <div class="duplicate-review-head">
@@ -4478,23 +4553,25 @@
               <strong>${escapeHtml(candidate.duplicate_full_name || 'Duplicate profile')}</strong><br>
               <span style="font-size:0.68rem; color:var(--secondary-text);">${escapeHtml(candidate.duplicate_user_id || '-')}</span>
             </div>
-            <span class="duplicate-review-confidence">${escapeHtml(confidenceLabel)}</span>
+            <span class="duplicate-review-confidence">${escapeHtml(`${confidence}%`)}</span>
           </div>
           <div class="tree-dup-meta">
-            ${role ? `Role: ${role} &nbsp;|&nbsp; ` : ''}Status: ${status}${links.length ? ` &nbsp;|&nbsp; Linked to: ${links.map(escapeHtml).join(', ')}` : ''}<br>
+            Role: ${role} &nbsp;|&nbsp; Status: ${status}${links.length ? ` &nbsp;|&nbsp; Linked to: ${links.map(escapeHtml).join(', ')}` : ''}<br>
             Family: ${escapeHtml(candidate.family_name || 'Unknown')} &nbsp;|&nbsp; Reasons: ${escapeHtml(reasons.length ? reasons.map(toDisplayReasonLabel).join(', ') : 'Review required')}
+            <div class="tree-duplicate-label ${labelClass}">${escapeHtml(recommendationLabel)}</div>
           </div>
           <div class="duplicate-review-actions three-col">
             <button
               type="button"
+              ${isReviewLater ? 'disabled' : ''}
               data-tree-dup-action="merge"
               data-primary-user-id="${escapeHtml(candidate.primary_user_id || '')}"
               data-duplicate-user-id="${escapeHtml(candidate.duplicate_user_id || '')}"
-              data-confidence="${escapeHtml(String(confidence))}"
             >Merge Duplicate</button>
             <button
               type="button"
               class="secondary"
+              ${isReviewLater ? 'disabled' : ''}
               data-tree-dup-action="keep-separate"
               data-primary-user-id="${escapeHtml(candidate.primary_user_id || '')}"
               data-duplicate-user-id="${escapeHtml(candidate.duplicate_user_id || '')}"
@@ -4509,13 +4586,34 @@
           </div>
         </article>
       `;
-    }).join('');
+    };
+
+    const sections = [];
+    if (activeItems.length) {
+      sections.push(`
+        <section class="tree-duplicate-queue-group">
+          <h4>Active Duplicate Queue (${activeItems.length})</h4>
+          ${activeItems.map((candidate) => cardMarkup(candidate, false)).join('')}
+        </section>
+      `);
+    }
+    if (reviewLaterItems.length) {
+      sections.push(`
+        <section class="tree-duplicate-queue-group">
+          <h4>Review Later (${reviewLaterItems.length})</h4>
+          ${reviewLaterItems.map((candidate) => cardMarkup(candidate, true)).join('')}
+        </section>
+      `);
+    }
+
+    treeDuplicateReviewList.className = 'duplicate-review-list';
+    treeDuplicateReviewList.innerHTML = sections.join('');
   }
 
   async function loadTreeDuplicateReview() {
     if (!treeDuplicateReviewList) return;
     treeDuplicateReviewList.className = 'stats-loading';
-    treeDuplicateReviewList.textContent = 'Scanning for duplicate identity profiles…';
+    treeDuplicateReviewList.textContent = 'Scanning for duplicate identity profiles...';
     try {
       const res = await apiFetch('/duplicate-profiles');
       if (!res.ok) {
@@ -4524,7 +4622,11 @@
         return;
       }
       const rows = await res.json();
+      syncTreeDuplicateQueueState(rows);
       renderTreeDuplicateReview(rows);
+      if (String(document.querySelector('.page-section.is-active')?.dataset?.page || '') === 'family-tree') {
+        renderVisualFamilyTree();
+      }
     } catch {
       treeDuplicateReviewList.className = 'stats-loading';
       treeDuplicateReviewList.textContent = 'Could not load duplicate review queue.';
@@ -5000,24 +5102,14 @@
     const duplicateUserId = String(actionBtn.getAttribute('data-duplicate-user-id') || '').trim();
     if (!primaryUserId || !duplicateUserId) return;
 
-    // Review Later — dismiss card from view without backend call
-    if (action === 'review-later') {
-      const card = actionBtn.closest('[data-candidate-primary]');
-      if (card) {
-        card.style.opacity = '0.4';
-        card.style.pointerEvents = 'none';
-        const lbl = card.querySelector('.duplicate-review-actions');
-        if (lbl) lbl.innerHTML = '<span class="tree-dup-archived-badge">Review Later — revisit on next load</span>';
-      }
-      return;
-    }
-
     if (action === 'merge') {
       const approved = window.confirm(`Archive the duplicate profile and preserve all relationships under the primary record?\n\nPrimary: ${primaryUserId}\nDuplicate: ${duplicateUserId}`);
       if (!approved) return;
     }
 
-    const endpoint = action === 'merge' ? '/duplicate-profiles/merge' : '/duplicate-profiles/ignore';
+    const endpoint = action === 'merge'
+      ? '/duplicate-profiles/merge'
+      : (action === 'review-later' ? '/duplicate-profiles/review-later' : '/duplicate-profiles/ignore');
     actionBtn.disabled = true;
     try {
       const res = await apiFetch(endpoint, {
@@ -5036,7 +5128,9 @@
       }
       const msg = action === 'merge'
         ? `Duplicate archived. ${data?.message || 'Merge complete.'}`
-        : `Profile marked as Keep Separate. ${data?.message || ''}`;
+        : (action === 'review-later'
+          ? `Review Later saved. ${data?.message || ''}`
+          : 'Pair marked separate and removed from duplicate review.');
       setTreeGraphFeedback(msg, 'success');
       familyTreeCache.clear();
       await Promise.all([loadStats(), loadFamilies(), loadRegistrations(), loadAdminActivityLog()]);

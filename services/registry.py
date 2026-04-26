@@ -141,6 +141,106 @@ _STATUS_PENDING_LINK = "pending_link"
 _STATUS_MERGED_ARCHIVED = "merged_archived"
 _STATUS_IGNORED_DUPLICATE = "ignored_duplicate"
 
+_DUP_DECISION_KEEP_SEPARATE = "keep_separate"
+_DUP_DECISION_REVIEW_LATER = "review_later"
+
+
+def _pair_key(user_a: str, user_b: str) -> str:
+    left, right = sorted([str(user_a).strip(), str(user_b).strip()])
+    return f"{left}::{right}"
+
+
+def _normalize_duplicate_pair_flags(raw_flags: Any) -> list[dict[str, Any]]:
+    flags = raw_flags if isinstance(raw_flags, list) else []
+    normalized: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for raw in flags:
+        if not isinstance(raw, dict):
+            continue
+        pair_key = str(raw.get("pair_key") or "").strip()
+        other_user_id = str(raw.get("other_user_id") or "").strip()
+        decision = str(raw.get("decision") or "").strip().lower()
+        if decision not in {_DUP_DECISION_KEEP_SEPARATE, _DUP_DECISION_REVIEW_LATER}:
+            continue
+        if not pair_key and other_user_id:
+            # Older records may only carry other_user_id; keep pair_key blank-safe here.
+            pair_key = str(raw.get("pair_key") or "").strip()
+        dedupe_key = (pair_key, other_user_id)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        normalized.append(
+            {
+                "pair_key": pair_key,
+                "other_user_id": other_user_id,
+                "decision": decision,
+                "updated_at": str(raw.get("updated_at") or datetime.now(timezone.utc).isoformat()),
+            }
+        )
+    return normalized
+
+
+def _get_pair_decision(left: dict[str, Any], right: dict[str, Any]) -> str:
+    left_id = str(left.get("user_id") or "").strip()
+    right_id = str(right.get("user_id") or "").strip()
+    if not left_id or not right_id:
+        return ""
+    key = _pair_key(left_id, right_id)
+    for owner, other in ((left, right_id), (right, left_id)):
+        flags = _normalize_duplicate_pair_flags(owner.get("duplicate_pair_flags"))
+        for flag in flags:
+            if flag.get("pair_key") == key or flag.get("other_user_id") == other:
+                decision = str(flag.get("decision") or "").strip().lower()
+                if decision in {_DUP_DECISION_KEEP_SEPARATE, _DUP_DECISION_REVIEW_LATER}:
+                    return decision
+    return ""
+
+
+def _upsert_pair_decision(record: dict[str, Any], other_user_id: str, decision: str) -> None:
+    owner_id = str(record.get("user_id") or "").strip()
+    other_id = str(other_user_id or "").strip()
+    normalized_decision = str(decision or "").strip().lower()
+    if not owner_id or not other_id:
+        return
+    if normalized_decision not in {_DUP_DECISION_KEEP_SEPARATE, _DUP_DECISION_REVIEW_LATER}:
+        return
+    key = _pair_key(owner_id, other_id)
+    flags = _normalize_duplicate_pair_flags(record.get("duplicate_pair_flags"))
+    now = datetime.now(timezone.utc).isoformat()
+    replaced = False
+    for flag in flags:
+        if flag.get("pair_key") == key or flag.get("other_user_id") == other_id:
+            flag["pair_key"] = key
+            flag["other_user_id"] = other_id
+            flag["decision"] = normalized_decision
+            flag["updated_at"] = now
+            replaced = True
+            break
+    if not replaced:
+        flags.append(
+            {
+                "pair_key": key,
+                "other_user_id": other_id,
+                "decision": normalized_decision,
+                "updated_at": now,
+            }
+        )
+    record["duplicate_pair_flags"] = flags
+
+
+def _drop_pair_decision(record: dict[str, Any], other_user_id: str) -> None:
+    owner_id = str(record.get("user_id") or "").strip()
+    other_id = str(other_user_id or "").strip()
+    if not owner_id or not other_id:
+        return
+    key = _pair_key(owner_id, other_id)
+    flags = _normalize_duplicate_pair_flags(record.get("duplicate_pair_flags"))
+    record["duplicate_pair_flags"] = [
+        flag
+        for flag in flags
+        if flag.get("pair_key") != key and flag.get("other_user_id") != other_id
+    ]
+
 
 def _get_profile_status(record: dict[str, Any]) -> str:
     raw_status = str(record.get("profile_status") or "").strip().lower()
@@ -188,20 +288,34 @@ def _name_similarity_score(name_a: str, name_b: str) -> float:
     return overlap / max(len(tokens_a), len(tokens_b))
 
 
+def _first_name(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    return text.split()[0]
+
+
+def _looks_like_child_or_dependent(role: str, household_position: str) -> bool:
+    return role in _CHILD_ROLES or household_position in {"dependent", "child"}
+
+
 def _build_duplicate_candidate(
     primary: dict[str, Any],
     duplicate: dict[str, Any],
-) -> tuple[int, list[str]]:
+) -> tuple[int, list[str], bool, bool]:
     score = 0
     reasons: list[str] = []
 
     name_similarity = _name_similarity_score(primary.get("full_name"), duplicate.get("full_name"))
+    identity_signal = False
     if name_similarity >= 0.99:
         score += 35
         reasons.append("exact_full_name")
+        identity_signal = True
     elif name_similarity >= 0.75:
         score += 22
         reasons.append("similar_full_name")
+        identity_signal = True
 
     family_name_a = str(primary.get("family_name") or "").strip().lower()
     family_name_b = str(duplicate.get("family_name") or "").strip().lower()
@@ -230,21 +344,57 @@ def _build_duplicate_candidate(
 
     email_a = str(primary.get("email") or "").strip().lower()
     email_b = str(duplicate.get("email") or "").strip().lower()
-    if email_a and email_a == email_b:
+    email_match = bool(email_a and email_a == email_b)
+    if email_match:
         score += 18
         reasons.append("same_email")
+        identity_signal = True
 
     phone_a = "".join(ch for ch in str(primary.get("phone") or "") if ch.isdigit())
     phone_b = "".join(ch for ch in str(duplicate.get("phone") or "") if ch.isdigit())
-    if phone_a and phone_a == phone_b:
+    phone_match = bool(phone_a and phone_a == phone_b)
+    if phone_match:
         score += 14
         reasons.append("same_phone")
+        identity_signal = True
 
     if str(primary.get("age_range") or "").strip() and str(primary.get("age_range") or "").strip() == str(duplicate.get("age_range") or "").strip():
         score += 5
         reasons.append("same_age_range")
 
-    return min(score, 100), reasons
+    role_a = str(primary.get("relationship_role") or "").strip().lower()
+    role_b = str(duplicate.get("relationship_role") or "").strip().lower()
+    position_a = str(primary.get("household_position") or "").strip().lower()
+    position_b = str(duplicate.get("household_position") or "").strip().lower()
+    first_name_a = _first_name(primary.get("full_name"))
+    first_name_b = _first_name(duplicate.get("full_name"))
+    same_first_name = bool(first_name_a and first_name_a == first_name_b)
+
+    child_pair = _looks_like_child_or_dependent(role_a, position_a) and _looks_like_child_or_dependent(role_b, position_b)
+    likely_separate = False
+    if child_pair and not same_first_name:
+        score -= 45
+        reasons.append("sibling_name_divergence_guardrail")
+        likely_separate = True
+    if {role_a, role_b} == {"daughter", "son"}:
+        score -= 35
+        reasons.append("daughter_son_guardrail")
+        likely_separate = True
+
+    parent_child_pair = ((role_a in _PARENT_ROLES and role_b in _CHILD_ROLES) or (role_b in _PARENT_ROLES and role_a in _CHILD_ROLES))
+    extremely_strong_identity = name_similarity >= 0.99 or (email_match and phone_match)
+    if parent_child_pair and not extremely_strong_identity:
+        score = min(score, 24)
+        reasons.append("parent_child_guardrail")
+        likely_separate = True
+
+    # Strong match must be rooted in identity signals, not shared household metadata.
+    if not identity_signal and score >= 70:
+        score = 59
+        reasons.append("identity_signal_required_for_strong_match")
+
+    score = max(0, min(score, 100))
+    return score, reasons, identity_signal, likely_separate
 
 
 def _detect_duplicate_candidates_for_family(
@@ -259,8 +409,12 @@ def _detect_duplicate_candidates_for_family(
             right_id = str(right.get("user_id") or "").strip()
             if not right_id:
                 continue
-            score, reasons = _build_duplicate_candidate(left, right)
-            if score < 35:
+            pair_decision = _get_pair_decision(left, right)
+            score, reasons, identity_signal, likely_separate = _build_duplicate_candidate(left, right)
+            if pair_decision != _DUP_DECISION_REVIEW_LATER and score < 35:
+                continue
+
+            if pair_decision == _DUP_DECISION_KEEP_SEPARATE:
                 continue
 
             left_strength = len(_normalize_linked_to_user_ids(left.get("linked_to_user_ids"), left.get("linked_to_user_id")))
@@ -272,6 +426,22 @@ def _detect_duplicate_candidates_for_family(
             else:
                 primary, duplicate = (left, right) if str(left.get("registered_at") or "") <= str(right.get("registered_at") or "") else (right, left)
 
+            strong_candidate = score >= 70 and identity_signal and not likely_separate and pair_decision != _DUP_DECISION_REVIEW_LATER
+            if pair_decision == _DUP_DECISION_REVIEW_LATER:
+                recommendation_label = "Review Later"
+            elif likely_separate:
+                recommendation_label = "Likely Separate Family Member"
+            elif strong_candidate:
+                recommendation_label = "Strong Duplicate Candidate"
+            else:
+                recommendation_label = "Weak Match — Review Only"
+
+            duplicate_links = _normalize_linked_to_user_ids(
+                duplicate.get("linked_to_user_ids"),
+                duplicate.get("linked_to_user_id"),
+            )
+            queue_state = "review_later" if pair_decision == _DUP_DECISION_REVIEW_LATER else "active"
+
             candidates.append(
                 DuplicateProfileCandidate(
                     primary_user_id=str(primary.get("user_id") or ""),
@@ -281,7 +451,12 @@ def _detect_duplicate_candidates_for_family(
                     family_id=str(primary.get("family_id") or duplicate.get("family_id") or ""),
                     confidence_score=score,
                     match_reasons=reasons,
-                    review_only=score < 70,
+                    review_only=not strong_candidate,
+                    duplicate_relationship_role=str(duplicate.get("relationship_role") or ""),
+                    duplicate_profile_status=_effective_profile_status(duplicate),
+                    duplicate_linked_to_user_ids=duplicate_links,
+                    queue_state=queue_state,
+                    recommendation_label=recommendation_label,
                 )
             )
 
@@ -292,7 +467,14 @@ def _detect_duplicate_candidates_for_family(
         if existing is None or candidate.confidence_score > existing.confidence_score:
             deduped[key] = candidate
     final_candidates = list(deduped.values())
-    final_candidates.sort(key=lambda c: (-c.confidence_score, c.primary_full_name.lower(), c.duplicate_full_name.lower()))
+    final_candidates.sort(
+        key=lambda c: (
+            1 if c.queue_state == "review_later" else 0,
+            -c.confidence_score,
+            c.primary_full_name.lower(),
+            c.duplicate_full_name.lower(),
+        )
+    )
     return final_candidates
 
 
@@ -724,6 +906,7 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
         "profile_status",
         "merged_into_user_id",
         "notes",
+        "duplicate_pair_flags",
     ]:
         normalized.setdefault(key, None)
 
@@ -750,6 +933,7 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
     normalized["profile_status"] = _get_profile_status(normalized)
     if not normalized.get("merged_into_user_id"):
         normalized["merged_into_user_id"] = None
+    normalized["duplicate_pair_flags"] = _normalize_duplicate_pair_flags(normalized.get("duplicate_pair_flags"))
     if not normalized.get("state"):
         normalized["state"] = "Not provided"
     if not normalized.get("country"):
@@ -1509,6 +1693,8 @@ def get_duplicate_profiles(
             )
         )
         for candidate in candidates:
+            if candidate.queue_state != "active":
+                continue
             write_activity_event(
                 event_type="duplicate_detected",
                 message=_append_merge_details(
@@ -1585,11 +1771,13 @@ def merge_duplicate_profile(
 
     merged_primary["profile_status"] = _STATUS_ACTIVE
     merged_primary["merged_into_user_id"] = None
+    _drop_pair_decision(merged_primary, duplicate_user_id)
 
     merged_duplicate = dict(duplicate)
     merged_duplicate["profile_status"] = _STATUS_MERGED_ARCHIVED
     merged_duplicate["merged_into_user_id"] = primary_user_id
     _set_linked_fields(merged_duplicate, [])
+    _drop_pair_decision(merged_duplicate, primary_user_id)
 
     updated_users: list[dict[str, Any]] = []
     for user in users:
@@ -1608,6 +1796,9 @@ def merge_duplicate_profile(
                 deduped.append(linked_id)
         updated_user = dict(user)
         _set_linked_fields(updated_user, deduped)
+        if user_id in {primary_user_id, duplicate_user_id}:
+            other_id = duplicate_user_id if user_id == primary_user_id else primary_user_id
+            _drop_pair_decision(updated_user, other_id)
         updated_users.append(_normalize_user(updated_user))
 
     _save(updated_users)
@@ -1663,13 +1854,12 @@ def ignore_duplicate_profile(
     updated_users: list[dict[str, Any]] = []
     for user in users:
         user_id = str(user.get("user_id") or "")
+        updated_user = dict(user)
+        if user_id == primary_user_id:
+            _upsert_pair_decision(updated_user, duplicate_user_id, _DUP_DECISION_KEEP_SEPARATE)
         if user_id == duplicate_user_id:
-            updated_user = dict(user)
-            updated_user["profile_status"] = _STATUS_IGNORED_DUPLICATE
-            updated_user["merged_into_user_id"] = None
-            updated_users.append(_normalize_user(updated_user))
-        else:
-            updated_users.append(user)
+            _upsert_pair_decision(updated_user, primary_user_id, _DUP_DECISION_KEEP_SEPARATE)
+        updated_users.append(_normalize_user(updated_user))
     _save(updated_users)
 
     candidates = _detect_duplicate_candidates_for_family([u for u in users if str(u.get("family_id") or "") == family_id and _is_tree_active(u)])
@@ -1686,7 +1876,7 @@ def ignore_duplicate_profile(
     write_activity_event(
         event_type="duplicate_ignored",
         message=_append_merge_details(
-            "Duplicate profile candidate marked as ignored/reviewed.",
+            "Duplicate pair marked separate and removed from duplicate review.",
             primary_user_id,
             duplicate_user_id,
             confidence,
@@ -1700,7 +1890,58 @@ def ignore_duplicate_profile(
 
     return DuplicateActionResponse(
         success=True,
-        message="Duplicate candidate marked as ignored.",
+        message="Pair marked separate and removed from duplicate review.",
+        primary_user_id=primary_user_id,
+        duplicate_user_id=duplicate_user_id,
+        family_id=family_id,
+    )
+
+
+def review_later_duplicate_profile(
+    primary_user_id: str,
+    duplicate_user_id: str,
+    session_id: Optional[str] = None,
+) -> DuplicateActionResponse:
+    users = [_normalize_user(u) for u in _load()]
+    primary = next((u for u in users if str(u.get("user_id") or "") == primary_user_id), None)
+    duplicate = next((u for u in users if str(u.get("user_id") or "") == duplicate_user_id), None)
+    if not primary or not duplicate:
+        raise ValueError("Primary or duplicate profile not found")
+    if str(primary.get("family_id") or "") != str(duplicate.get("family_id") or ""):
+        raise ValueError("Profiles must belong to the same family")
+
+    family_id = str(primary.get("family_id") or "")
+    family_name = str(primary.get("family_name") or duplicate.get("family_name") or "Unknown")
+
+    updated_users: list[dict[str, Any]] = []
+    for user in users:
+        user_id = str(user.get("user_id") or "")
+        updated_user = dict(user)
+        if user_id == primary_user_id:
+            _upsert_pair_decision(updated_user, duplicate_user_id, _DUP_DECISION_REVIEW_LATER)
+        if user_id == duplicate_user_id:
+            _upsert_pair_decision(updated_user, primary_user_id, _DUP_DECISION_REVIEW_LATER)
+        updated_users.append(_normalize_user(updated_user))
+    _save(updated_users)
+
+    write_activity_event(
+        event_type="duplicate_ignored",
+        message=_append_merge_details(
+            "Duplicate pair moved to review later queue.",
+            primary_user_id,
+            duplicate_user_id,
+            0,
+            ["review_later"],
+        ),
+        user_id=primary_user_id,
+        family_id=family_id,
+        family_name=family_name,
+        session_id=session_id,
+    )
+
+    return DuplicateActionResponse(
+        success=True,
+        message="Pair moved to Review Later queue.",
         primary_user_id=primary_user_id,
         duplicate_user_id=duplicate_user_id,
         family_id=family_id,

@@ -479,6 +479,11 @@ class DuplicateProfileCandidate(BaseModel):
     confidence_score: int
     match_reasons: list[str] = Field(default_factory=list)
     review_only: bool = True
+    duplicate_relationship_role: Optional[str] = None
+    duplicate_profile_status: Optional[str] = None
+    duplicate_linked_to_user_ids: list[str] = Field(default_factory=list)
+    queue_state: str = "active"
+    recommendation_label: str = "Weak Match — Review Only"
 
 
 class DuplicateFamilyGroupResponse(BaseModel):
@@ -497,12 +502,26 @@ class DuplicateIgnoreRequest(BaseModel):
     duplicate_user_id: str
 
 
+class DuplicateReviewLaterRequest(BaseModel):
+    primary_user_id: str
+    duplicate_user_id: str
+
+
 class DuplicateActionResponse(BaseModel):
     success: bool
     message: str
     primary_user_id: str
     duplicate_user_id: str
     family_id: str
+
+
+# Future scaffolding only: this is intentionally not wired to routes yet.
+# Planned flow: create request -> offline verification -> mutual confirmation -> optional link/merge.
+class FamilyReconnectionRequestPlaceholder(BaseModel):
+    requester_user_id: str
+    target_user_id: str
+    status: str = "pending_external_contact"
+    external_contact_verified: bool = False
 
 
 class BackupResponse(BaseModel):
