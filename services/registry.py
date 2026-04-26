@@ -757,6 +757,17 @@ def _age_display(user: dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _estimated_age_years(user: Optional[dict[str, Any]]) -> Optional[int]:
+    if not user:
+        return None
+    user_dob = _parse_iso_date(user.get("date_of_birth"))
+    if user_dob:
+        today = datetime.now(timezone.utc).date()
+        years = today.year - user_dob.year - ((today.month, today.day) < (user_dob.month, user_dob.day))
+        return max(years, 0)
+    return _age_range_midpoint(user.get("age_range"))
+
+
 def _search_confidence_level(score: int) -> str:
     if score >= 70:
         return "high"
@@ -782,6 +793,10 @@ def find_family_matches(payload: FindFamilySearchRequest, session_id: Optional[s
     users_by_id = {str(user.get("user_id") or "").strip().lower(): user for user in users}
     requester_profile = users_by_id.get(requester_user_id) if requester_user_id else None
     requester_name = str(requester_profile.get("full_name") or "").strip().lower() if requester_profile else ""
+    requester_role = _normalize_role(requester_profile.get("relationship_role")) if requester_profile else ""
+    requester_country = str(requester_profile.get("country") or "").strip().lower() if requester_profile else ""
+    requester_state = str(requester_profile.get("state") or "").strip().lower() if requester_profile else ""
+    requester_age = _estimated_age_years(requester_profile)
 
     members_by_family: dict[str, list[dict[str, Any]]] = {}
     for user in users:
@@ -818,7 +833,8 @@ def find_family_matches(payload: FindFamilySearchRequest, session_id: Optional[s
                 score += 10
                 reason_tokens.append("First name closely matched")
             else:
-                continue
+                score -= 10
+                reason_tokens.append("First name differs")
 
         family_name_matched = bool(family_name and family_name == search_last)
         if family_name_matched:
@@ -859,6 +875,14 @@ def find_family_matches(payload: FindFamilySearchRequest, session_id: Optional[s
             region_match = True
         if search_state and user_state and search_state == user_state:
             region_match = True
+        if requester_country and user_country and requester_country == user_country:
+            region_match = True
+            score += 6
+            reason_tokens.append("Requester country aligned")
+        if requester_state and user_state and requester_state == user_state:
+            region_match = True
+            score += 6
+            reason_tokens.append("Requester state aligned")
         if region_match:
             score += 10
             reason_tokens.append("Region matched")
@@ -878,6 +902,26 @@ def find_family_matches(payload: FindFamilySearchRequest, session_id: Optional[s
         if relationship_hint_match:
             score += 10
             reason_tokens.append("Relationship hint matched")
+
+        if requester_role and role:
+            if requester_role == role:
+                score += 12
+                reason_tokens.append("Relationship role similarity")
+            elif ((requester_role in _PARENT_ROLES and role in _PARENT_ROLES)
+                  or (requester_role in _CHILD_ROLES and role in _CHILD_ROLES)
+                  or (requester_role in _PEER_ROLES and role in _PEER_ROLES)):
+                score += 8
+                reason_tokens.append("Role group aligned")
+
+        candidate_age = _estimated_age_years(user)
+        if requester_age is not None and candidate_age is not None:
+            age_gap = abs(requester_age - candidate_age)
+            if age_gap <= 10:
+                score += 12
+                reason_tokens.append("Age range proximity")
+            elif age_gap <= 20:
+                score += 6
+                reason_tokens.append("Age range near")
 
         # Legacy profiles without DOB can still appear, but should remain low/medium confidence.
         if search_dob and not user_dob:
@@ -901,7 +945,7 @@ def find_family_matches(payload: FindFamilySearchRequest, session_id: Optional[s
         region = str(user.get("origin_region") or "unknown")
         country = str(user.get("country") or "Not provided")
         state = str(user.get("state") or "Not provided")
-        reason_summary = "; ".join(reason_tokens[:4]) if reason_tokens else "Possible family match"
+        reason_summary = "; ".join(reason_tokens[:5]) if reason_tokens else "Possible lineage signal"
         results.append(
             FindFamilyMatchResult(
                 user_id=user_id,

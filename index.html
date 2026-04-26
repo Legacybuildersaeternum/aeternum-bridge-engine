@@ -3531,6 +3531,7 @@
   let registrationsCache = [];
   let familiesCache = [];
   let findFamilyMatchesCache = [];
+  let findFamilyLastAutoSearchKey = '';
   let registerLookupMatchesCache = [];
   let incomingRequestsCache = [];
   let outgoingRequestsCache = [];
@@ -5238,8 +5239,12 @@
       findFamilyResults.textContent = 'No possible family matches found for this search.';
       return;
     }
+    const hasStrongMatch = rows.some((row) => Number(row?.confidence_score || 0) >= 60 || String(row?.confidence_level || '').toLowerCase() === 'high');
+    const lineageSignalBanner = hasStrongMatch
+      ? ''
+      : '<article class="find-match-card"><div class="find-match-meta"><strong>Possible lineage signals</strong><br>No strong identity-level matches were found. Showing weaker lineage signals to review manually.</div></article>';
     findFamilyResults.className = 'find-match-list';
-    findFamilyResults.innerHTML = rows.map((row) => {
+    findFamilyResults.innerHTML = `${lineageSignalBanner}${rows.map((row) => {
       const confidence = String(row.confidence_level || 'low').toLowerCase();
       const confidenceLabel = confidence === 'high' ? 'High' : confidence === 'medium' ? 'Medium' : 'Low';
       return `
@@ -5265,7 +5270,7 @@
           </div>
         </article>
       `;
-    }).join('');
+    }).join('')}`;
   }
 
   async function runFindFamilySearch() {
@@ -5437,12 +5442,12 @@
 
   async function autofillFindFamilyFromRequester() {
     const requesterId = String(findRequesterUserIdInput?.value || getKnownUserId() || '').trim();
-    if (!requesterId) return;
+    if (!requesterId) return null;
     if (!registrationsCache.length) {
       await loadRegistrations();
     }
     const requester = registrationsCache.find((item) => String(item.user_id || '').trim() === requesterId);
-    if (!requester) return;
+    if (!requester) return null;
 
     const fullNameParts = String(requester.full_name || '').trim().split(/\s+/).filter(Boolean);
     const firstName = fullNameParts[0] || '';
@@ -5454,6 +5459,26 @@
     if (findDobInput) findDobInput.value = String(requester.date_of_birth || '').trim();
     if (findStateRegionInput) findStateRegionInput.value = String(requester.state || '').trim();
     if (findCountryInput) findCountryInput.value = String(requester.country || '').trim();
+    return requester;
+  }
+
+  async function autoRunFindFamilySearch(triggerSource = 'system') {
+    const requesterId = String(findRequesterUserIdInput?.value || getKnownUserId() || '').trim();
+    if (!requesterId) return;
+    await autofillFindFamilyFromRequester();
+    const key = [
+      requesterId,
+      String(findFirstNameInput?.value || '').trim().toLowerCase(),
+      String(findLastNameInput?.value || '').trim().toLowerCase(),
+      String(findDobInput?.value || '').trim(),
+      String(findCountryInput?.value || '').trim().toLowerCase(),
+      String(findStateRegionInput?.value || '').trim().toLowerCase(),
+    ].join('|');
+    if (key === findFamilyLastAutoSearchKey && triggerSource === 'page-open') {
+      return;
+    }
+    findFamilyLastAutoSearchKey = key;
+    await runFindFamilySearch();
   }
 
   async function performConnectionRequestAction(requestId, action, actingUserId) {
@@ -5508,7 +5533,7 @@
           outgoingRequestUserIdInput.value = knownUserId;
         }
       }
-      autofillFindFamilyFromRequester();
+      autoRunFindFamilySearch('page-open');
       loadIncomingConnectionRequests();
       loadOutgoingConnectionRequests();
     }
@@ -5956,8 +5981,8 @@
     await runFindFamilySearch();
   });
 
-  findRequesterUserIdInput?.addEventListener('change', () => {
-    autofillFindFamilyFromRequester();
+  findRequesterUserIdInput?.addEventListener('change', async () => {
+    await autoRunFindFamilySearch('requester-change');
   });
 
   findFamilyResults?.addEventListener('click', async (event) => {
@@ -6214,13 +6239,32 @@
         `<div class="id-block">Family ID: <span>${data.family_id}</span></div>`;
       successMsg.classList.add('show');
       form.reset();
+      const fullNameParts = String(full_name || '').trim().split(/\s+/).filter(Boolean);
+      const registeredFirstName = fullNameParts[0] || '';
+      const registeredLastName = String(family_name || '').trim() || (fullNameParts.length > 1 ? fullNameParts[fullNameParts.length - 1] : '');
+
+      if (findRequesterUserIdInput && data.user_id) {
+        findRequesterUserIdInput.value = String(data.user_id || '').trim();
+      }
+      if (incomingRequestUserIdInput && data.user_id) {
+        incomingRequestUserIdInput.value = String(data.user_id || '').trim();
+      }
+      if (outgoingRequestUserIdInput && data.user_id) {
+        outgoingRequestUserIdInput.value = String(data.user_id || '').trim();
+      }
+
+      if (registerLookupFirstNameInput) registerLookupFirstNameInput.value = registeredFirstName;
+      if (registerLookupLastNameInput) registerLookupLastNameInput.value = registeredLastName;
+      if (registerLookupDobInput) registerLookupDobInput.value = String(date_of_birth || '').trim();
+      if (registerLookupCountryInput) registerLookupCountryInput.value = String(country || '').trim();
+      if (registerLookupStateRegionInput) registerLookupStateRegionInput.value = String(state || '').trim();
+
       if (registerLookupFeedback) {
-        registerLookupFeedback.textContent = 'Registration complete. You can now request a verified family connection.';
+        registerLookupFeedback.textContent = 'Registration complete. Running automatic family intelligence check...';
         registerLookupFeedback.classList.add('is-success');
       }
-      if (Array.isArray(registerLookupMatchesCache) && registerLookupMatchesCache.length) {
-        renderRegisterLookupMatches(registerLookupMatchesCache);
-      }
+      await runRegisterFamilyLookup();
+      await autoRunFindFamilySearch('registration-success');
       loadStats();
       loadRegistrations();
       loadFamilies();
