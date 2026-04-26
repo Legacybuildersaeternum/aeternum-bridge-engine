@@ -4,11 +4,16 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from models.user import (
     BackupResponse,
+    ConnectionRequestCreateRequest,
+    ConnectionRequestDecisionRequest,
+    ConnectionRequestRecord,
     DuplicateActionResponse,
     DuplicateFamilyGroupResponse,
     DuplicateIgnoreRequest,
     DuplicateMergeRequest,
     DuplicateReviewLaterRequest,
+    FindFamilyMatchResult,
+    FindFamilySearchRequest,
     FamilyGroupResponse,
     RegistrationUpdateRequest,
     RelationshipSuggestionResponse,
@@ -96,6 +101,90 @@ def get_duplicate_profiles_by_family(family_id: str) -> DuplicateFamilyGroupResp
         family_name=family.family_name,
         candidates=[],
     )
+
+
+@router.post("/find-family/search", response_model=list[FindFamilyMatchResult])
+def search_find_family(payload: FindFamilySearchRequest) -> list[FindFamilyMatchResult]:
+    """Search possible family matches using safe identity hints without auto-linking."""
+    try:
+        return registry.find_family_matches(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/connection-requests", response_model=ConnectionRequestRecord)
+def create_connection_request(
+    payload: ConnectionRequestCreateRequest,
+    x_session_id: Optional[str] = Header(default=None),
+) -> ConnectionRequestRecord:
+    """Create a safe reconnection request (no auto-merge, no auto-link)."""
+    try:
+        return registry.create_connection_request(payload, session_id=x_session_id)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.get("/connection-requests/incoming", response_model=list[ConnectionRequestRecord])
+def get_incoming_connection_requests(
+    user_id: str = Query(...),
+) -> list[ConnectionRequestRecord]:
+    """List incoming connection requests for a specific user."""
+    return registry.get_connection_requests_for_user(user_id, direction="incoming")
+
+
+@router.get("/connection-requests/outgoing", response_model=list[ConnectionRequestRecord])
+def get_outgoing_connection_requests(
+    user_id: str = Query(...),
+) -> list[ConnectionRequestRecord]:
+    """List outgoing connection requests for a specific user."""
+    return registry.get_connection_requests_for_user(user_id, direction="outgoing")
+
+
+@router.post("/connection-requests/{request_id}/accept", response_model=ConnectionRequestRecord)
+def accept_incoming_connection_request(
+    request_id: str,
+    payload: ConnectionRequestDecisionRequest,
+    x_session_id: Optional[str] = Header(default=None),
+) -> ConnectionRequestRecord:
+    """Receiver accepts and starts external verification (still no link/merge)."""
+    try:
+        return registry.accept_connection_request(request_id, payload.acting_user_id, session_id=x_session_id)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.post("/connection-requests/{request_id}/decline", response_model=ConnectionRequestRecord)
+def decline_incoming_connection_request(
+    request_id: str,
+    payload: ConnectionRequestDecisionRequest,
+    x_session_id: Optional[str] = Header(default=None),
+) -> ConnectionRequestRecord:
+    """Receiver declines request."""
+    try:
+        return registry.decline_connection_request(request_id, payload.acting_user_id, session_id=x_session_id)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.post("/connection-requests/{request_id}/confirm", response_model=ConnectionRequestRecord)
+def confirm_connection_request(
+    request_id: str,
+    payload: ConnectionRequestDecisionRequest,
+    x_session_id: Optional[str] = Header(default=None),
+) -> ConnectionRequestRecord:
+    """Record external-contact verification confirmation for either requester or receiver."""
+    try:
+        return registry.confirm_connection_request_verification(request_id, payload.acting_user_id, session_id=x_session_id)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
 
 
 @router.post("/duplicate-profiles/merge", response_model=DuplicateActionResponse)

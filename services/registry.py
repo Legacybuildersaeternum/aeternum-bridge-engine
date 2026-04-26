@@ -10,9 +10,13 @@ from pathlib import Path
 from typing import Any, Optional
 
 from models.user import (
+    ConnectionRequestCreateRequest,
+    ConnectionRequestRecord,
     DuplicateActionResponse,
     DuplicateFamilyGroupResponse,
     DuplicateProfileCandidate,
+    FindFamilyMatchResult,
+    FindFamilySearchRequest,
     FamilyGroupResponse,
     FamilyMemberSummary,
     HouseholdPosition,
@@ -32,10 +36,17 @@ from models.user import (
 logger = logging.getLogger(__name__)
 
 DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "diaspora_registry.json"
-_EMPTY_STORE: dict[str, Any] = {"users": []}
+_EMPTY_STORE: dict[str, Any] = {"users": [], "connection_requests": []}
 ACTIVITY_LOG_FILE = Path(__file__).resolve().parents[1] / "data" / "legacy_activity_log.json"
 _EMPTY_ACTIVITY_STORE: dict[str, Any] = {"events": []}
 _ACTIVITY_LOG_LOCK = threading.RLock()
+
+
+def _empty_registry_store() -> dict[str, Any]:
+    return {
+        "users": [],
+        "connection_requests": [],
+    }
 
 
 def _normalize_dropdown_token(value: str) -> str:
@@ -714,6 +725,329 @@ def get_relationship_suggestions(
     return suggestions
 
 
+def _mask_identifier(user_id: str) -> str:
+    raw = str(user_id or "").strip()
+    if len(raw) <= 4:
+        return "****"
+    return f"****{raw[-4:]}"
+
+
+def _parse_iso_date(value: Optional[str]) -> Optional[datetime]:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _search_confidence_level(score: int) -> str:
+    if score >= 70:
+        return "high"
+    if score >= 45:
+        return "medium"
+    return "low"
+
+
+def find_family_matches(payload: FindFamilySearchRequest) -> list[FindFamilyMatchResult]:
+    users = [_normalize_user(u) for u in _load()]
+    users = [u for u in users if _is_tree_active(u)]
+
+    search_last = str(payload.last_name or "").strip().lower()
+    if not search_last:
+        raise ValueError("last_name is required")
+    search_first = str(payload.first_name or "").strip().lower()
+    search_country = str(payload.country or "").strip().lower()
+    search_state = str(payload.state_region or "").strip().lower()
+    search_relative = str(payload.known_relative_name or "").strip().lower()
+    search_role = str(payload.relationship_guess or "").strip().lower()
+    search_dob = _parse_iso_date(payload.date_of_birth)
+    requester_user_id = str(payload.requester_user_id or "").strip()
+
+    members_by_family: dict[str, list[dict[str, Any]]] = {}
+    for user in users:
+        family_id = str(user.get("family_id") or "").strip()
+        if family_id:
+            members_by_family.setdefault(family_id, []).append(user)
+
+    results: list[FindFamilyMatchResult] = []
+    for user in users:
+        user_id = str(user.get("user_id") or "").strip()
+        if not user_id:
+            continue
+        if requester_user_id and requester_user_id == user_id:
+            continue
+
+        full_name = str(user.get("full_name") or "").strip()
+        family_name = str(user.get("family_name") or "").strip().lower()
+        name_parts = [part for part in full_name.lower().split() if part]
+        user_last = name_parts[-1] if name_parts else family_name
+        if user_last != search_last and family_name != search_last:
+            continue
+
+        score = 40
+        if family_name == search_last:
+            score += 10
+
+        if search_first:
+            user_first = name_parts[0] if name_parts else ""
+            if user_first == search_first:
+                score += 20
+            elif user_first.startswith(search_first) or search_first.startswith(user_first):
+                score += 12
+            elif _name_similarity_score(user_first, search_first) >= 0.72:
+                score += 8
+
+        user_dob = _parse_iso_date(user.get("date_of_birth"))
+        if search_dob and user_dob:
+            gap_days = abs((search_dob.date() - user_dob.date()).days)
+            if gap_days == 0:
+                score += 20
+            elif gap_days <= 365:
+                score += 15
+            elif gap_days <= 365 * 3:
+                score += 8
+
+        user_country = str(user.get("country") or "").strip().lower()
+        user_state = str(user.get("state") or "").strip().lower()
+        if search_country and user_country and search_country == user_country:
+            score += 10
+        if search_state and user_state and search_state == user_state:
+            score += 8
+
+        role = str(user.get("relationship_role") or "").strip().lower()
+        if search_role and role and search_role == role:
+            score += 8
+
+        if search_relative:
+            family_members = members_by_family.get(str(user.get("family_id") or ""), [])
+            relative_hit = any(
+                search_relative in str(member.get("full_name") or "").strip().lower()
+                for member in family_members
+                if str(member.get("user_id") or "") != user_id
+            )
+            if relative_hit:
+                score += 10
+
+        score = max(0, min(100, score))
+        region = str(user.get("origin_region") or "unknown")
+        country = str(user.get("country") or "Not provided")
+        state = str(user.get("state") or "Not provided")
+        results.append(
+            FindFamilyMatchResult(
+                user_id=user_id,
+                full_name=full_name or "Unnamed member",
+                relationship_role=str(user.get("relationship_role") or "") or None,
+                region=f"{region} | {state}, {country}",
+                masked_identifier=_mask_identifier(user_id),
+                confidence_level=_search_confidence_level(score),
+                confidence_score=score,
+            )
+        )
+
+    results.sort(key=lambda item: (-item.confidence_score, item.full_name.lower(), item.user_id))
+    return results[:25]
+
+
+def _normalize_connection_request(raw: dict[str, Any]) -> dict[str, Any]:
+    request = dict(raw)
+    request.setdefault("request_id", "")
+    request.setdefault("requester_user_id", "")
+    request.setdefault("target_user_id", "")
+    request.setdefault("relationship_guess", None)
+    request.setdefault("preferred_contact_method", None)
+    request.setdefault("status", "pending_verification")
+    request.setdefault("requester_confirmed", False)
+    request.setdefault("receiver_confirmed", False)
+    request.setdefault("created_at", datetime.now(timezone.utc).isoformat())
+    request.setdefault("updated_at", request["created_at"])
+    return request
+
+
+def _to_connection_request_record(request: dict[str, Any], users_by_id: dict[str, dict[str, Any]]) -> ConnectionRequestRecord:
+    requester_id = str(request.get("requester_user_id") or "")
+    target_id = str(request.get("target_user_id") or "")
+    requester_name = str(users_by_id.get(requester_id, {}).get("full_name") or "Unknown requester")
+    target_name = str(users_by_id.get(target_id, {}).get("full_name") or "Unknown target")
+    return ConnectionRequestRecord(
+        request_id=str(request.get("request_id") or ""),
+        requester_user_id=requester_id,
+        requester_name=requester_name,
+        target_user_id=target_id,
+        target_name=target_name,
+        relationship_guess=str(request.get("relationship_guess") or "") or None,
+        preferred_contact_method=str(request.get("preferred_contact_method") or "") or None,
+        status=str(request.get("status") or "pending_verification"),
+        requester_confirmed=bool(request.get("requester_confirmed")),
+        receiver_confirmed=bool(request.get("receiver_confirmed")),
+        created_at=str(request.get("created_at") or datetime.now(timezone.utc).isoformat()),
+        updated_at=str(request.get("updated_at") or datetime.now(timezone.utc).isoformat()),
+    )
+
+
+def create_connection_request(
+    payload: ConnectionRequestCreateRequest,
+    session_id: Optional[str] = None,
+) -> ConnectionRequestRecord:
+    users = [_normalize_user(u) for u in _load()]
+    users_by_id = {str(user.get("user_id") or ""): user for user in users}
+    requester_user_id = str(payload.requester_user_id or "").strip()
+    target_user_id = str(payload.target_user_id or "").strip()
+    if requester_user_id not in users_by_id or target_user_id not in users_by_id:
+        raise ValueError("Requester or target profile not found")
+    if requester_user_id == target_user_id:
+        raise ValueError("Cannot create a connection request to the same profile")
+
+    requests = [_normalize_connection_request(item) for item in _load_connection_requests()]
+    existing = next(
+        (
+            item for item in requests
+            if str(item.get("requester_user_id") or "") == requester_user_id
+            and str(item.get("target_user_id") or "") == target_user_id
+            and str(item.get("status") or "") not in {"declined", "cancelled"}
+        ),
+        None,
+    )
+    now = datetime.now(timezone.utc).isoformat()
+    if existing:
+        existing["relationship_guess"] = payload.relationship_guess
+        existing["preferred_contact_method"] = payload.preferred_contact_method
+        existing["status"] = "pending_verification"
+        existing["requester_confirmed"] = False
+        existing["receiver_confirmed"] = False
+        existing["updated_at"] = now
+        record = _to_connection_request_record(existing, users_by_id)
+    else:
+        request = {
+            "request_id": f"req_{uuid.uuid4().hex[:12]}",
+            "requester_user_id": requester_user_id,
+            "target_user_id": target_user_id,
+            "relationship_guess": payload.relationship_guess,
+            "preferred_contact_method": payload.preferred_contact_method,
+            "status": "pending_verification",
+            "requester_confirmed": False,
+            "receiver_confirmed": False,
+            "created_at": now,
+            "updated_at": now,
+        }
+        requests.append(request)
+        record = _to_connection_request_record(request, users_by_id)
+
+    _save_connection_requests(requests)
+    write_activity_event(
+        event_type="request_created",
+        message=f"Connection request created from {record.requester_user_id} to {record.target_user_id}.",
+        user_id=record.requester_user_id,
+        family_id=str(users_by_id.get(record.requester_user_id, {}).get("family_id") or "") or None,
+        family_name=str(users_by_id.get(record.requester_user_id, {}).get("family_name") or "") or None,
+        session_id=session_id,
+    )
+    write_activity_event(
+        event_type="request_received",
+        message=f"Incoming connection request received for {record.target_user_id}.",
+        user_id=record.target_user_id,
+        family_id=str(users_by_id.get(record.target_user_id, {}).get("family_id") or "") or None,
+        family_name=str(users_by_id.get(record.target_user_id, {}).get("family_name") or "") or None,
+        session_id=session_id,
+    )
+    return record
+
+
+def get_connection_requests_for_user(user_id: str, direction: str = "incoming") -> list[ConnectionRequestRecord]:
+    normalized_user_id = str(user_id or "").strip()
+    if not normalized_user_id:
+        return []
+    users = [_normalize_user(u) for u in _load()]
+    users_by_id = {str(user.get("user_id") or ""): user for user in users}
+    requests = [_normalize_connection_request(item) for item in _load_connection_requests()]
+    if direction == "outgoing":
+        filtered = [item for item in requests if str(item.get("requester_user_id") or "") == normalized_user_id]
+    else:
+        filtered = [item for item in requests if str(item.get("target_user_id") or "") == normalized_user_id]
+    filtered.sort(key=lambda item: str(item.get("updated_at") or ""), reverse=True)
+    return [_to_connection_request_record(item, users_by_id) for item in filtered]
+
+
+def _update_connection_request_status(
+    request_id: str,
+    acting_user_id: str,
+    action: str,
+    session_id: Optional[str] = None,
+) -> ConnectionRequestRecord:
+    requests = [_normalize_connection_request(item) for item in _load_connection_requests()]
+    users = [_normalize_user(u) for u in _load()]
+    users_by_id = {str(user.get("user_id") or ""): user for user in users}
+    target = next((item for item in requests if str(item.get("request_id") or "") == request_id), None)
+    if not target:
+        raise ValueError("Connection request not found")
+
+    requester_id = str(target.get("requester_user_id") or "")
+    receiver_id = str(target.get("target_user_id") or "")
+    actor_id = str(acting_user_id or "").strip()
+    if actor_id not in {requester_id, receiver_id}:
+        raise ValueError("Acting user is not part of this request")
+
+    now = datetime.now(timezone.utc).isoformat()
+    if action == "accept":
+        if actor_id != receiver_id:
+            raise ValueError("Only the receiver can accept verification")
+        target["status"] = "awaiting_verification"
+        target["updated_at"] = now
+        write_activity_event(
+            event_type="verification_started",
+            message=f"Verification started for request {request_id}.",
+            user_id=actor_id,
+            family_id=str(users_by_id.get(actor_id, {}).get("family_id") or "") or None,
+            family_name=str(users_by_id.get(actor_id, {}).get("family_name") or "") or None,
+            session_id=session_id,
+        )
+    elif action == "decline":
+        if actor_id != receiver_id:
+            raise ValueError("Only the receiver can decline a request")
+        target["status"] = "declined"
+        target["updated_at"] = now
+    elif action == "confirm":
+        if actor_id == requester_id:
+            target["requester_confirmed"] = True
+        if actor_id == receiver_id:
+            target["receiver_confirmed"] = True
+        if bool(target.get("requester_confirmed")) and bool(target.get("receiver_confirmed")):
+            target["status"] = "verification_complete_not_linked"
+        else:
+            target["status"] = "awaiting_verification"
+        target["updated_at"] = now
+        write_activity_event(
+            event_type="verification_confirmed",
+            message=f"External verification confirmation recorded for request {request_id}.",
+            user_id=actor_id,
+            family_id=str(users_by_id.get(actor_id, {}).get("family_id") or "") or None,
+            family_name=str(users_by_id.get(actor_id, {}).get("family_name") or "") or None,
+            session_id=session_id,
+        )
+    else:
+        raise ValueError("Unsupported request action")
+
+    _save_connection_requests(requests)
+    return _to_connection_request_record(target, users_by_id)
+
+
+def accept_connection_request(request_id: str, acting_user_id: str, session_id: Optional[str] = None) -> ConnectionRequestRecord:
+    return _update_connection_request_status(request_id, acting_user_id, "accept", session_id=session_id)
+
+
+def decline_connection_request(request_id: str, acting_user_id: str, session_id: Optional[str] = None) -> ConnectionRequestRecord:
+    return _update_connection_request_status(request_id, acting_user_id, "decline", session_id=session_id)
+
+
+def confirm_connection_request_verification(
+    request_id: str,
+    acting_user_id: str,
+    session_id: Optional[str] = None,
+) -> ConnectionRequestRecord:
+    return _update_connection_request_status(request_id, acting_user_id, "confirm", session_id=session_id)
+
+
 def _ensure_file() -> None:
     """Create data file with empty structure if it does not exist."""
     DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -837,17 +1171,38 @@ def get_activity_log(
 
 
 def _load() -> list[dict[str, Any]]:
+    return _load_store().get("users", [])
+
+
+def _load_store() -> dict[str, Any]:
     _ensure_file()
     try:
         with DATA_FILE.open("r", encoding="utf-8") as f:
             data = json.load(f)
     except json.JSONDecodeError:
         logger.error("Registry data file is invalid JSON at %s", DATA_FILE)
-        return []
-    # Support legacy flat-list format produced before this fix
+        return _empty_registry_store()
     if isinstance(data, list):
-        return data
-    return data.get("users", [])
+        return {"users": data, "connection_requests": []}
+    if not isinstance(data, dict):
+        return _empty_registry_store()
+    users = data.get("users") if isinstance(data.get("users"), list) else []
+    connection_requests = data.get("connection_requests") if isinstance(data.get("connection_requests"), list) else []
+    return {
+        "users": users,
+        "connection_requests": connection_requests,
+    }
+
+
+def _save_store(store: dict[str, Any]) -> None:
+    _ensure_file()
+    normalized = _empty_registry_store()
+    normalized["users"] = store.get("users") if isinstance(store.get("users"), list) else []
+    normalized["connection_requests"] = (
+        store.get("connection_requests") if isinstance(store.get("connection_requests"), list) else []
+    )
+    with DATA_FILE.open("w", encoding="utf-8") as f:
+        json.dump(normalized, f, indent=2, ensure_ascii=False)
 
 
 def run_persistence_safety_check() -> dict[str, Any]:
@@ -879,11 +1234,21 @@ def run_persistence_safety_check() -> dict[str, Any]:
 
 
 def _save(users: list[dict[str, Any]]) -> None:
-    _ensure_file()
-    with DATA_FILE.open("w", encoding="utf-8") as f:
-        json.dump({"users": users}, f, indent=2, ensure_ascii=False)
+    store = _load_store()
+    store["users"] = users
+    _save_store(store)
     print("User saved successfully")
     logger.info("Data file updated — total users: %d", len(users))
+
+
+def _load_connection_requests() -> list[dict[str, Any]]:
+    return _load_store().get("connection_requests", [])
+
+
+def _save_connection_requests(connection_requests: list[dict[str, Any]]) -> None:
+    store = _load_store()
+    store["connection_requests"] = connection_requests
+    _save_store(store)
 
 
 def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
@@ -895,6 +1260,7 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
         "city",
         "state",
         "country",
+        "date_of_birth",
         "age_range",
         "preferred_contact_method",
         "travel_timeframe",
@@ -979,6 +1345,7 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
         city=payload.city,
         state=payload.state,
         country=payload.country,
+        date_of_birth=payload.date_of_birth,
         age_range=payload.age_range,
         preferred_contact_method=payload.preferred_contact_method,
         travel_timeframe=payload.travel_timeframe or TravelTimeframe.not_sure_yet,
@@ -1244,6 +1611,7 @@ def update_registration(
         "city",
         "state",
         "country",
+        "date_of_birth",
         "age_range",
         "preferred_contact_method",
         "travel_timeframe",
@@ -1385,6 +1753,7 @@ def get_families() -> list[FamilyGroupResponse]:
                     full_name=member.get("full_name", ""),
                     relationship_role=member.get("relationship_role"),
                     household_position=member.get("household_position"),
+                    date_of_birth=member.get("date_of_birth"),
                     profile_status=_effective_profile_status(member),
                     linked_to_user_ids=linked_to_user_ids,
                     linked_to_user_id=linked_to_user_ids[0] if linked_to_user_ids else None,
@@ -1615,6 +1984,7 @@ def export_registrations_csv() -> str:
         "city",
         "state",
         "country",
+        "date_of_birth",
         "age_range",
         "preferred_contact_method",
         "travel_timeframe",
@@ -1645,6 +2015,7 @@ def export_registrations_csv() -> str:
             reg.city or "",
             reg.state or "",
             reg.country or "",
+            reg.date_of_birth or "",
             reg.age_range or "",
             reg.preferred_contact_method or "",
             reg.travel_timeframe or "",
@@ -1761,6 +2132,7 @@ def merge_duplicate_profile(
         "city",
         "state",
         "country",
+        "date_of_birth",
         "age_range",
         "preferred_contact_method",
         "relationship_notes",

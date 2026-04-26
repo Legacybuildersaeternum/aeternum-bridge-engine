@@ -73,6 +73,7 @@ class UserRegistration(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
+    date_of_birth: Optional[str] = None
     age_range: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     travel_timeframe: Optional[TravelTimeframe] = None
@@ -168,6 +169,7 @@ class UserRegistration(BaseModel):
         "city",
         "state",
         "country",
+        "date_of_birth",
         "age_range",
         "linked_to_user_id",
         "relationship_notes",
@@ -220,6 +222,7 @@ class UserRecord(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
+    date_of_birth: Optional[str] = None
     age_range: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     travel_timeframe: Optional[TravelTimeframe] = None
@@ -293,6 +296,7 @@ class RegistrationUpdateRequest(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
+    date_of_birth: Optional[str] = None
     age_range: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     travel_timeframe: Optional[TravelTimeframe] = None
@@ -371,6 +375,7 @@ class RegistrationUpdateRequest(BaseModel):
         "city",
         "state",
         "country",
+        "date_of_birth",
         "age_range",
         "linked_to_user_id",
         "relationship_notes",
@@ -438,6 +443,7 @@ class FamilyMemberSummary(BaseModel):
     full_name: str
     relationship_role: Optional[str] = None
     household_position: Optional[str] = None
+    date_of_birth: Optional[str] = None
     profile_status: Optional[str] = None
     linked_to_user_ids: list[str] = Field(default_factory=list)
     linked_to_user_id: Optional[str] = None
@@ -513,6 +519,54 @@ class DuplicateActionResponse(BaseModel):
     primary_user_id: str
     duplicate_user_id: str
     family_id: str
+
+
+class FindFamilySearchRequest(BaseModel):
+    requester_user_id: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: str
+    date_of_birth: Optional[str] = None
+    country: Optional[str] = None
+    state_region: Optional[str] = None
+    known_relative_name: Optional[str] = None
+    relationship_guess: Optional[str] = None
+    preferred_contact_method: Optional[str] = None
+
+
+class FindFamilyMatchResult(BaseModel):
+    user_id: str
+    full_name: str
+    relationship_role: Optional[str] = None
+    region: str
+    masked_identifier: str
+    confidence_level: str
+    confidence_score: int
+
+
+class ConnectionRequestCreateRequest(BaseModel):
+    requester_user_id: str
+    target_user_id: str
+    relationship_guess: Optional[str] = None
+    preferred_contact_method: Optional[str] = None
+
+
+class ConnectionRequestDecisionRequest(BaseModel):
+    acting_user_id: str
+
+
+class ConnectionRequestRecord(BaseModel):
+    request_id: str
+    requester_user_id: str
+    requester_name: str
+    target_user_id: str
+    target_name: str
+    relationship_guess: Optional[str] = None
+    preferred_contact_method: Optional[str] = None
+    status: str
+    requester_confirmed: bool = False
+    receiver_confirmed: bool = False
+    created_at: str
+    updated_at: str
 
 
 # Future scaffolding only: this is intentionally not wired to routes yet.

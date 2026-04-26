@@ -2460,6 +2460,99 @@
       line-height: 1.5;
     }
 
+    .find-match-list,
+    .connection-request-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .find-match-card,
+    .connection-request-card {
+      border: 1px solid rgba(201, 168, 76, 0.2);
+      border-radius: 10px;
+      background: rgba(17, 33, 52, 0.76);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .find-match-head,
+    .connection-request-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .find-confidence {
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 0.66rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      border: 1px solid rgba(201, 168, 76, 0.25);
+      color: var(--gold-lt);
+      background: rgba(201, 168, 76, 0.1);
+    }
+
+    .find-confidence.low {
+      border-color: rgba(125, 191, 255, 0.33);
+      color: #c7e4ff;
+      background: rgba(80, 130, 180, 0.2);
+    }
+
+    .find-confidence.medium {
+      border-color: rgba(245, 212, 139, 0.35);
+      color: #f5d48b;
+      background: rgba(167, 133, 63, 0.2);
+    }
+
+    .find-confidence.high {
+      border-color: rgba(162, 225, 156, 0.35);
+      color: #b7e4a0;
+      background: rgba(102, 156, 87, 0.2);
+    }
+
+    .find-match-meta,
+    .connection-request-meta {
+      font-size: 0.75rem;
+      color: var(--secondary-text);
+      line-height: 1.5;
+    }
+
+    .find-match-actions,
+    .connection-request-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .request-status-chip {
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 4px 9px;
+      font-size: 0.63rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--secondary-text);
+      display: inline-block;
+    }
+
+    .request-status-chip.pending_request {
+      color: #f5d48b;
+      border-color: rgba(245, 212, 139, 0.3);
+    }
+
+    .request-status-chip.awaiting_verification {
+      color: #c7e4ff;
+      border-color: rgba(125, 191, 255, 0.35);
+    }
+
+    .request-status-chip.verification_complete {
+      color: #b7e4a0;
+      border-color: rgba(162, 225, 156, 0.35);
+    }
+
     .inline-action-row {
       display: flex;
       gap: 10px;
@@ -2525,6 +2618,7 @@
   <button type="button" class="app-nav-link is-active" data-page-target="home">Home</button>
   <button type="button" class="app-nav-link" data-page-target="register">Register</button>
   <button type="button" class="app-nav-link" data-page-target="family-tree">Family Tree</button>
+  <button type="button" class="app-nav-link" data-page-target="find-family">Find Family</button>
   <button type="button" class="app-nav-link" data-page-target="activity-log">Activity Log</button>
   <button type="button" class="app-nav-link" data-page-target="export-backup">Export &amp; Backup</button>
   <button type="button" class="app-nav-link" data-page-target="admin-dashboard">Admin Dashboard</button>
@@ -2865,6 +2959,102 @@
     </section>
   </section>
 
+  <section class="page-section" data-page="find-family">
+    <section class="page-header-card">
+      <span class="page-kicker">Find Family</span>
+      <h2 class="page-title">Find My Family</h2>
+      <p class="page-copy">Search possible family matches and create safe reconnection requests. This flow never auto-links or auto-merges profiles.</p>
+    </section>
+
+    <div class="section-split">
+      <div class="card">
+        <h2>Find Family Search</h2>
+        <form id="findFamilyForm" novalidate>
+          <div class="optional-grid">
+            <div class="field">
+              <label for="findRequesterUserId">Requester User ID</label>
+              <input id="findRequesterUserId" type="text" placeholder="usr_..." />
+            </div>
+            <div class="field">
+              <label for="findFirstName">First Name</label>
+              <input id="findFirstName" type="text" placeholder="Optional" />
+            </div>
+            <div class="field">
+              <label for="findLastName">Last Name</label>
+              <input id="findLastName" type="text" placeholder="Required" required />
+            </div>
+            <div class="field">
+              <label for="findDob">Date of Birth</label>
+              <input id="findDob" type="date" />
+            </div>
+            <div class="field">
+              <label for="findCountry">Country</label>
+              <input id="findCountry" type="text" placeholder="Optional" />
+            </div>
+            <div class="field">
+              <label for="findStateRegion">State / Region</label>
+              <input id="findStateRegion" type="text" placeholder="Optional" />
+            </div>
+            <div class="field">
+              <label for="findKnownRelativeName">Known Relative Name</label>
+              <input id="findKnownRelativeName" type="text" placeholder="Optional" />
+            </div>
+            <div class="field">
+              <label for="findRelationshipGuess">Relationship Guess</label>
+              <select id="findRelationshipGuess">
+                <option value="">-- Select --</option>
+                <option value="father">Father</option>
+                <option value="mother">Mother</option>
+                <option value="sibling">Sibling</option>
+                <option value="child">Child</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="findPreferredContactMethod">Preferred Contact Method</label>
+              <select id="findPreferredContactMethod">
+                <option value="">-- Select --</option>
+                <option value="phone">Phone</option>
+                <option value="email">Email</option>
+                <option value="text">Text</option>
+                <option value="mail">Mail</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" style="margin-top:12px;">Search Possible Matches</button>
+        </form>
+        <div id="findFamilyFeedback" class="guidance-feedback" style="min-height:22px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Match Results</h2>
+        <div id="findFamilyResults" class="stats-loading">Run a search to view possible match cards.</div>
+      </div>
+    </div>
+
+    <div class="section-split" style="margin-top:14px;">
+      <div class="card">
+        <h2>Incoming Connection Requests</h2>
+        <div class="field" style="margin-bottom:10px;">
+          <label for="incomingRequestUserId">View as User ID</label>
+          <input id="incomingRequestUserId" type="text" placeholder="usr_..." />
+        </div>
+        <button type="button" class="secondary" id="refreshIncomingRequestsBtn" style="margin-bottom:12px;">Refresh Incoming Requests</button>
+        <div id="incomingRequestsList" class="stats-loading">No incoming requests loaded yet.</div>
+      </div>
+
+      <div class="card">
+        <h2>Outgoing Connection Requests</h2>
+        <div class="field" style="margin-bottom:10px;">
+          <label for="outgoingRequestUserId">View as User ID</label>
+          <input id="outgoingRequestUserId" type="text" placeholder="usr_..." />
+        </div>
+        <button type="button" class="secondary" id="refreshOutgoingRequestsBtn" style="margin-bottom:12px;">Refresh Outgoing Requests</button>
+        <div id="outgoingRequestsList" class="stats-loading">No outgoing requests loaded yet.</div>
+      </div>
+    </div>
+  </section>
+
   <section class="page-section" data-page="activity-log">
     <section class="page-header-card">
       <span class="page-kicker">Activity Log</span>
@@ -2904,6 +3094,10 @@
               <option value="duplicate_detected">Duplicate Detected</option>
               <option value="duplicate_merged">Duplicate Merged</option>
               <option value="duplicate_ignored">Duplicate Ignored</option>
+              <option value="request_created">Request Created</option>
+              <option value="request_received">Request Received</option>
+              <option value="verification_started">Verification Started</option>
+              <option value="verification_confirmed">Verification Confirmed</option>
             </select>
           </div>
           <button type="button" class="secondary activity-filter-btn" id="activityFilterApplyBtn">Apply</button>
@@ -3203,9 +3397,30 @@
   const editRegError = document.getElementById('editRegError');
   const editRegUserId = document.getElementById('editRegUserId');
   const editRegCancelBtn = document.getElementById('editRegCancelBtn');
+  const findFamilyForm = document.getElementById('findFamilyForm');
+  const findRequesterUserIdInput = document.getElementById('findRequesterUserId');
+  const findFirstNameInput = document.getElementById('findFirstName');
+  const findLastNameInput = document.getElementById('findLastName');
+  const findDobInput = document.getElementById('findDob');
+  const findCountryInput = document.getElementById('findCountry');
+  const findStateRegionInput = document.getElementById('findStateRegion');
+  const findKnownRelativeNameInput = document.getElementById('findKnownRelativeName');
+  const findRelationshipGuessInput = document.getElementById('findRelationshipGuess');
+  const findPreferredContactMethodInput = document.getElementById('findPreferredContactMethod');
+  const findFamilyResults = document.getElementById('findFamilyResults');
+  const findFamilyFeedback = document.getElementById('findFamilyFeedback');
+  const incomingRequestUserIdInput = document.getElementById('incomingRequestUserId');
+  const outgoingRequestUserIdInput = document.getElementById('outgoingRequestUserId');
+  const incomingRequestsList = document.getElementById('incomingRequestsList');
+  const outgoingRequestsList = document.getElementById('outgoingRequestsList');
+  const refreshIncomingRequestsBtn = document.getElementById('refreshIncomingRequestsBtn');
+  const refreshOutgoingRequestsBtn = document.getElementById('refreshOutgoingRequestsBtn');
 
   let registrationsCache = [];
   let familiesCache = [];
+  let findFamilyMatchesCache = [];
+  let incomingRequestsCache = [];
+  let outgoingRequestsCache = [];
   const familyTreeCache = new Map();
   let activeEditUserId = null;
   let activeEditInitial = null;
@@ -4732,6 +4947,243 @@
     }
   }
 
+  function getActiveRequestUserId() {
+    return String(findRequesterUserIdInput?.value || getKnownUserId() || '').trim();
+  }
+
+  function normalizeRequestStatus(status) {
+    const raw = String(status || '').trim().toLowerCase();
+    if (raw === 'pending_verification') return 'Pending Request';
+    if (raw === 'awaiting_verification') return 'Awaiting Verification';
+    if (raw === 'verification_complete_not_linked') return 'Verification Complete (Not Linked)';
+    if (raw === 'declined') return 'Declined';
+    return raw ? toDisplayLabel(raw) : 'Pending Request';
+  }
+
+  function requestStatusClass(status) {
+    const raw = String(status || '').trim().toLowerCase();
+    if (raw === 'verification_complete_not_linked') return 'verification_complete';
+    if (raw === 'awaiting_verification') return 'awaiting_verification';
+    return 'pending_request';
+  }
+
+  function renderFindFamilyMatches(matches) {
+    if (!findFamilyResults) return;
+    const rows = Array.isArray(matches) ? matches : [];
+    if (!rows.length) {
+      findFamilyResults.className = 'stats-loading';
+      findFamilyResults.textContent = 'No possible family matches found for this search.';
+      return;
+    }
+    findFamilyResults.className = 'find-match-list';
+    findFamilyResults.innerHTML = rows.map((row) => {
+      const confidence = String(row.confidence_level || 'low').toLowerCase();
+      return `
+        <article class="find-match-card">
+          <div class="find-match-head">
+            <div>
+              <strong>${escapeHtml(row.full_name || 'Unknown')}</strong><br>
+              <span style="font-size:0.69rem; color:var(--secondary-text);">${escapeHtml(row.masked_identifier || '****')}</span>
+            </div>
+            <span class="find-confidence ${escapeHtml(confidence)}">${escapeHtml(confidence)} (${escapeHtml(String(row.confidence_score || 0))}%)</span>
+          </div>
+          <div class="find-match-meta">
+            Role: ${escapeHtml(row.relationship_role || 'not provided')}<br>
+            Region: ${escapeHtml(row.region || 'Unknown region')}
+          </div>
+          <div class="find-match-actions">
+            <button type="button" data-find-action="request" data-target-user-id="${escapeHtml(row.user_id || '')}">Request Connection</button>
+            <button type="button" class="secondary" data-find-action="not-match" data-target-user-id="${escapeHtml(row.user_id || '')}">Not a Match</button>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  async function runFindFamilySearch() {
+    if (!findFamilyResults) return;
+    const lastName = String(findLastNameInput?.value || '').trim();
+    if (!lastName) {
+      if (findFamilyFeedback) {
+        findFamilyFeedback.textContent = 'Last Name is required for family search.';
+        findFamilyFeedback.classList.remove('is-success');
+      }
+      return;
+    }
+    const requesterUserId = getActiveRequestUserId();
+    if (requesterUserId) {
+      setKnownUserId(requesterUserId);
+      if (incomingRequestUserIdInput && !String(incomingRequestUserIdInput.value || '').trim()) {
+        incomingRequestUserIdInput.value = requesterUserId;
+      }
+      if (outgoingRequestUserIdInput && !String(outgoingRequestUserIdInput.value || '').trim()) {
+        outgoingRequestUserIdInput.value = requesterUserId;
+      }
+    }
+
+    findFamilyResults.className = 'stats-loading';
+    findFamilyResults.textContent = 'Searching possible matches...';
+    try {
+      const res = await apiFetch('/find-family/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requester_user_id: requesterUserId || null,
+          first_name: String(findFirstNameInput?.value || '').trim() || null,
+          last_name: lastName,
+          date_of_birth: String(findDobInput?.value || '').trim() || null,
+          country: String(findCountryInput?.value || '').trim() || null,
+          state_region: String(findStateRegionInput?.value || '').trim() || null,
+          known_relative_name: String(findKnownRelativeNameInput?.value || '').trim() || null,
+          relationship_guess: String(findRelationshipGuessInput?.value || '').trim() || null,
+          preferred_contact_method: String(findPreferredContactMethodInput?.value || '').trim() || null,
+        }),
+      });
+      const rows = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        if (findFamilyFeedback) {
+          findFamilyFeedback.textContent = rows?.detail || 'Family search failed.';
+          findFamilyFeedback.classList.remove('is-success');
+        }
+        findFamilyResults.className = 'stats-loading';
+        findFamilyResults.textContent = 'Family search failed.';
+        return;
+      }
+      findFamilyMatchesCache = Array.isArray(rows) ? rows : [];
+      renderFindFamilyMatches(findFamilyMatchesCache);
+      if (findFamilyFeedback) {
+        findFamilyFeedback.textContent = `${findFamilyMatchesCache.length} possible match(es) found.`;
+        findFamilyFeedback.classList.add('is-success');
+      }
+    } catch {
+      if (findFamilyFeedback) {
+        findFamilyFeedback.textContent = 'Family search failed.';
+        findFamilyFeedback.classList.remove('is-success');
+      }
+      findFamilyResults.className = 'stats-loading';
+      findFamilyResults.textContent = 'Family search failed.';
+    }
+  }
+
+  function renderConnectionRequests(listEl, rows, perspective) {
+    if (!listEl) return;
+    const items = Array.isArray(rows) ? rows : [];
+    if (!items.length) {
+      listEl.className = 'stats-loading';
+      listEl.textContent = 'No connection requests found.';
+      return;
+    }
+    listEl.className = 'connection-request-list';
+    listEl.innerHTML = items.map((item) => {
+      const status = String(item.status || 'pending_verification');
+      const isIncoming = perspective === 'incoming';
+      const actorName = isIncoming ? item.requester_name : item.target_name;
+      const actorId = isIncoming ? item.requester_user_id : item.target_user_id;
+      const showVerifyButtons = status === 'awaiting_verification' || status === 'verification_complete_not_linked';
+      return `
+        <article class="connection-request-card">
+          <div class="connection-request-head">
+            <div>
+              <strong>${escapeHtml(actorName || 'Unknown profile')}</strong><br>
+              <span style="font-size:0.69rem; color:var(--secondary-text);">${escapeHtml(actorId || '')}</span>
+            </div>
+            <span class="request-status-chip ${requestStatusClass(status)}">${escapeHtml(normalizeRequestStatus(status))}</span>
+          </div>
+          <div class="connection-request-meta">
+            Relationship guess: ${escapeHtml(item.relationship_guess || 'not provided')}<br>
+            Preferred contact method: ${escapeHtml(item.preferred_contact_method || 'not provided')}<br>
+            Requester confirmed external contact: ${item.requester_confirmed ? 'Yes' : 'No'}<br>
+            Receiver confirmed external contact: ${item.receiver_confirmed ? 'Yes' : 'No'}
+          </div>
+          ${status === 'pending_verification' && isIncoming ? `
+            <div class="connection-request-actions">
+              <button type="button" data-request-action="accept" data-request-id="${escapeHtml(item.request_id || '')}">Accept & Verify</button>
+              <button type="button" class="secondary" data-request-action="decline" data-request-id="${escapeHtml(item.request_id || '')}">Decline</button>
+            </div>
+          ` : ''}
+          ${showVerifyButtons ? `
+            <div class="connection-request-meta" style="margin-top:2px;">You must contact this person outside the app using the agreed method before confirming this connection.</div>
+            <div class="connection-request-actions">
+              <button type="button" data-request-action="confirm" data-request-id="${escapeHtml(item.request_id || '')}">I Contacted Them — Confirm</button>
+              <button type="button" class="secondary" data-request-action="cancel">Cancel</button>
+            </div>
+          ` : ''}
+        </article>
+      `;
+    }).join('');
+  }
+
+  async function loadIncomingConnectionRequests() {
+    const userId = String(incomingRequestUserIdInput?.value || getKnownUserId() || '').trim();
+    if (!incomingRequestsList) return;
+    if (!userId) {
+      incomingRequestsList.className = 'stats-loading';
+      incomingRequestsList.textContent = 'Enter a User ID to view incoming requests.';
+      return;
+    }
+    incomingRequestsList.className = 'stats-loading';
+    incomingRequestsList.textContent = 'Loading incoming requests...';
+    try {
+      const res = await apiFetch(`/connection-requests/incoming?user_id=${encodeURIComponent(userId)}`);
+      const rows = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        incomingRequestsList.className = 'stats-loading';
+        incomingRequestsList.textContent = rows?.detail || 'Could not load incoming requests.';
+        return;
+      }
+      incomingRequestsCache = Array.isArray(rows) ? rows : [];
+      renderConnectionRequests(incomingRequestsList, incomingRequestsCache, 'incoming');
+    } catch {
+      incomingRequestsList.className = 'stats-loading';
+      incomingRequestsList.textContent = 'Could not load incoming requests.';
+    }
+  }
+
+  async function loadOutgoingConnectionRequests() {
+    const userId = String(outgoingRequestUserIdInput?.value || getKnownUserId() || '').trim();
+    if (!outgoingRequestsList) return;
+    if (!userId) {
+      outgoingRequestsList.className = 'stats-loading';
+      outgoingRequestsList.textContent = 'Enter a User ID to view outgoing requests.';
+      return;
+    }
+    outgoingRequestsList.className = 'stats-loading';
+    outgoingRequestsList.textContent = 'Loading outgoing requests...';
+    try {
+      const res = await apiFetch(`/connection-requests/outgoing?user_id=${encodeURIComponent(userId)}`);
+      const rows = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        outgoingRequestsList.className = 'stats-loading';
+        outgoingRequestsList.textContent = rows?.detail || 'Could not load outgoing requests.';
+        return;
+      }
+      outgoingRequestsCache = Array.isArray(rows) ? rows : [];
+      renderConnectionRequests(outgoingRequestsList, outgoingRequestsCache, 'outgoing');
+    } catch {
+      outgoingRequestsList.className = 'stats-loading';
+      outgoingRequestsList.textContent = 'Could not load outgoing requests.';
+    }
+  }
+
+  async function performConnectionRequestAction(requestId, action, actingUserId) {
+    if (!requestId || !action || !actingUserId) return;
+    const endpoint = action === 'accept'
+      ? `/connection-requests/${encodeURIComponent(requestId)}/accept`
+      : action === 'decline'
+        ? `/connection-requests/${encodeURIComponent(requestId)}/decline`
+        : `/connection-requests/${encodeURIComponent(requestId)}/confirm`;
+    const res = await apiFetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acting_user_id: actingUserId }),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(payload?.detail || 'Request action failed');
+    }
+    return payload;
+  }
+
   function setActivePage(pageName) {
     pageSections.forEach((section) => {
       section.classList.toggle('is-active', section.dataset.page === pageName);
@@ -4749,6 +5201,22 @@
       }
       renderVisualFamilyTree();
       loadTreeDuplicateReview();
+    }
+    if (pageName === 'find-family') {
+      const knownUserId = getKnownUserId();
+      if (knownUserId) {
+        if (findRequesterUserIdInput && !String(findRequesterUserIdInput.value || '').trim()) {
+          findRequesterUserIdInput.value = knownUserId;
+        }
+        if (incomingRequestUserIdInput && !String(incomingRequestUserIdInput.value || '').trim()) {
+          incomingRequestUserIdInput.value = knownUserId;
+        }
+        if (outgoingRequestUserIdInput && !String(outgoingRequestUserIdInput.value || '').trim()) {
+          outgoingRequestUserIdInput.value = knownUserId;
+        }
+      }
+      loadIncomingConnectionRequests();
+      loadOutgoingConnectionRequests();
     }
     if (pageName === 'activity-log') {
       logPageViewOnce('activity-log', 'activity_log_viewed', 'Activity Log tab opened.');
@@ -5188,6 +5656,121 @@
     if (action === 'merge-duplicate') {
       resolveNodeInteraction(nodeKey, 'merge-duplicate');
     }
+  });
+  findFamilyForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await runFindFamilySearch();
+  });
+
+  findFamilyResults?.addEventListener('click', async (event) => {
+    const actionBtn = event.target.closest('[data-find-action]');
+    if (!actionBtn) return;
+    const action = String(actionBtn.getAttribute('data-find-action') || '').trim();
+    const targetUserId = String(actionBtn.getAttribute('data-target-user-id') || '').trim();
+    const requesterUserId = getActiveRequestUserId();
+    if (!targetUserId) return;
+
+    if (action === 'not-match') {
+      const card = actionBtn.closest('.find-match-card');
+      if (card) {
+        card.style.opacity = '0.45';
+        card.style.pointerEvents = 'none';
+      }
+      if (findFamilyFeedback) {
+        findFamilyFeedback.textContent = 'Marked as Not a Match.';
+        findFamilyFeedback.classList.add('is-success');
+      }
+      return;
+    }
+
+    if (!requesterUserId) {
+      if (findFamilyFeedback) {
+        findFamilyFeedback.textContent = 'Requester User ID is required to create a connection request.';
+        findFamilyFeedback.classList.remove('is-success');
+      }
+      return;
+    }
+
+    actionBtn.disabled = true;
+    try {
+      const res = await apiFetch('/connection-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requester_user_id: requesterUserId,
+          target_user_id: targetUserId,
+          relationship_guess: String(findRelationshipGuessInput?.value || '').trim() || null,
+          preferred_contact_method: String(findPreferredContactMethodInput?.value || '').trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        actionBtn.disabled = false;
+        if (findFamilyFeedback) {
+          findFamilyFeedback.textContent = data?.detail || 'Could not create connection request.';
+          findFamilyFeedback.classList.remove('is-success');
+        }
+        return;
+      }
+      if (findFamilyFeedback) {
+        findFamilyFeedback.textContent = 'Connection request created. Status: Pending Request.';
+        findFamilyFeedback.classList.add('is-success');
+      }
+      if (incomingRequestUserIdInput && !String(incomingRequestUserIdInput.value || '').trim()) {
+        incomingRequestUserIdInput.value = targetUserId;
+      }
+      if (outgoingRequestUserIdInput) {
+        outgoingRequestUserIdInput.value = requesterUserId;
+      }
+      await Promise.all([loadIncomingConnectionRequests(), loadOutgoingConnectionRequests(), loadActivityLog(), loadAdminActivityLog()]);
+    } catch {
+      actionBtn.disabled = false;
+      if (findFamilyFeedback) {
+        findFamilyFeedback.textContent = 'Could not create connection request.';
+        findFamilyFeedback.classList.remove('is-success');
+      }
+    }
+  });
+
+  incomingRequestsList?.addEventListener('click', async (event) => {
+    const actionBtn = event.target.closest('[data-request-action]');
+    if (!actionBtn) return;
+    const action = String(actionBtn.getAttribute('data-request-action') || '').trim();
+    if (action === 'cancel') {
+      return;
+    }
+    const requestId = String(actionBtn.getAttribute('data-request-id') || '').trim();
+    const actorId = String(incomingRequestUserIdInput?.value || getKnownUserId() || '').trim();
+    if (!requestId || !actorId) return;
+    try {
+      await performConnectionRequestAction(requestId, action, actorId);
+      await Promise.all([loadIncomingConnectionRequests(), loadOutgoingConnectionRequests(), loadActivityLog(), loadAdminActivityLog()]);
+    } catch (err) {
+      setTreeGraphFeedback(err.message || 'Request action failed.');
+    }
+  });
+
+  outgoingRequestsList?.addEventListener('click', async (event) => {
+    const actionBtn = event.target.closest('[data-request-action]');
+    if (!actionBtn) return;
+    const action = String(actionBtn.getAttribute('data-request-action') || '').trim();
+    if (action !== 'confirm') return;
+    const requestId = String(actionBtn.getAttribute('data-request-id') || '').trim();
+    const actorId = String(outgoingRequestUserIdInput?.value || getKnownUserId() || '').trim();
+    if (!requestId || !actorId) return;
+    try {
+      await performConnectionRequestAction(requestId, 'confirm', actorId);
+      await Promise.all([loadIncomingConnectionRequests(), loadOutgoingConnectionRequests(), loadActivityLog(), loadAdminActivityLog()]);
+    } catch (err) {
+      setTreeGraphFeedback(err.message || 'Verification confirmation failed.');
+    }
+  });
+
+  refreshIncomingRequestsBtn?.addEventListener('click', () => {
+    loadIncomingConnectionRequests();
+  });
+  refreshOutgoingRequestsBtn?.addEventListener('click', () => {
+    loadOutgoingConnectionRequests();
   });
   form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
 
