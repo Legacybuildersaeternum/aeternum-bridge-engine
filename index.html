@@ -2223,6 +2223,37 @@
       letter-spacing: 0.06em;
     }
 
+    .duplicate-review-actions.three-col {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .tree-duplicate-review-panel {
+      margin-top: 18px;
+    }
+
+    .tree-duplicate-review-panel .duplicate-review-card {
+      background: rgba(12, 24, 40, 0.82);
+    }
+
+    .tree-dup-meta {
+      font-size: 0.72rem;
+      color: var(--secondary-text);
+      line-height: 1.5;
+      margin: 4px 0 0;
+    }
+
+    .tree-dup-archived-badge {
+      display: inline-block;
+      font-size: 0.64rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--secondary-text);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      padding: 2px 7px;
+      margin-top: 6px;
+    }
+
     .health-status-row {
       display: grid;
       gap: 8px;
@@ -2774,6 +2805,11 @@
         </section>
       </div>
     </div>
+    <section class="card tree-duplicate-review-panel" aria-labelledby="tree-duplicate-review-title">
+      <h2 id="tree-duplicate-review-title">Duplicate Identity Review</h2>
+      <p class="page-copy" style="margin-bottom:12px;">Profiles flagged as possible duplicates appear below. Review each pair and choose an action to resolve the duplicate queue and improve family structure completion.</p>
+      <div id="treeDuplicateReviewList" class="stats-loading">Scanning for duplicate profiles…</div>
+    </section>
   </section>
 
   <section class="page-section" data-page="activity-log">
@@ -3076,6 +3112,7 @@
   const intelActivity = document.getElementById('intelActivity');
   const intelLineageInsights = document.getElementById('intelLineageInsights');
   const duplicateReviewList = document.getElementById('duplicateReviewList');
+  const treeDuplicateReviewList = document.getElementById('treeDuplicateReviewList');
   const intelNextAction = document.getElementById('intelNextAction');
   const treeFamilyStatusBadge = document.getElementById('treeFamilyStatusBadge');
   const treeLineageInsights = document.getElementById('treeLineageInsights');
@@ -4404,6 +4441,96 @@
     }
   }
 
+  function renderTreeDuplicateReview(groups) {
+    if (!treeDuplicateReviewList) return;
+    const flat = (Array.isArray(groups) ? groups : []).flatMap((family) => {
+      const candidates = Array.isArray(family?.candidates) ? family.candidates : [];
+      return candidates.map((candidate) => ({
+        ...candidate,
+        family_name: String(family?.family_name || 'Unknown'),
+      }));
+    });
+
+    if (!flat.length) {
+      treeDuplicateReviewList.className = 'stats-loading';
+      treeDuplicateReviewList.textContent = 'No duplicate candidates detected. Family identity records look clean.';
+      return;
+    }
+
+    treeDuplicateReviewList.className = 'duplicate-review-list';
+    treeDuplicateReviewList.innerHTML = flat.map((candidate) => {
+      const confidence = Number(candidate.confidence_score || 0);
+      const isStrong = !candidate.review_only;
+      const confidenceLabel = `${confidence}% ${isStrong ? 'Strong Match' : 'Review Only'}`;
+      const reasons = Array.isArray(candidate.match_reasons) ? candidate.match_reasons : [];
+      const role = escapeHtml(candidate.duplicate_role || candidate.relationship_role || '');
+      const status = escapeHtml(candidate.duplicate_status || candidate.profile_status || 'pending_link');
+      const links = Array.isArray(candidate.duplicate_linked_to) ? candidate.duplicate_linked_to : [];
+      return `
+        <article class="duplicate-review-card" data-candidate-primary="${escapeHtml(candidate.primary_user_id || '')}" data-candidate-duplicate="${escapeHtml(candidate.duplicate_user_id || '')}">
+          <div class="duplicate-review-head">
+            <div>
+              <strong>${escapeHtml(candidate.primary_full_name || 'Primary profile')}</strong><br>
+              <span style="font-size:0.68rem; color:var(--secondary-text);">${escapeHtml(candidate.primary_user_id || '-')}</span>
+            </div>
+            <div style="text-align:center; color:var(--secondary-text); font-size:0.72rem;">⇄ Possible<br>duplicate</div>
+            <div>
+              <strong>${escapeHtml(candidate.duplicate_full_name || 'Duplicate profile')}</strong><br>
+              <span style="font-size:0.68rem; color:var(--secondary-text);">${escapeHtml(candidate.duplicate_user_id || '-')}</span>
+            </div>
+            <span class="duplicate-review-confidence">${escapeHtml(confidenceLabel)}</span>
+          </div>
+          <div class="tree-dup-meta">
+            ${role ? `Role: ${role} &nbsp;|&nbsp; ` : ''}Status: ${status}${links.length ? ` &nbsp;|&nbsp; Linked to: ${links.map(escapeHtml).join(', ')}` : ''}<br>
+            Family: ${escapeHtml(candidate.family_name || 'Unknown')} &nbsp;|&nbsp; Reasons: ${escapeHtml(reasons.length ? reasons.map(toDisplayReasonLabel).join(', ') : 'Review required')}
+          </div>
+          <div class="duplicate-review-actions three-col">
+            <button
+              type="button"
+              data-tree-dup-action="merge"
+              data-primary-user-id="${escapeHtml(candidate.primary_user_id || '')}"
+              data-duplicate-user-id="${escapeHtml(candidate.duplicate_user_id || '')}"
+              data-confidence="${escapeHtml(String(confidence))}"
+            >Merge Duplicate</button>
+            <button
+              type="button"
+              class="secondary"
+              data-tree-dup-action="keep-separate"
+              data-primary-user-id="${escapeHtml(candidate.primary_user_id || '')}"
+              data-duplicate-user-id="${escapeHtml(candidate.duplicate_user_id || '')}"
+            >Keep Separate</button>
+            <button
+              type="button"
+              class="secondary"
+              data-tree-dup-action="review-later"
+              data-primary-user-id="${escapeHtml(candidate.primary_user_id || '')}"
+              data-duplicate-user-id="${escapeHtml(candidate.duplicate_user_id || '')}"
+            >Review Later</button>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  async function loadTreeDuplicateReview() {
+    if (!treeDuplicateReviewList) return;
+    treeDuplicateReviewList.className = 'stats-loading';
+    treeDuplicateReviewList.textContent = 'Scanning for duplicate identity profiles…';
+    try {
+      const res = await apiFetch('/duplicate-profiles');
+      if (!res.ok) {
+        treeDuplicateReviewList.className = 'stats-loading';
+        treeDuplicateReviewList.textContent = 'Could not load duplicate review queue.';
+        return;
+      }
+      const rows = await res.json();
+      renderTreeDuplicateReview(rows);
+    } catch {
+      treeDuplicateReviewList.className = 'stats-loading';
+      treeDuplicateReviewList.textContent = 'Could not load duplicate review queue.';
+    }
+  }
+
   function renderRecommendedNextAction(users, families, activityEvents) {
     if (!intelNextAction) return;
     if (!users.length) {
@@ -4519,6 +4646,7 @@
         loadFamilies();
       }
       renderVisualFamilyTree();
+      loadTreeDuplicateReview();
     }
     if (pageName === 'activity-log') {
       logPageViewOnce('activity-log', 'activity_log_viewed', 'Activity Log tab opened.');
@@ -4862,6 +4990,61 @@
         guidanceFeedback.textContent = 'Duplicate queue action failed.';
         guidanceFeedback.classList.remove('is-success');
       }
+    }
+  });
+  treeDuplicateReviewList?.addEventListener('click', async (event) => {
+    const actionBtn = event.target.closest('[data-tree-dup-action]');
+    if (!actionBtn) return;
+    const action = String(actionBtn.getAttribute('data-tree-dup-action') || '').trim();
+    const primaryUserId = String(actionBtn.getAttribute('data-primary-user-id') || '').trim();
+    const duplicateUserId = String(actionBtn.getAttribute('data-duplicate-user-id') || '').trim();
+    if (!primaryUserId || !duplicateUserId) return;
+
+    // Review Later — dismiss card from view without backend call
+    if (action === 'review-later') {
+      const card = actionBtn.closest('[data-candidate-primary]');
+      if (card) {
+        card.style.opacity = '0.4';
+        card.style.pointerEvents = 'none';
+        const lbl = card.querySelector('.duplicate-review-actions');
+        if (lbl) lbl.innerHTML = '<span class="tree-dup-archived-badge">Review Later — revisit on next load</span>';
+      }
+      return;
+    }
+
+    if (action === 'merge') {
+      const approved = window.confirm(`Archive the duplicate profile and preserve all relationships under the primary record?\n\nPrimary: ${primaryUserId}\nDuplicate: ${duplicateUserId}`);
+      if (!approved) return;
+    }
+
+    const endpoint = action === 'merge' ? '/duplicate-profiles/merge' : '/duplicate-profiles/ignore';
+    actionBtn.disabled = true;
+    try {
+      const res = await apiFetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          primary_user_id: primaryUserId,
+          duplicate_user_id: duplicateUserId,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        actionBtn.disabled = false;
+        setTreeGraphFeedback(data?.detail || 'Action failed. Please retry.');
+        return;
+      }
+      const msg = action === 'merge'
+        ? `Duplicate archived. ${data?.message || 'Merge complete.'}`
+        : `Profile marked as Keep Separate. ${data?.message || ''}`;
+      setTreeGraphFeedback(msg, 'success');
+      familyTreeCache.clear();
+      await Promise.all([loadStats(), loadFamilies(), loadRegistrations(), loadAdminActivityLog()]);
+      await loadTreeDuplicateReview();
+      renderVisualFamilyTree();
+    } catch {
+      actionBtn.disabled = false;
+      setTreeGraphFeedback('Duplicate action failed. Check connection and retry.');
     }
   });
   familyTreeGraphView?.addEventListener('click', (event) => {
