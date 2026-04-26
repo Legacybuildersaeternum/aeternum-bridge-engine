@@ -1066,6 +1066,95 @@
       line-height: 1.45;
     }
 
+    .tree-suggestion-section {
+      display: grid;
+      gap: 8px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(201, 168, 76, 0.16);
+    }
+
+    .tree-suggestion-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .tree-suggestion-title {
+      color: var(--white);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .tree-suggestion-empty {
+      color: var(--secondary-text);
+      font-size: 0.74rem;
+      line-height: 1.45;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tree-suggestion-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .tree-suggestion-card {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(159, 228, 182, 0.16);
+      background: rgba(13, 30, 46, 0.74);
+    }
+
+    .tree-suggestion-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .tree-suggestion-name {
+      color: var(--white);
+      font-size: 0.8rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .tree-suggestion-type {
+      color: var(--secondary-text);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .tree-suggestion-confidence {
+      flex: 0 0 auto;
+      min-width: 54px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      text-align: center;
+      color: #c7ffd8;
+      background: rgba(75, 186, 124, 0.14);
+      border: 1px solid rgba(90, 218, 143, 0.28);
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .tree-suggestion-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .tree-suggestion-actions .tree-node-action-btn {
+      padding: 8px 9px;
+      font-size: 0.63rem;
+    }
+
     .tree-graph-hint {
       color: var(--secondary-text);
       font-size: 0.76rem;
@@ -1104,6 +1193,28 @@
       100% {
         opacity: 1;
         stroke-dasharray: none;
+      }
+    }
+
+    .graph-edge.is-accepted {
+      stroke: rgba(126, 227, 176, 0.94);
+      stroke-width: 2.8;
+      filter: drop-shadow(0 0 10px rgba(126, 227, 176, 0.42));
+      animation: acceptedLinkPulse 1.4s ease;
+    }
+
+    @keyframes acceptedLinkPulse {
+      0% {
+        stroke-dasharray: 6 10;
+        opacity: 0.35;
+      }
+      55% {
+        stroke-dasharray: 14 4;
+        opacity: 1;
+      }
+      100% {
+        stroke-dasharray: none;
+        opacity: 1;
       }
     }
 
@@ -1271,6 +1382,28 @@
       font-size: 10px;
       letter-spacing: 0.03em;
       text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .graph-node.is-suggested .graph-node-card {
+      stroke: rgba(126, 227, 176, 0.95);
+      stroke-width: 2.2;
+      fill: rgba(23, 68, 56, 0.62);
+      filter: drop-shadow(0 0 12px rgba(126, 227, 176, 0.28));
+    }
+
+    .graph-suggestion-pill {
+      fill: rgba(126, 227, 176, 0.16);
+      stroke: rgba(126, 227, 176, 0.34);
+      stroke-width: 1;
+    }
+
+    .graph-suggestion-pill-text {
+      fill: #c7ffd8;
+      font-size: 9px;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: middle;
       pointer-events: none;
     }
 
@@ -2934,11 +3067,15 @@
   const treeGraphNodeMeta = new Map();
   const treeResolvedNodeKeys = new Set();
   const treeFocusedNodeKeys = new Set();
+  const treeSuggestionCache = new Map();
+  const treeSuggestionLoadingFamilies = new Set();
   const treeLinkModeState = {
     active: false,
     sourceKey: '',
   };
   const collapsedTreeNodeKeys = new Set();
+  let treeRecentAcceptedLink = null;
+  let treeAcceptedEdgeTimer = null;
   let latestStatsSnapshot = null;
   let latestActivitySnapshot = [];
   let latestLineageSignals = [];
@@ -2949,6 +3086,7 @@
   const SESSION_STARTED_FLAG_KEY = 'aeternum_session_started_logged';
   const PAGE_VIEW_LOGGED_KEY_PREFIX = 'aeternum_page_view_logged_';
   const ACTIVITY_FILTER_STATE_KEY = 'aeternum_activity_filter_state';
+  const TREE_SUGGESTION_REJECTIONS_STORAGE_KEY = 'aeternum_tree_suggestion_rejections';
 
   const ORIGIN_REGION_OPTIONS = [
     'west_africa',
@@ -3047,6 +3185,114 @@
       .filter(Boolean);
   }
 
+  function getTreeSuggestionRejectionState() {
+    try {
+      const raw = window.localStorage.getItem(TREE_SUGGESTION_REJECTIONS_STORAGE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function getRejectedSuggestionTargets(userId) {
+    const state = getTreeSuggestionRejectionState();
+    const values = Array.isArray(state?.[userId]) ? state[userId] : [];
+    return new Set(values.map((value) => String(value || '').trim()).filter(Boolean));
+  }
+
+  function updateRejectedSuggestion(sourceUserId, targetUserId, rejected = true) {
+    if (!sourceUserId || !targetUserId) return;
+    const state = getTreeSuggestionRejectionState();
+    const nextValues = new Set(Array.isArray(state[sourceUserId]) ? state[sourceUserId] : []);
+    if (rejected) nextValues.add(targetUserId);
+    else nextValues.delete(targetUserId);
+    state[sourceUserId] = Array.from(nextValues);
+    window.localStorage.setItem(TREE_SUGGESTION_REJECTIONS_STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function invalidateTreeSuggestions(familyId = '') {
+    if (!familyId) {
+      treeSuggestionCache.clear();
+      return;
+    }
+    treeSuggestionCache.delete(familyId);
+  }
+
+  function getTreeSuggestionsForUser(familyId, userId, limit = 3) {
+    const normalizedFamilyId = String(familyId || '').trim();
+    const normalizedUserId = String(userId || '').trim();
+    if (!normalizedFamilyId || !normalizedUserId) return [];
+    const familySuggestions = treeSuggestionCache.get(normalizedFamilyId);
+    const entry = familySuggestions?.get(normalizedUserId);
+    if (!entry) return [];
+    const rejectedTargets = getRejectedSuggestionTargets(normalizedUserId);
+    return (Array.isArray(entry.possible_matches) ? entry.possible_matches : [])
+      .filter((match) => !rejectedTargets.has(String(match?.target_id || '').trim()))
+      .slice(0, limit);
+  }
+
+  async function ensureTreeSuggestionsForFamily(familyId) {
+    const normalizedFamilyId = String(familyId || '').trim();
+    if (!normalizedFamilyId || treeSuggestionCache.has(normalizedFamilyId) || treeSuggestionLoadingFamilies.has(normalizedFamilyId)) {
+      return;
+    }
+    treeSuggestionLoadingFamilies.add(normalizedFamilyId);
+    try {
+      const res = await apiFetch(`/relationship-suggestions?family_id=${encodeURIComponent(normalizedFamilyId)}`);
+      if (!res.ok) return;
+      const rows = await res.json();
+      const byUserId = new Map();
+      (Array.isArray(rows) ? rows : []).forEach((entry) => {
+        const userId = String(entry?.user_id || '').trim();
+        if (userId) byUserId.set(userId, entry);
+      });
+      treeSuggestionCache.set(normalizedFamilyId, byUserId);
+    } catch {
+      // Suggestions are advisory only and should not block tree rendering.
+    } finally {
+      treeSuggestionLoadingFamilies.delete(normalizedFamilyId);
+      renderVisualFamilyTree();
+    }
+  }
+
+  function getTreeNodeKeyByUserId(userId) {
+    const normalizedUserId = String(userId || '').trim();
+    if (!normalizedUserId) return '';
+    for (const [nodeKey, node] of treeGraphNodeMeta.entries()) {
+      if (String(node?.user_id || '').trim() === normalizedUserId) {
+        return nodeKey;
+      }
+    }
+    return '';
+  }
+
+  function rememberAcceptedTreeLink(sourceUserId, targetUserId) {
+    treeRecentAcceptedLink = {
+      sourceUserId: String(sourceUserId || '').trim(),
+      targetUserId: String(targetUserId || '').trim(),
+    };
+    if (treeAcceptedEdgeTimer) {
+      window.clearTimeout(treeAcceptedEdgeTimer);
+    }
+    treeAcceptedEdgeTimer = window.setTimeout(() => {
+      treeRecentAcceptedLink = null;
+      renderVisualFamilyTree();
+    }, 1800);
+  }
+
+  function isRecentlyAcceptedEdge(edge) {
+    if (!treeRecentAcceptedLink) return false;
+    const fromUserId = String(treeGraphNodeMeta.get(edge.from)?.user_id || '').trim();
+    const toUserId = String(treeGraphNodeMeta.get(edge.to)?.user_id || '').trim();
+    const { sourceUserId, targetUserId } = treeRecentAcceptedLink;
+    return (
+      (fromUserId === sourceUserId && toUserId === targetUserId)
+      || (fromUserId === targetUserId && toUserId === sourceUserId)
+    );
+  }
+
   function setTreeGraphFeedback(message, tone = 'default') {
     if (!treeGraphFeedback) return;
     treeGraphFeedback.textContent = message || 'Aeternum is actively guiding your family reconstruction.';
@@ -3127,6 +3373,57 @@
     }
   }
 
+  async function persistRelationshipLink(sourceUserId, targetUserId, options = {}) {
+    const {
+      sourceKey = '',
+      targetKey = '',
+      sourceName = 'Member',
+      targetName = 'member',
+      successMessage = '',
+    } = options;
+    if (!sourceUserId || !targetUserId || sourceUserId === targetUserId) {
+      setTreeGraphFeedback('Cannot link a member to themselves.');
+      resetTreeLinkMode();
+      return false;
+    }
+    const sourceRecord = registrationsCache.find((record) => String(record.user_id || '') === sourceUserId);
+    const existingIds = Array.isArray(sourceRecord?.linked_to_user_ids)
+      ? sourceRecord.linked_to_user_ids.filter(Boolean)
+      : [];
+    if (existingIds.includes(targetUserId)) {
+      setTreeGraphFeedback(`${sourceName} is already linked to ${targetName}. No change needed.`);
+      resetTreeLinkMode();
+      return false;
+    }
+    const mergedIds = [...new Set([...existingIds, targetUserId])];
+    setTreeGraphFeedback('Saving link to registry...');
+    try {
+      const res = await apiFetch(`/registrations/${encodeURIComponent(sourceUserId)}/relationship`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linked_to_user_ids: mergedIds }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setTreeGraphFeedback(`Link failed: ${err.detail || res.statusText}`);
+        resetTreeLinkMode();
+        return false;
+      }
+      if (sourceKey) treeResolvedNodeKeys.add(sourceKey);
+      if (targetKey) treeResolvedNodeKeys.add(targetKey);
+      invalidateTreeSuggestions(String(activeTreeFamilyId || ''));
+      rememberAcceptedTreeLink(sourceUserId, targetUserId);
+      resetTreeLinkMode();
+      await loadFamilies();
+      triggerTreeRewardFeedback(successMessage || `${sourceName} linked to ${targetName}. Family structure updated.`);
+      return true;
+    } catch (err) {
+      setTreeGraphFeedback(`Link error: ${err.message || 'Unknown error'}`);
+      resetTreeLinkMode();
+      return false;
+    }
+  }
+
   async function finalizeRealLink(sourceKey, targetKey) {
     if (!sourceKey || !targetKey || sourceKey === targetKey) {
       setTreeGraphFeedback('Cannot link a member to themselves. Select a different target.');
@@ -3146,40 +3443,12 @@
       resetTreeLinkMode();
       return;
     }
-    // Merge with existing linked IDs (no duplicates)
-    const sourceRecord = registrationsCache.find((r) => String(r.user_id || '') === sourceUserId);
-    const existingIds = Array.isArray(sourceRecord?.linked_to_user_ids)
-      ? sourceRecord.linked_to_user_ids.filter(Boolean)
-      : [];
-    if (existingIds.includes(targetUserId)) {
-      setTreeGraphFeedback(`${sourceMeta?.full_name || 'Member'} is already linked to ${targetMeta?.full_name || 'target'}. No change needed.`);
-      resetTreeLinkMode();
-      return;
-    }
-    const mergedIds = [...new Set([...existingIds, targetUserId])];
-    setTreeGraphFeedback('Saving link to registry…');
-    try {
-      const res = await apiFetch(`/registrations/${encodeURIComponent(sourceUserId)}/relationship`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ linked_to_user_ids: mergedIds }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setTreeGraphFeedback(`Link failed: ${err.detail || res.statusText}`);
-        resetTreeLinkMode();
-        return;
-      }
-      treeResolvedNodeKeys.add(sourceKey);
-      treeResolvedNodeKeys.add(targetKey);
-      familyTreeCache.clear();
-      resetTreeLinkMode();
-      await loadFamilies();
-      triggerTreeRewardFeedback(`${sourceMeta?.full_name || 'Member'} linked to ${targetMeta?.full_name || 'member'}. Family structure updated.`);
-    } catch (err) {
-      setTreeGraphFeedback(`Link error: ${err.message || 'Unknown error'}`);
-      resetTreeLinkMode();
-    }
+    await persistRelationshipLink(sourceUserId, targetUserId, {
+      sourceKey,
+      targetKey,
+      sourceName: sourceMeta?.full_name || 'Member',
+      targetName: targetMeta?.full_name || 'member',
+    });
   }
 
   async function resolveNodeInteraction(nodeKey, action) {
@@ -3203,6 +3472,7 @@
           setTreeGraphFeedback(`Role assignment failed: ${err.detail || res.statusText}`);
           return;
         }
+        invalidateTreeSuggestions(String(activeTreeFamilyId || ''));
         familyTreeCache.clear();
         await loadFamilies();
         triggerTreeRewardFeedback(`${meta?.full_name || 'Member'} relationship role assigned. Update the full profile to set the exact role.`);
@@ -3231,20 +3501,13 @@
           setTreeGraphFeedback('Already linked to this member.');
           return;
         }
-        const mergedIds = [...new Set([...existingIds, primaryUserId])];
-        const res = await apiFetch(`/registrations/${encodeURIComponent(userId)}/relationship`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ linked_to_user_ids: mergedIds }),
+        await persistRelationshipLink(userId, primaryUserId, {
+          sourceKey: nodeKey,
+          targetKey: getTreeNodeKeyByUserId(primaryUserId),
+          sourceName: meta?.full_name || 'Member',
+          targetName: primaryMember?.full_name || 'primary member',
+          successMessage: `${meta?.full_name || 'Member'} merged into family structure.`,
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          setTreeGraphFeedback(`Merge failed: ${err.detail || res.statusText}`);
-          return;
-        }
-        familyTreeCache.clear();
-        await loadFamilies();
-        triggerTreeRewardFeedback(`${meta?.full_name || 'Member'} merged into family structure.`);
       } catch (err) {
         setTreeGraphFeedback(`Merge error: ${err.message || 'Unknown error'}`);
       }
@@ -3613,13 +3876,59 @@
       return;
     }
 
+    const familyId = String(node.familyId || activeTreeFamilyId || '').trim();
+    const nodeUserId = String(node.user_id || '').trim();
+    if (node.pending_profile && familyId && !treeSuggestionCache.has(familyId)) {
+      void ensureTreeSuggestionsForFamily(familyId);
+    }
+
+    const suggestionMatches = node.pending_profile
+      ? getTreeSuggestionsForUser(familyId, nodeUserId, 3)
+      : [];
+    const loadingSuggestions = node.pending_profile
+      && treeSuggestionLoadingFamilies.has(familyId)
+      && !treeSuggestionCache.has(familyId);
+    const hasStrongSuggestions = suggestionMatches.some((match) => Number(match?.confidence_score || 0) >= 50);
+    const suggestionMarkup = !node.pending_profile
+      ? ''
+      : `
+        <div class="tree-suggestion-section">
+          <div class="tree-suggestion-title-row">
+            <div class="tree-suggestion-title">Suggested Connections</div>
+          </div>
+          ${loadingSuggestions ? '<div class="tree-suggestion-empty">Suggestion engine analyzing family records...</div>' : ''}
+          ${!loadingSuggestions && !suggestionMatches.length ? '<div class="tree-suggestion-empty">No strong matches found - link manually.</div>' : ''}
+          ${!loadingSuggestions && suggestionMatches.length && !hasStrongSuggestions ? '<div class="tree-suggestion-empty">No strong matches found - review these weaker matches or link manually.</div>' : ''}
+          ${!loadingSuggestions && suggestionMatches.length ? `
+            <div class="tree-suggestion-list">
+              ${suggestionMatches.map((match) => `
+                <article class="tree-suggestion-card">
+                  <div class="tree-suggestion-head">
+                    <div>
+                      <div class="tree-suggestion-name">${escapeHtml(match.target_name || 'Potential match')}</div>
+                      <div class="tree-suggestion-type">${escapeHtml(toDisplayLabel(match.relationship_type || 'household_match'))}</div>
+                    </div>
+                    <div class="tree-suggestion-confidence">${escapeHtml(`${Number(match.confidence_score || 0)}%`)}</div>
+                  </div>
+                  <div class="tree-suggestion-actions">
+                    <button type="button" class="tree-node-action-btn" data-tree-suggestion-action="accept" data-source-node-key="${escapeHtml(nodeKey)}" data-source-user-id="${escapeHtml(nodeUserId)}" data-target-id="${escapeHtml(match.target_id || '')}" data-target-name="${escapeHtml(match.target_name || '')}">Accept Suggestion</button>
+                    <button type="button" class="tree-node-action-btn secondary" data-tree-suggestion-action="reject" data-source-node-key="${escapeHtml(nodeKey)}" data-source-user-id="${escapeHtml(nodeUserId)}" data-target-id="${escapeHtml(match.target_id || '')}" data-target-name="${escapeHtml(match.target_name || '')}">Reject</button>
+                  </div>
+                </article>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+
     const status = treeResolvedNodeKeys.has(nodeKey) ? 'Connected' : (node.pending_label || 'Pending Link');
     panel.hidden = false;
     panel.innerHTML = `
       <h4>Node Action Engine</h4>
       <p>${escapeHtml(node.full_name || 'Selected profile')} is currently marked as ${escapeHtml(status)}.</p>
+      ${suggestionMarkup}
       <div class="tree-node-action-list">
-        <button type="button" class="tree-node-action-btn" data-tree-node-action="link-existing" data-node-key="${escapeHtml(nodeKey)}">Link To Existing Member</button>
+        <button type="button" class="tree-node-action-btn" data-tree-node-action="link-existing" data-node-key="${escapeHtml(nodeKey)}">Manual Link</button>
         <button type="button" class="tree-node-action-btn secondary" data-tree-node-action="assign-relationship" data-node-key="${escapeHtml(nodeKey)}">Assign Relationship</button>
         <button type="button" class="tree-node-action-btn secondary" data-tree-node-action="merge-duplicate" data-node-key="${escapeHtml(nodeKey)}">Link to Primary Member</button>
       </div>
@@ -4293,6 +4602,34 @@
     setActivePage('family-tree');
   });
   familyTreeGraphView?.addEventListener('click', (event) => {
+      const suggestionBtn = event.target.closest('[data-tree-suggestion-action]');
+      if (suggestionBtn) {
+        const action = String(suggestionBtn.getAttribute('data-tree-suggestion-action') || '').trim();
+        const sourceNodeKey = String(suggestionBtn.getAttribute('data-source-node-key') || '').trim();
+        const sourceUserId = String(suggestionBtn.getAttribute('data-source-user-id') || '').trim();
+        const targetId = String(suggestionBtn.getAttribute('data-target-id') || '').trim();
+        const targetName = String(suggestionBtn.getAttribute('data-target-name') || '').trim() || 'suggested member';
+        if (!sourceNodeKey || !sourceUserId || !targetId) return;
+        if (action === 'accept') {
+          updateRejectedSuggestion(sourceUserId, targetId, false);
+          const sourceMeta = treeGraphNodeMeta.get(sourceNodeKey);
+          persistRelationshipLink(sourceUserId, targetId, {
+            sourceKey: sourceNodeKey,
+            targetKey: getTreeNodeKeyByUserId(targetId),
+            sourceName: sourceMeta?.full_name || 'Member',
+            targetName,
+            successMessage: `${sourceMeta?.full_name || 'Member'} linked to ${targetName}. Suggestion accepted.`,
+          });
+          return;
+        }
+        if (action === 'reject') {
+          updateRejectedSuggestion(sourceUserId, targetId, true);
+          setTreeGraphFeedback(`${targetName} removed from suggestions for this profile.`);
+          renderVisualFamilyTree();
+          return;
+        }
+      }
+
     const actionBtn = event.target.closest('[data-tree-node-action]');
     if (!actionBtn) return;
     const action = String(actionBtn.getAttribute('data-tree-node-action') || '').trim();
@@ -5114,6 +5451,18 @@
       treeGraphNodeMeta.set(node.key, node);
     });
 
+    const selectedNode = topology.nodes.find((node) => node.key === activeTreeSelectedNodeKey) || null;
+    const selectedSuggestionMatches = selectedNode?.pending_profile
+      ? getTreeSuggestionsForUser(String(selectedNode.familyId || activeTreeFamilyId || ''), String(selectedNode.user_id || '').trim(), 3)
+      : [];
+    if (selectedNode?.pending_profile && selectedNode.familyId && !treeSuggestionCache.has(String(selectedNode.familyId || ''))) {
+      void ensureTreeSuggestionsForFamily(String(selectedNode.familyId || ''));
+    }
+    const suggestedUserIds = new Set(selectedSuggestionMatches.map((match) => String(match.target_id || '').trim()).filter(Boolean));
+    const suggestionScores = new Map(
+      selectedSuggestionMatches.map((match) => [String(match.target_id || '').trim(), Number(match.confidence_score || 0)])
+    );
+
     const positions = activeTreeLayout === 'radial'
       ? computeRadialGraphPositions(topology, width, height)
       : computeVerticalGraphPositions(topology, width, height);
@@ -5134,9 +5483,11 @@
 
       const highlighted = isEdgeConnectedToSelection(edge, activeTreeSelectedNodeKey);
       const muted = activeTreeSelectedNodeKey && !highlighted;
+      const accepted = isRecentlyAcceptedEdge(edge);
       const classNames = [
         'graph-edge',
         edge.type === 'sibling' ? 'sibling' : '',
+        accepted ? 'is-accepted' : '',
         highlighted ? 'is-highlighted' : '',
         muted ? 'is-muted' : '',
       ].filter(Boolean).join(' ');
@@ -5155,6 +5506,8 @@
       const isSelected = node.key === activeTreeSelectedNodeKey;
       const isConnected = activeTreeSelectedNodeKey && connectedNodeKeys.has(node.key);
       const isMuted = activeTreeSelectedNodeKey && !connectedNodeKeys.has(node.key);
+      const isSuggested = suggestedUserIds.has(String(node.user_id || '').trim());
+      const suggestionScore = suggestionScores.get(String(node.user_id || '').trim());
       const initial = (String(node.full_name || 'U').trim().charAt(0) || 'U').toUpperCase();
       const roleLabel = toDisplayLabel(node.relationship_role || 'not_provided');
       const isResolved = !node.pending_profile || treeResolvedNodeKeys.has(node.key);
@@ -5168,6 +5521,7 @@
         isSelected ? 'is-selected' : '',
         isConnected ? 'is-connected' : '',
         treeFocusedNodeKeys.has(node.key) ? 'is-focused' : '',
+        isSuggested ? 'is-suggested' : '',
         node.pending_profile ? 'is-pending' : '',
         isResolved ? 'is-resolved' : '',
         isMuted ? 'is-muted' : '',
@@ -5181,6 +5535,10 @@
           <text class="graph-avatar-letter" x="18" y="18">${escapeHtml(initial)}</text>
           <text class="graph-node-name" x="34" y="20">${escapeHtml(trimGraphLabel(node.full_name, 22))}</text>
           <text class="graph-node-role" x="34" y="37">${escapeHtml(trimGraphLabel(roleOrPendingLabel, 24))}</text>
+          ${typeof suggestionScore === 'number' && Number.isFinite(suggestionScore) ? `
+            <rect class="graph-suggestion-pill" x="118" y="27" rx="8" ry="8" width="42" height="16"></rect>
+            <text class="graph-suggestion-pill-text" x="139" y="35">${escapeHtml(`${Math.round(suggestionScore)}%`)}</text>
+          ` : ''}
           ${node.hasChildren ? `
             <circle class="graph-toggle-hit" cx="157" cy="12" r="8" data-toggle-key="${escapeHtml(node.key)}"></circle>
             <text class="graph-toggle-text" x="157" y="12">${toggleSymbol}</text>
@@ -5188,6 +5546,7 @@
         </g>
       `;
     }).join('');
+
 
     svgEl.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svgEl.innerHTML = `${edgeMarkup}${nodeMarkup}`;

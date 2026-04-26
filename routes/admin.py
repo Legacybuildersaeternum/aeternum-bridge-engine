@@ -6,6 +6,7 @@ from models.user import (
     BackupResponse,
     FamilyGroupResponse,
     RegistrationUpdateRequest,
+    RelationshipSuggestionResponse,
     RelationshipUpdateRequest,
     StatsResponse,
     UserRecord,
@@ -59,6 +60,14 @@ def get_activity_log(
 ) -> list[dict[str, Any]]:
     """Return legacy activity log entries with optional session/user/event_type filters."""
     return registry.get_activity_log(limit=limit, session_id=session_id, user_id=user_id, event_type=event_type)
+
+
+@router.get("/relationship-suggestions", response_model=list[RelationshipSuggestionResponse])
+def get_relationship_suggestions(
+    family_id: Optional[str] = Query(default=None),
+) -> list[RelationshipSuggestionResponse]:
+    """Return confidence-scored candidate relationships for currently unlinked or incomplete profiles."""
+    return registry.get_relationship_suggestions(family_id=family_id)
 
 
 @router.patch("/registrations/{user_id}", response_model=UserRecord)

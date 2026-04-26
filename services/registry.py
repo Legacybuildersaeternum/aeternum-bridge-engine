@@ -15,6 +15,8 @@ from models.user import (
     HouseholdPosition,
     OriginRegion,
     RegistrationUpdateRequest,
+    RelationshipSuggestionCandidate,
+    RelationshipSuggestionResponse,
     RelationshipUpdateRequest,
     RelationshipRole,
     StatsResponse,
@@ -102,6 +104,254 @@ def _build_relationship_display(role: Optional[str], linked_to_full_names: list[
         return f"Connected to {joined_names}"
     role_label = _role_to_display(role)
     return f"{role_label} of {joined_names}"
+
+
+_PARENT_ROLES = {
+    "father",
+    "mother",
+    "parent",
+    "grandfather",
+    "grandmother",
+    "grandparent",
+    "elder_ancestor",
+}
+_CHILD_ROLES = {
+    "son",
+    "daughter",
+    "child",
+    "grandson",
+    "granddaughter",
+    "dependent",
+}
+_PEER_ROLES = {
+    "brother",
+    "sister",
+    "sibling",
+    "cousin",
+    "spouse_partner",
+    "self",
+    "other",
+}
+
+
+def _normalize_role(value: Optional[str]) -> str:
+    return str(value or "").strip().lower()
+
+
+def _extract_last_name(record: dict[str, Any]) -> str:
+    full_name = str(record.get("full_name") or "").strip()
+    if full_name:
+        parts = [part for part in full_name.split() if part]
+        if parts:
+            return parts[-1].lower()
+    return str(record.get("family_name") or "").strip().lower()
+
+
+def _age_range_midpoint(age_range: Optional[str]) -> Optional[int]:
+    value = str(age_range or "").strip().lower()
+    if not value:
+        return None
+    if value.endswith("+"):
+        digits = "".join(ch for ch in value if ch.isdigit())
+        return int(digits) + 5 if digits else None
+    if "-" in value:
+        start_raw, end_raw = value.split("-", 1)
+        start_digits = "".join(ch for ch in start_raw if ch.isdigit())
+        end_digits = "".join(ch for ch in end_raw if ch.isdigit())
+        if start_digits and end_digits:
+            return (int(start_digits) + int(end_digits)) // 2
+    digits = "".join(ch for ch in value if ch.isdigit())
+    return int(digits) if digits else None
+
+
+def _is_same_household(source: dict[str, Any], target: dict[str, Any]) -> bool:
+    city = str(source.get("city") or "").strip().lower()
+    state = str(source.get("state") or "").strip().lower()
+    country = str(source.get("country") or "").strip().lower()
+    target_city = str(target.get("city") or "").strip().lower()
+    target_state = str(target.get("state") or "").strip().lower()
+    target_country = str(target.get("country") or "").strip().lower()
+    return bool(city and state and country and city == target_city and state == target_state and country == target_country)
+
+
+def _infer_relationship_type(source: dict[str, Any], target: dict[str, Any]) -> tuple[str, int]:
+    source_role = _normalize_role(source.get("relationship_role"))
+    target_role = _normalize_role(target.get("relationship_role"))
+    if source_role in _PARENT_ROLES and target_role in _CHILD_ROLES:
+        return "parent_to_child", 20
+    if source_role in _CHILD_ROLES and target_role in _PARENT_ROLES:
+        return "child_to_parent", 20
+    if source_role == "spouse_partner" or target_role == "spouse_partner":
+        return "spouse_partner", 20
+    if source_role in _PEER_ROLES and target_role in _PEER_ROLES:
+        return "sibling_or_peer", 12
+    if source_role in _PARENT_ROLES and not target_role:
+        return "possible_parent_to_child", 10
+    if source_role in _CHILD_ROLES and not target_role:
+        return "possible_child_to_parent", 10
+    if not source_role and target_role in _PARENT_ROLES:
+        return "possible_child_to_parent", 10
+    if not source_role and target_role in _CHILD_ROLES:
+        return "possible_parent_to_child", 10
+    return "household_match", 0
+
+
+def _age_compatibility_score(source: dict[str, Any], target: dict[str, Any], relationship_type: str) -> int:
+    source_age = _age_range_midpoint(source.get("age_range"))
+    target_age = _age_range_midpoint(target.get("age_range"))
+    if source_age is None or target_age is None:
+        return 0
+    gap = abs(source_age - target_age)
+    if relationship_type in {"parent_to_child", "child_to_parent", "possible_parent_to_child", "possible_child_to_parent"}:
+        return 15 if gap >= 12 else 0
+    if relationship_type in {"spouse_partner", "sibling_or_peer", "household_match"}:
+        return 15 if gap <= 15 else 0
+    return 0
+
+
+def _build_family_relationship_maps(
+    family_members: list[dict[str, Any]],
+) -> tuple[dict[str, dict[str, Any]], dict[str, list[str]], dict[str, int]]:
+    id_set = {
+        str(member.get("user_id"))
+        for member in family_members
+        if member.get("user_id")
+    }
+    node_map: dict[str, dict[str, Any]] = {}
+    outgoing: dict[str, list[str]] = {}
+    incoming: dict[str, int] = {}
+    role_by_id = {
+        str(member.get("user_id")): _normalize_role(member.get("relationship_role"))
+        for member in family_members
+        if member.get("user_id")
+    }
+
+    for member in family_members:
+        user_id = str(member.get("user_id") or "").strip()
+        if not user_id:
+            continue
+        linked_ids = [
+            linked_id
+            for linked_id in _normalize_linked_to_user_ids(
+                member.get("linked_to_user_ids"),
+                member.get("linked_to_user_id"),
+            )
+            if linked_id in id_set and linked_id != user_id
+        ]
+        node_map[user_id] = dict(member, linked_to_user_ids=linked_ids)
+        outgoing[user_id] = []
+        incoming[user_id] = 0
+
+    def add_edge(parent_id: str, child_id: str) -> None:
+        if parent_id == child_id:
+            return
+        if parent_id not in node_map or child_id not in node_map:
+            return
+        if child_id in outgoing[parent_id]:
+            return
+        outgoing[parent_id].append(child_id)
+        incoming[child_id] += 1
+
+    for user_id, node in node_map.items():
+        member_role = _normalize_role(node.get("relationship_role"))
+        for linked_id in node.get("linked_to_user_ids", []):
+            linked_role = role_by_id.get(linked_id, "")
+            if member_role in _PARENT_ROLES:
+                add_edge(user_id, linked_id)
+            elif member_role in _CHILD_ROLES:
+                add_edge(linked_id, user_id)
+            elif linked_role in _PARENT_ROLES:
+                add_edge(linked_id, user_id)
+            elif linked_role in _CHILD_ROLES:
+                add_edge(user_id, linked_id)
+            else:
+                add_edge(user_id, linked_id)
+
+    return node_map, outgoing, incoming
+
+
+def get_relationship_suggestions(
+    family_id: Optional[str] = None,
+) -> list[RelationshipSuggestionResponse]:
+    users = [_normalize_user(u) for u in _load()]
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for user in users:
+        current_family_id = str(user.get("family_id") or "").strip()
+        if not current_family_id:
+            continue
+        if family_id and current_family_id != family_id:
+            continue
+        grouped.setdefault(current_family_id, []).append(user)
+
+    suggestions: list[RelationshipSuggestionResponse] = []
+    for family_members in grouped.values():
+        node_map, outgoing, incoming = _build_family_relationship_maps(family_members)
+        for member in family_members:
+            user_id = str(member.get("user_id") or "").strip()
+            if not user_id or user_id not in node_map:
+                continue
+
+            linked_ids = list(node_map[user_id].get("linked_to_user_ids") or [])
+            has_parent = incoming.get(user_id, 0) > 0
+            has_children = bool(outgoing.get(user_id))
+            pending_link = not linked_ids
+            unlinked_reasons: list[str] = []
+            if not has_parent:
+                unlinked_reasons.append("no_parent")
+            if not has_children:
+                unlinked_reasons.append("no_children")
+            if pending_link:
+                unlinked_reasons.append("pending_link")
+            if not unlinked_reasons:
+                continue
+
+            member_last_name = _extract_last_name(member)
+            candidate_matches: list[RelationshipSuggestionCandidate] = []
+            for target in family_members:
+                target_id = str(target.get("user_id") or "").strip()
+                if not target_id or target_id == user_id or target_id in linked_ids:
+                    continue
+
+                confidence_score = 0
+                if _is_same_household(member, target):
+                    confidence_score += 40
+                if member_last_name and member_last_name == _extract_last_name(target):
+                    confidence_score += 25
+                relationship_type, role_score = _infer_relationship_type(member, target)
+                confidence_score += role_score
+                confidence_score += _age_compatibility_score(member, target, relationship_type)
+                if confidence_score <= 0:
+                    continue
+
+                candidate_matches.append(
+                    RelationshipSuggestionCandidate(
+                        target_id=target_id,
+                        target_name=str(target.get("full_name") or "Unnamed member"),
+                        relationship_type=relationship_type,
+                        confidence_score=min(confidence_score, 100),
+                    )
+                )
+
+            candidate_matches.sort(
+                key=lambda item: (-item.confidence_score, item.target_name.lower(), item.target_id)
+            )
+            suggestions.append(
+                RelationshipSuggestionResponse(
+                    user_id=user_id,
+                    full_name=str(member.get("full_name") or "Unnamed member"),
+                    unlinked_reasons=unlinked_reasons,
+                    possible_matches=candidate_matches[:5],
+                )
+            )
+
+    suggestions.sort(
+        key=lambda item: (
+            -(item.possible_matches[0].confidence_score if item.possible_matches else 0),
+            item.full_name.lower(),
+            item.user_id,
+        )
+    )
+    return suggestions
 
 
 def _ensure_file() -> None:

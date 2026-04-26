@@ -453,6 +453,20 @@ class FamilyGroupResponse(BaseModel):
     members: list[FamilyMemberSummary]
 
 
+class RelationshipSuggestionCandidate(BaseModel):
+    target_id: str
+    target_name: str
+    relationship_type: str
+    confidence_score: int
+
+
+class RelationshipSuggestionResponse(BaseModel):
+    user_id: str
+    full_name: str
+    unlinked_reasons: list[str] = Field(default_factory=list)
+    possible_matches: list[RelationshipSuggestionCandidate] = Field(default_factory=list)
+
+
 class BackupResponse(BaseModel):
     """Complete diaspora registry backup with timestamp and all data for archival."""
     generated_at: str
