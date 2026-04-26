@@ -3185,6 +3185,36 @@
       .filter(Boolean);
   }
 
+  function getDuplicateIssueNodeKeys(family) {
+    const members = Array.isArray(family?.members) ? family.members : [];
+    if (!members.length) return [];
+    const duplicateInfo = analyzeDuplicateProfiles(members);
+    const keys = [];
+    duplicateInfo.duplicateGroups.forEach((group) => {
+      if (!Array.isArray(group) || group.length < 2) return;
+      const sorted = [...group].sort((a, b) => computeConnectionScore(b) - computeConnectionScore(a));
+      sorted.slice(1).forEach((member) => {
+        const key = getNodeKeyFromFamilyMember(family, member);
+        if (key) keys.push(key);
+      });
+    });
+    return keys;
+  }
+
+  function getAllDuplicateNodeKeys(family) {
+    const members = Array.isArray(family?.members) ? family.members : [];
+    if (!members.length) return [];
+    const duplicateInfo = analyzeDuplicateProfiles(members);
+    const keys = [];
+    duplicateInfo.duplicateGroups.forEach((group) => {
+      (group || []).forEach((member) => {
+        const key = getNodeKeyFromFamilyMember(family, member);
+        if (key) keys.push(key);
+      });
+    });
+    return keys;
+  }
+
   function getTreeSuggestionRejectionState() {
     try {
       const raw = window.localStorage.getItem(TREE_SUGGESTION_REJECTIONS_STORAGE_KEY);
@@ -3755,7 +3785,7 @@
         text: `${duplicateInfo.duplicateCount} duplicate identity profiles are grouped as pending records to prevent root-level duplication.`,
         actionLabel: 'Resolve Now',
         actionId: 'focus-duplicates',
-        nodeKeys: getMissingLinkNodeKeys(family),
+        nodeKeys: getDuplicateIssueNodeKeys(family),
       });
     }
 
@@ -3787,6 +3817,35 @@
         : '';
       return `<li class="lineage-panel-item"><span>${escapeHtml(String(insight.text || ''))}</span>${button}</li>`;
     }).join('')}</ul>`;
+  }
+
+  function handleLineageResolveNow(insight, family) {
+    const nodeKeys = Array.isArray(insight?.nodeKeys) ? insight.nodeKeys.filter(Boolean) : [];
+    const visiblePendingNodeKeys = Array.from(treeGraphNodeMeta.entries())
+      .filter(([, node]) => Boolean(node?.pending_profile))
+      .map(([nodeKey]) => nodeKey);
+
+    let candidateKeys = [...nodeKeys];
+    if (String(insight?.actionId || '') === 'focus-duplicates') {
+      candidateKeys = [...candidateKeys, ...getAllDuplicateNodeKeys(family)];
+    }
+
+    const targetNodeKey = candidateKeys.find((nodeKey) => Boolean(treeGraphNodeMeta.get(nodeKey)?.pending_profile))
+      || candidateKeys.find((nodeKey) => Boolean(treeGraphNodeMeta.get(nodeKey)))
+      || visiblePendingNodeKeys[0]
+      || nodeKeys[0]
+      || '';
+    activeTreeViewMode = 'graph';
+    if (treeViewMode) treeViewMode.value = 'graph';
+    focusTreeNodeKeys(nodeKeys, 'Resolve-now guidance applied. Review the highlighted lineage issue.');
+    if (targetNodeKey) {
+      activeTreeSelectedNodeKey = targetNodeKey;
+      treeActionPanelNodeKey = targetNodeKey;
+    }
+    renderVisualFamilyTree();
+    if (familyTreeGraphView && typeof familyTreeGraphView.scrollIntoView === 'function') {
+      familyTreeGraphView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   function buildGuidanceActions(users, families, activityEvents) {
@@ -4590,16 +4649,13 @@
   treeLineageInsights?.addEventListener('click', (event) => {
     const actionBtn = event.target.closest('[data-lineage-action]');
     if (!actionBtn) return;
+    event.preventDefault();
     const index = Number(actionBtn.getAttribute('data-lineage-index'));
     const family = getFamilyById(familiesCache, activeTreeFamilyId) || familiesCache[0] || null;
     if (!family) return;
     const insights = buildLineageInsights(family);
     const insight = insights[index];
-    const nodeKeys = Array.isArray(insight?.nodeKeys) ? insight.nodeKeys : [];
-    activeTreeViewMode = 'graph';
-    if (treeViewMode) treeViewMode.value = 'graph';
-    focusTreeNodeKeys(nodeKeys, 'Resolve-now guidance applied. Review the highlighted lineage issue.');
-    setActivePage('family-tree');
+    handleLineageResolveNow(insight, family);
   });
   familyTreeGraphView?.addEventListener('click', (event) => {
       const suggestionBtn = event.target.closest('[data-tree-suggestion-action]');
