@@ -12,9 +12,12 @@ from models.user import (
     DuplicateIgnoreRequest,
     DuplicateMergeRequest,
     DuplicateReviewLaterRequest,
+    FamilyConnectionRequestPayload,
+    FamilyConnectionRequestResponse,
     FindFamilyMatchResult,
     FindFamilySearchRequest,
     FamilyGroupResponse,
+    PendingFamilyConnectionRequestRecord,
     RegistrationUpdateRequest,
     RelationshipSuggestionResponse,
     RelationshipUpdateRequest,
@@ -127,6 +130,26 @@ def create_connection_request(
         message = str(exc)
         status_code = 404 if "not found" in message.lower() else 400
         raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.post("/family-connection/request", response_model=FamilyConnectionRequestResponse)
+def create_family_connection_request(
+    payload: FamilyConnectionRequestPayload,
+    x_session_id: Optional[str] = Header(default=None),
+) -> FamilyConnectionRequestResponse:
+    """Create a pending outside-verification family connection request."""
+    try:
+        return registry.create_family_connection_request(payload, session_id=x_session_id)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.get("/family-connection/requests/pending", response_model=list[PendingFamilyConnectionRequestRecord])
+def get_pending_family_connection_requests() -> list[PendingFamilyConnectionRequestRecord]:
+    """List pending family connection requests that require outside verification."""
+    return registry.get_pending_family_connection_requests()
 
 
 @router.get("/connection-requests/incoming", response_model=list[ConnectionRequestRecord])

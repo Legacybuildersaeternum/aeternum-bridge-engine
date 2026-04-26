@@ -15,6 +15,8 @@ from models.user import (
     DuplicateActionResponse,
     DuplicateFamilyGroupResponse,
     DuplicateProfileCandidate,
+    FamilyConnectionRequestPayload,
+    FamilyConnectionRequestResponse,
     FindFamilyMatchResult,
     FindFamilySearchRequest,
     FamilyGroupResponse,
@@ -25,6 +27,7 @@ from models.user import (
     RelationshipSuggestionCandidate,
     RelationshipSuggestionResponse,
     RelationshipUpdateRequest,
+    PendingFamilyConnectionRequestRecord,
     RelationshipRole,
     StatsResponse,
     TravelTimeframe,
@@ -1099,6 +1102,121 @@ def create_connection_request(
         session_id=session_id,
     )
     return record
+
+
+def create_family_connection_request(
+    payload: FamilyConnectionRequestPayload,
+    session_id: Optional[str] = None,
+) -> FamilyConnectionRequestResponse:
+    requester_user_id = str(payload.requester_user_id or "").strip()
+    target_user_id = str(payload.target_user_id or "").strip()
+    if not requester_user_id or not target_user_id:
+        raise ValueError("requester_user_id and target_user_id are required")
+    if requester_user_id == target_user_id:
+        raise ValueError("Requester cannot request connection to their own profile")
+
+    users = [_normalize_user(u) for u in _load()]
+    users_by_id = {str(user.get("user_id") or ""): user for user in users}
+    requester = users_by_id.get(requester_user_id)
+    target = users_by_id.get(target_user_id)
+    if not requester or not target:
+        raise ValueError("Requester or target profile not found")
+
+    requests = [_normalize_connection_request(item) for item in _load_connection_requests()]
+    existing = next(
+        (
+            item
+            for item in requests
+            if str(item.get("requester_user_id") or "") == requester_user_id
+            and str(item.get("target_user_id") or "") == target_user_id
+            and str(item.get("status") or "")
+            not in {"declined", "cancelled", "connection_completed"}
+        ),
+        None,
+    )
+
+    if existing:
+        request_id = str(existing.get("request_id") or "")
+        status = str(existing.get("status") or "pending_outside_verification")
+        return FamilyConnectionRequestResponse(
+            success=True,
+            request_id=request_id,
+            status=status,
+            message="Existing connection request already pending outside verification.",
+        )
+
+    now = datetime.now(timezone.utc).isoformat()
+    request_id = f"fcr_{uuid.uuid4().hex[:12]}"
+    request = {
+        "request_id": request_id,
+        "requester_user_id": requester_user_id,
+        "target_user_id": target_user_id,
+        "requester_name": str(requester.get("full_name") or "") or None,
+        "target_masked_name": _mask_identifier(target_user_id),
+        "relationship_guess": payload.relationship_guess,
+        "preferred_contact_method": payload.preferred_contact_method,
+        "search_context": payload.search_context or {},
+        "status": "pending_outside_verification",
+        "outside_contact_required": True,
+        "verification_steps": [
+            "requester must contact target outside the app",
+            "target must confirm the contact happened",
+            "both parties must agree before merge/link can be accepted",
+        ],
+        "requester_confirmed": False,
+        "receiver_confirmed": False,
+        "timestamp": now,
+        "created_at": now,
+        "updated_at": now,
+    }
+    requests.append(request)
+    _save_connection_requests(requests)
+
+    write_activity_event(
+        event_type="FAMILY CONNECTION REQUEST CREATED",
+        message=(
+            f"Family connection request created between {requester_user_id} and {target_user_id}. "
+            "Outside-app verification required before approval."
+        ),
+        user_id=requester_user_id,
+        family_id=str(requester.get("family_id") or "") or None,
+        family_name=str(requester.get("family_name") or "") or None,
+        session_id=session_id,
+    )
+
+    return FamilyConnectionRequestResponse(
+        success=True,
+        request_id=request_id,
+        status="pending_outside_verification",
+        message="Connection request created. Outside-app verification is required before this family link can be approved.",
+    )
+
+
+def get_pending_family_connection_requests() -> list[PendingFamilyConnectionRequestRecord]:
+    requests = [_normalize_connection_request(item) for item in _load_connection_requests()]
+    pending = [
+        item
+        for item in requests
+        if str(item.get("status") or "") == "pending_outside_verification"
+    ]
+    pending.sort(key=lambda item: str(item.get("created_at") or ""), reverse=True)
+    records: list[PendingFamilyConnectionRequestRecord] = []
+    for item in pending:
+        records.append(
+            PendingFamilyConnectionRequestRecord(
+                request_id=str(item.get("request_id") or ""),
+                requester_user_id=str(item.get("requester_user_id") or ""),
+                target_user_id=str(item.get("target_user_id") or ""),
+                requester_name=str(item.get("requester_name") or "") or None,
+                target_masked_name=str(item.get("target_masked_name") or "") or None,
+                relationship_guess=str(item.get("relationship_guess") or "") or None,
+                preferred_contact_method=str(item.get("preferred_contact_method") or "") or None,
+                created_at=str(item.get("created_at") or item.get("timestamp") or datetime.now(timezone.utc).isoformat()),
+                status=str(item.get("status") or "pending_outside_verification"),
+                outside_contact_required=bool(item.get("outside_contact_required", True)),
+            )
+        )
+    return records
 
 
 def get_connection_requests_for_user(user_id: str, direction: str = "incoming") -> list[ConnectionRequestRecord]:

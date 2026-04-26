@@ -600,6 +600,34 @@ class ConnectionRequestRecord(BaseModel):
     updated_at: str
 
 
+class FamilyConnectionRequestPayload(BaseModel):
+    requester_user_id: str
+    target_user_id: str
+    relationship_guess: Optional[str] = None
+    preferred_contact_method: Optional[str] = None
+    search_context: Optional[dict] = None
+
+
+class FamilyConnectionRequestResponse(BaseModel):
+    success: bool
+    request_id: str
+    status: str
+    message: str
+
+
+class PendingFamilyConnectionRequestRecord(BaseModel):
+    request_id: str
+    requester_user_id: str
+    target_user_id: str
+    requester_name: Optional[str] = None
+    target_masked_name: Optional[str] = None
+    relationship_guess: Optional[str] = None
+    preferred_contact_method: Optional[str] = None
+    created_at: str
+    status: str
+    outside_contact_required: bool
+
+
 # Future scaffolding only: this is intentionally not wired to routes yet.
 # Planned flow: create request -> offline verification -> mutual confirmation -> optional link/merge.
 class FamilyReconnectionRequestPlaceholder(BaseModel):
