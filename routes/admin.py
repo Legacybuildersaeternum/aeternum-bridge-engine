@@ -190,6 +190,21 @@ def confirm_connection_request(
         raise HTTPException(status_code=status_code, detail=message) from exc
 
 
+@router.post("/connection-requests/{request_id}/complete", response_model=ConnectionRequestRecord)
+def complete_connection_request(
+    request_id: str,
+    payload: ConnectionRequestDecisionRequest,
+    x_session_id: Optional[str] = Header(default=None),
+) -> ConnectionRequestRecord:
+    """Finalize connection after both parties confirmed external verification."""
+    try:
+        return registry.complete_connection_request(request_id, payload.acting_user_id, session_id=x_session_id)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
 @router.post("/duplicate-profiles/merge", response_model=DuplicateActionResponse)
 def merge_duplicate_profiles(
     payload: DuplicateMergeRequest,

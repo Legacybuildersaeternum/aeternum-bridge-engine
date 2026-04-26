@@ -45,6 +45,11 @@ class RelationshipRole(str, Enum):
     brother = "brother"
     spouse_partner = "spouse_partner"
     cousin = "cousin"
+    uncle = "uncle"
+    aunt = "aunt"
+    nephew = "nephew"
+    niece = "niece"
+    relative = "relative"
     other = "other"
     # Legacy tokens kept for backward compatibility with existing saved records.
     self_role = "self"
@@ -590,6 +595,7 @@ class ConnectionRequestRecord(BaseModel):
     status: str
     requester_confirmed: bool = False
     receiver_confirmed: bool = False
+    timestamp: Optional[str] = None
     created_at: str
     updated_at: str
 

@@ -956,9 +956,10 @@ def _normalize_connection_request(raw: dict[str, Any]) -> dict[str, Any]:
     request.setdefault("target_user_id", "")
     request.setdefault("relationship_guess", None)
     request.setdefault("preferred_contact_method", None)
-    request.setdefault("status", "pending_verification")
+    request.setdefault("status", "pending")
     request.setdefault("requester_confirmed", False)
     request.setdefault("receiver_confirmed", False)
+    request.setdefault("timestamp", request.get("created_at") or datetime.now(timezone.utc).isoformat())
     request.setdefault("created_at", datetime.now(timezone.utc).isoformat())
     request.setdefault("updated_at", request["created_at"])
     return request
@@ -977,9 +978,10 @@ def _to_connection_request_record(request: dict[str, Any], users_by_id: dict[str
         target_name=target_name,
         relationship_guess=str(request.get("relationship_guess") or "") or None,
         preferred_contact_method=str(request.get("preferred_contact_method") or "") or None,
-        status=str(request.get("status") or "pending_verification"),
+        status=str(request.get("status") or "pending"),
         requester_confirmed=bool(request.get("requester_confirmed")),
         receiver_confirmed=bool(request.get("receiver_confirmed")),
+        timestamp=str(request.get("timestamp") or request.get("created_at") or datetime.now(timezone.utc).isoformat()),
         created_at=str(request.get("created_at") or datetime.now(timezone.utc).isoformat()),
         updated_at=str(request.get("updated_at") or datetime.now(timezone.utc).isoformat()),
     )
@@ -1004,7 +1006,7 @@ def create_connection_request(
             item for item in requests
             if str(item.get("requester_user_id") or "") == requester_user_id
             and str(item.get("target_user_id") or "") == target_user_id
-            and str(item.get("status") or "") not in {"declined", "cancelled"}
+            and str(item.get("status") or "") not in {"declined", "cancelled", "connection_completed"}
         ),
         None,
     )
@@ -1012,9 +1014,10 @@ def create_connection_request(
     if existing:
         existing["relationship_guess"] = payload.relationship_guess
         existing["preferred_contact_method"] = payload.preferred_contact_method
-        existing["status"] = "pending_verification"
+        existing["status"] = "pending"
         existing["requester_confirmed"] = False
         existing["receiver_confirmed"] = False
+        existing["timestamp"] = existing.get("timestamp") or now
         existing["updated_at"] = now
         record = _to_connection_request_record(existing, users_by_id)
     else:
@@ -1024,9 +1027,10 @@ def create_connection_request(
             "target_user_id": target_user_id,
             "relationship_guess": payload.relationship_guess,
             "preferred_contact_method": payload.preferred_contact_method,
-            "status": "pending_verification",
+            "status": "pending",
             "requester_confirmed": False,
             "receiver_confirmed": False,
+            "timestamp": now,
             "created_at": now,
             "updated_at": now,
         }
@@ -1091,8 +1095,16 @@ def _update_connection_request_status(
     if action == "accept":
         if actor_id != receiver_id:
             raise ValueError("Only the receiver can accept verification")
-        target["status"] = "awaiting_verification"
+        target["status"] = "accepted"
         target["updated_at"] = now
+        write_activity_event(
+            event_type="request_accepted",
+            message=f"Connection request {request_id} was accepted.",
+            user_id=actor_id,
+            family_id=str(users_by_id.get(actor_id, {}).get("family_id") or "") or None,
+            family_name=str(users_by_id.get(actor_id, {}).get("family_name") or "") or None,
+            session_id=session_id,
+        )
         write_activity_event(
             event_type="verification_started",
             message=f"Verification started for request {request_id}.",
@@ -1112,9 +1124,9 @@ def _update_connection_request_status(
         if actor_id == receiver_id:
             target["receiver_confirmed"] = True
         if bool(target.get("requester_confirmed")) and bool(target.get("receiver_confirmed")):
-            target["status"] = "verification_complete_not_linked"
+            target["status"] = "ready_to_connect"
         else:
-            target["status"] = "awaiting_verification"
+            target["status"] = "accepted"
         target["updated_at"] = now
         write_activity_event(
             event_type="verification_confirmed",
@@ -1145,6 +1157,84 @@ def confirm_connection_request_verification(
     session_id: Optional[str] = None,
 ) -> ConnectionRequestRecord:
     return _update_connection_request_status(request_id, acting_user_id, "confirm", session_id=session_id)
+
+
+def complete_connection_request(
+    request_id: str,
+    acting_user_id: str,
+    session_id: Optional[str] = None,
+) -> ConnectionRequestRecord:
+    requests = [_normalize_connection_request(item) for item in _load_connection_requests()]
+    users = [_normalize_user(u) for u in _load()]
+    users_by_id = {str(user.get("user_id") or ""): user for user in users}
+
+    target = next((item for item in requests if str(item.get("request_id") or "") == request_id), None)
+    if not target:
+        raise ValueError("Connection request not found")
+
+    requester_id = str(target.get("requester_user_id") or "")
+    receiver_id = str(target.get("target_user_id") or "")
+    actor_id = str(acting_user_id or "").strip()
+    if actor_id not in {requester_id, receiver_id}:
+        raise ValueError("Acting user is not part of this request")
+
+    if not bool(target.get("requester_confirmed")) or not bool(target.get("receiver_confirmed")):
+        raise ValueError("Both users must confirm verification before final connection")
+
+    requester = users_by_id.get(requester_id)
+    receiver = users_by_id.get(receiver_id)
+    if not requester or not receiver:
+        raise ValueError("Requester or receiver profile not found")
+
+    requester_family = str(requester.get("family_id") or "")
+    receiver_family = str(receiver.get("family_id") or "")
+    if requester_family != receiver_family:
+        raise ValueError("Final connection requires both profiles in the same family")
+
+    requester_links = _normalize_linked_to_user_ids(requester.get("linked_to_user_ids"), requester.get("linked_to_user_id"))
+    receiver_links = _normalize_linked_to_user_ids(receiver.get("linked_to_user_ids"), receiver.get("linked_to_user_id"))
+    if receiver_id not in requester_links:
+        requester_links.append(receiver_id)
+    if requester_id not in receiver_links:
+        receiver_links.append(requester_id)
+    requester_links = sorted(set(requester_links))
+    receiver_links = sorted(set(receiver_links))
+
+    updated_users: list[dict[str, Any]] = []
+    for user in users:
+        user_id = str(user.get("user_id") or "")
+        if user_id == requester_id:
+            updated_user = dict(user)
+            _set_linked_fields(updated_user, requester_links)
+            updated_users.append(_normalize_user(updated_user))
+            continue
+        if user_id == receiver_id:
+            updated_user = dict(user)
+            _set_linked_fields(updated_user, receiver_links)
+            updated_users.append(_normalize_user(updated_user))
+            continue
+        updated_users.append(_normalize_user(user))
+
+    _save(updated_users)
+    remaining_requests = [item for item in requests if str(item.get("request_id") or "") != request_id]
+    _save_connection_requests(remaining_requests)
+
+    now = datetime.now(timezone.utc).isoformat()
+    completed_payload = dict(target)
+    completed_payload["status"] = "connection_completed"
+    completed_payload["updated_at"] = now
+
+    write_activity_event(
+        event_type="connection_completed",
+        message=f"Connection completed between {requester_id} and {receiver_id}.",
+        user_id=actor_id,
+        family_id=requester_family or None,
+        family_name=str(requester.get("family_name") or "") or None,
+        session_id=session_id,
+    )
+
+    updated_users_by_id = {str(user.get("user_id") or ""): user for user in updated_users}
+    return _to_connection_request_record(completed_payload, updated_users_by_id)
 
 
 def _ensure_file() -> None:

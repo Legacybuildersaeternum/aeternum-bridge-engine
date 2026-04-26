@@ -2807,18 +2807,22 @@
             <label for="relationship_role">Relationship Role</label>
             <select id="relationship_role">
               <option value="">— Select relationship role —</option>
-              <option value="daughter">Daughter</option>
-              <option value="son">Son</option>
-              <option value="mother">Mother</option>
               <option value="father">Father</option>
-              <option value="granddaughter">Granddaughter</option>
-              <option value="grandson">Grandson</option>
-              <option value="grandmother">Grandmother</option>
-              <option value="grandfather">Grandfather</option>
-              <option value="sister">Sister</option>
+              <option value="mother">Mother</option>
+              <option value="son">Son</option>
+              <option value="daughter">Daughter</option>
               <option value="brother">Brother</option>
+              <option value="sister">Sister</option>
               <option value="cousin">Cousin</option>
-              <option value="spouse_partner">Spouse / Partner</option>
+              <option value="uncle">Uncle</option>
+              <option value="aunt">Aunt</option>
+              <option value="nephew">Nephew</option>
+              <option value="niece">Niece</option>
+              <option value="grandfather">Grandfather</option>
+              <option value="grandmother">Grandmother</option>
+              <option value="grandson">Grandson</option>
+              <option value="granddaughter">Granddaughter</option>
+              <option value="relative">Relative</option>
               <option value="other">Other</option>
             </select>
           </div>
@@ -3010,8 +3014,20 @@
                 <option value="">-- Select --</option>
                 <option value="father">Father</option>
                 <option value="mother">Mother</option>
-                <option value="sibling">Sibling</option>
-                <option value="child">Child</option>
+                <option value="son">Son</option>
+                <option value="daughter">Daughter</option>
+                <option value="brother">Brother</option>
+                <option value="sister">Sister</option>
+                <option value="cousin">Cousin</option>
+                <option value="uncle">Uncle</option>
+                <option value="aunt">Aunt</option>
+                <option value="nephew">Nephew</option>
+                <option value="niece">Niece</option>
+                <option value="grandfather">Grandfather</option>
+                <option value="grandmother">Grandmother</option>
+                <option value="grandson">Grandson</option>
+                <option value="granddaughter">Granddaughter</option>
+                <option value="relative">Relative</option>
                 <option value="other">Other</option>
               </select>
             </div>
@@ -3104,8 +3120,10 @@
               <option value="duplicate_ignored">Duplicate Ignored</option>
               <option value="request_created">Request Created</option>
               <option value="request_received">Request Received</option>
+              <option value="request_accepted">Request Accepted</option>
               <option value="verification_started">Verification Started</option>
               <option value="verification_confirmed">Verification Confirmed</option>
+              <option value="connection_completed">Connection Completed</option>
               <option value="find_family_search">Find Family Search</option>
               <option value="find_family_results_shown">Find Family Results Shown</option>
               <option value="find_family_request_clicked">Find Family Request Clicked</option>
@@ -3285,12 +3303,16 @@
           <select id="edit_origin_region" required></select>
         </div>
         <div class="field">
+          <label for="edit_date_of_birth">Date of Birth</label>
+          <input id="edit_date_of_birth" type="date" />
+        </div>
+        <div class="field">
           <label for="edit_email">Email</label>
           <input id="edit_email" type="email" />
         </div>
         <div class="field">
-          <label for="edit_phone">Phone</label>
-          <input id="edit_phone" type="text" />
+          <label for="edit_phone_number">Phone Number</label>
+          <input id="edit_phone_number" type="text" />
         </div>
         <div class="field">
           <label for="edit_city">City</label>
@@ -3493,18 +3515,22 @@
   ];
 
   const RELATIONSHIP_ROLE_OPTIONS = [
-    'daughter',
-    'son',
-    'mother',
     'father',
-    'granddaughter',
-    'grandson',
-    'grandmother',
-    'grandfather',
-    'sister',
+    'mother',
+    'son',
+    'daughter',
     'brother',
+    'sister',
     'cousin',
-    'spouse_partner',
+    'uncle',
+    'aunt',
+    'nephew',
+    'niece',
+    'grandfather',
+    'grandmother',
+    'grandson',
+    'granddaughter',
+    'relative',
     'other',
   ];
 
@@ -4965,16 +4991,23 @@
 
   function normalizeRequestStatus(status) {
     const raw = String(status || '').trim().toLowerCase();
+    if (raw === 'pending') return 'Pending Request';
+    if (raw === 'accepted') return 'Accepted - Verify Externally';
+    if (raw === 'ready_to_connect') return 'Ready to Confirm Connection';
+    if (raw === 'connection_completed') return 'Connection Completed';
     if (raw === 'pending_verification') return 'Pending Request';
-    if (raw === 'awaiting_verification') return 'Awaiting Verification';
-    if (raw === 'verification_complete_not_linked') return 'Verification Complete (Not Linked)';
+    if (raw === 'awaiting_verification') return 'Accepted - Verify Externally';
+    if (raw === 'verification_complete_not_linked') return 'Ready to Confirm Connection';
     if (raw === 'declined') return 'Declined';
     return raw ? toDisplayLabel(raw) : 'Pending Request';
   }
 
   function requestStatusClass(status) {
     const raw = String(status || '').trim().toLowerCase();
+    if (raw === 'connection_completed') return 'verification_complete';
+    if (raw === 'ready_to_connect') return 'verification_complete';
     if (raw === 'verification_complete_not_linked') return 'verification_complete';
+    if (raw === 'accepted') return 'awaiting_verification';
     if (raw === 'awaiting_verification') return 'awaiting_verification';
     return 'pending_request';
   }
@@ -5092,11 +5125,12 @@
     }
     listEl.className = 'connection-request-list';
     listEl.innerHTML = items.map((item) => {
-      const status = String(item.status || 'pending_verification');
+      const status = String(item.status || 'pending');
       const isIncoming = perspective === 'incoming';
       const actorName = isIncoming ? item.requester_name : item.target_name;
       const actorId = isIncoming ? item.requester_user_id : item.target_user_id;
-      const showVerifyButtons = status === 'awaiting_verification' || status === 'verification_complete_not_linked';
+      const showVerifyButtons = ['accepted', 'awaiting_verification', 'ready_to_connect', 'verification_complete_not_linked'].includes(status);
+      const canComplete = Boolean(item.requester_confirmed) && Boolean(item.receiver_confirmed);
       return `
         <article class="connection-request-card">
           <div class="connection-request-head">
@@ -5112,7 +5146,7 @@
             Requester confirmed external contact: ${item.requester_confirmed ? 'Yes' : 'No'}<br>
             Receiver confirmed external contact: ${item.receiver_confirmed ? 'Yes' : 'No'}
           </div>
-          ${status === 'pending_verification' && isIncoming ? `
+          ${(status === 'pending' || status === 'pending_verification') && isIncoming ? `
             <div class="connection-request-actions">
               <button type="button" data-request-action="accept" data-request-id="${escapeHtml(item.request_id || '')}">Accept & Verify</button>
               <button type="button" class="secondary" data-request-action="decline" data-request-id="${escapeHtml(item.request_id || '')}">Decline</button>
@@ -5122,6 +5156,7 @@
             <div class="connection-request-meta" style="margin-top:2px;">You must contact this person outside the app using the agreed method before confirming this connection.</div>
             <div class="connection-request-actions">
               <button type="button" data-request-action="confirm" data-request-id="${escapeHtml(item.request_id || '')}">I Contacted Them — Confirm</button>
+              ${canComplete ? `<button type="button" data-request-action="complete" data-request-id="${escapeHtml(item.request_id || '')}">Confirm Connection</button>` : ''}
               <button type="button" class="secondary" data-request-action="cancel">Cancel</button>
             </div>
           ` : ''}
@@ -5182,12 +5217,35 @@
     }
   }
 
+  async function autofillFindFamilyFromRequester() {
+    const requesterId = String(findRequesterUserIdInput?.value || getKnownUserId() || '').trim();
+    if (!requesterId) return;
+    if (!registrationsCache.length) {
+      await loadRegistrations();
+    }
+    const requester = registrationsCache.find((item) => String(item.user_id || '').trim() === requesterId);
+    if (!requester) return;
+
+    const fullNameParts = String(requester.full_name || '').trim().split(/\s+/).filter(Boolean);
+    const firstName = fullNameParts[0] || '';
+    const inferredLastName = fullNameParts.length > 1 ? fullNameParts[fullNameParts.length - 1] : '';
+    const lastName = String(requester.family_name || '').trim() || inferredLastName;
+
+    if (findFirstNameInput) findFirstNameInput.value = firstName;
+    if (findLastNameInput) findLastNameInput.value = lastName;
+    if (findDobInput) findDobInput.value = String(requester.date_of_birth || '').trim();
+    if (findStateRegionInput) findStateRegionInput.value = String(requester.state || '').trim();
+    if (findCountryInput) findCountryInput.value = String(requester.country || '').trim();
+  }
+
   async function performConnectionRequestAction(requestId, action, actingUserId) {
     if (!requestId || !action || !actingUserId) return;
     const endpoint = action === 'accept'
       ? `/connection-requests/${encodeURIComponent(requestId)}/accept`
       : action === 'decline'
         ? `/connection-requests/${encodeURIComponent(requestId)}/decline`
+        : action === 'complete'
+          ? `/connection-requests/${encodeURIComponent(requestId)}/complete`
         : `/connection-requests/${encodeURIComponent(requestId)}/confirm`;
     const res = await apiFetch(endpoint, {
       method: 'POST',
@@ -5232,6 +5290,7 @@
           outgoingRequestUserIdInput.value = knownUserId;
         }
       }
+      autofillFindFamilyFromRequester();
       loadIncomingConnectionRequests();
       loadOutgoingConnectionRequests();
     }
@@ -5679,6 +5738,10 @@
     await runFindFamilySearch();
   });
 
+  findRequesterUserIdInput?.addEventListener('change', () => {
+    autofillFindFamilyFromRequester();
+  });
+
   findFamilyResults?.addEventListener('click', async (event) => {
     const actionBtn = event.target.closest('[data-find-action]');
     if (!actionBtn) return;
@@ -5773,15 +5836,15 @@
     const actionBtn = event.target.closest('[data-request-action]');
     if (!actionBtn) return;
     const action = String(actionBtn.getAttribute('data-request-action') || '').trim();
-    if (action !== 'confirm') return;
+    if (action !== 'confirm' && action !== 'complete') return;
     const requestId = String(actionBtn.getAttribute('data-request-id') || '').trim();
     const actorId = String(outgoingRequestUserIdInput?.value || getKnownUserId() || '').trim();
     if (!requestId || !actorId) return;
     try {
-      await performConnectionRequestAction(requestId, 'confirm', actorId);
+      await performConnectionRequestAction(requestId, action, actorId);
       await Promise.all([loadIncomingConnectionRequests(), loadOutgoingConnectionRequests(), loadActivityLog(), loadAdminActivityLog()]);
     } catch (err) {
-      setTreeGraphFeedback(err.message || 'Verification confirmation failed.');
+      setTreeGraphFeedback(err.message || 'Connection request action failed.');
     }
   });
 
@@ -6142,8 +6205,10 @@
       family_size: Number(record.family_size || 1),
       origin_region: record.origin_region || 'unknown',
       interested_in_return: Boolean(record.interested_in_return),
+      date_of_birth: optionalValue(record.date_of_birth),
       email: optionalValue(record.email),
-      phone: optionalValue(record.phone),
+      phone_number: optionalValue(record.phone_number || record.phone),
+      phone: optionalValue(record.phone || record.phone_number),
       city: optionalValue(record.city),
       state: optionalValue(record.state),
       country: optionalValue(record.country),
@@ -6199,8 +6264,9 @@
     document.getElementById('edit_full_name').value = activeEditInitial.full_name;
     document.getElementById('edit_family_name').value = activeEditInitial.family_name;
     document.getElementById('edit_family_size').value = String(activeEditInitial.family_size);
+    document.getElementById('edit_date_of_birth').value = activeEditInitial.date_of_birth || '';
     document.getElementById('edit_email').value = activeEditInitial.email || '';
-    document.getElementById('edit_phone').value = activeEditInitial.phone || '';
+    document.getElementById('edit_phone_number').value = activeEditInitial.phone_number || '';
     document.getElementById('edit_city').value = activeEditInitial.city || '';
     document.getElementById('edit_state').value = activeEditInitial.state || '';
     document.getElementById('edit_country').value = activeEditInitial.country || '';
@@ -6262,8 +6328,10 @@
       family_size: familySizeRaw === '' ? null : Number(familySizeRaw),
       origin_region: optionalValue(document.getElementById('edit_origin_region').value),
       interested_in_return: document.getElementById('edit_interested_in_return').checked,
+      date_of_birth: optionalValue(document.getElementById('edit_date_of_birth').value),
       email: optionalValue(document.getElementById('edit_email').value),
-      phone: optionalValue(document.getElementById('edit_phone').value),
+      phone_number: optionalValue(document.getElementById('edit_phone_number').value),
+      phone: optionalValue(document.getElementById('edit_phone_number').value),
       city: optionalValue(document.getElementById('edit_city').value),
       state: optionalValue(document.getElementById('edit_state').value),
       country: optionalValue(document.getElementById('edit_country').value),
@@ -6947,7 +7015,7 @@
       }
 
       closeRegistrationEditModal();
-      successMsg.innerHTML = '<strong>Registration updated successfully.</strong>';
+      successMsg.innerHTML = '<strong>Profile updated successfully.</strong>';
       successMsg.classList.add('show');
       errorMsg.classList.remove('show');
       await Promise.all([loadStats(), loadRegistrations(), loadFamilies()]);
