@@ -2848,6 +2848,73 @@
           <textarea id="relationship_notes" placeholder="Optional family/bloodline context notes."></textarea>
         </div>
       </section>
+
+      <section class="optional-section" aria-labelledby="register-lookup-title">
+        <h3 id="register-lookup-title">Check Existing Family Registry</h3>
+        <p class="optional-note">Before or after registration, users can search the registry to see whether possible relatives are already registered. Connection still requires outside-app verification and mutual confirmation.</p>
+        <div class="optional-grid">
+          <div class="field">
+            <label for="registerLookupFirstName">First Name</label>
+            <input id="registerLookupFirstName" type="text" placeholder="Optional" />
+          </div>
+          <div class="field">
+            <label for="registerLookupLastName">Last Name</label>
+            <input id="registerLookupLastName" type="text" placeholder="Required" />
+          </div>
+          <div class="field">
+            <label for="registerLookupDob">Date of Birth</label>
+            <input id="registerLookupDob" type="date" />
+          </div>
+          <div class="field">
+            <label for="registerLookupCountry">Country</label>
+            <input id="registerLookupCountry" type="text" placeholder="Optional" />
+          </div>
+          <div class="field">
+            <label for="registerLookupStateRegion">State / Region</label>
+            <input id="registerLookupStateRegion" type="text" placeholder="Optional" />
+          </div>
+          <div class="field">
+            <label for="registerLookupKnownRelativeName">Known Relative Name</label>
+            <input id="registerLookupKnownRelativeName" type="text" placeholder="Optional" />
+          </div>
+          <div class="field">
+            <label for="registerLookupRelationshipGuess">Relationship Guess</label>
+            <select id="registerLookupRelationshipGuess">
+              <option value="">-- Select --</option>
+              <option value="father">Father</option>
+              <option value="mother">Mother</option>
+              <option value="son">Son</option>
+              <option value="daughter">Daughter</option>
+              <option value="brother">Brother</option>
+              <option value="sister">Sister</option>
+              <option value="cousin">Cousin</option>
+              <option value="uncle">Uncle</option>
+              <option value="aunt">Aunt</option>
+              <option value="nephew">Nephew</option>
+              <option value="niece">Niece</option>
+              <option value="grandfather">Grandfather</option>
+              <option value="grandmother">Grandmother</option>
+              <option value="grandson">Grandson</option>
+              <option value="granddaughter">Granddaughter</option>
+              <option value="relative">Relative</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="registerLookupPreferredContactMethod">Preferred Contact Method</label>
+            <select id="registerLookupPreferredContactMethod">
+              <option value="">-- Select --</option>
+              <option value="phone">Phone</option>
+              <option value="email">Email</option>
+              <option value="text">Text</option>
+              <option value="mail">Mail</option>
+            </select>
+          </div>
+        </div>
+        <button id="registerLookupSearchBtn" type="button" style="margin-top:12px;">Search Existing Family</button>
+        <div id="registerLookupFeedback" class="guidance-feedback" style="min-height:22px; margin-top:10px;"></div>
+        <div id="registerLookupResults" class="stats-loading" style="margin-top:10px;">Search to view possible existing family matches.</div>
+      </section>
       <button type="submit">Submit Registration</button>
     </form>
 
@@ -3449,10 +3516,22 @@
   const outgoingRequestsList = document.getElementById('outgoingRequestsList');
   const refreshIncomingRequestsBtn = document.getElementById('refreshIncomingRequestsBtn');
   const refreshOutgoingRequestsBtn = document.getElementById('refreshOutgoingRequestsBtn');
+  const registerLookupFirstNameInput = document.getElementById('registerLookupFirstName');
+  const registerLookupLastNameInput = document.getElementById('registerLookupLastName');
+  const registerLookupDobInput = document.getElementById('registerLookupDob');
+  const registerLookupCountryInput = document.getElementById('registerLookupCountry');
+  const registerLookupStateRegionInput = document.getElementById('registerLookupStateRegion');
+  const registerLookupKnownRelativeNameInput = document.getElementById('registerLookupKnownRelativeName');
+  const registerLookupRelationshipGuessInput = document.getElementById('registerLookupRelationshipGuess');
+  const registerLookupPreferredContactMethodInput = document.getElementById('registerLookupPreferredContactMethod');
+  const registerLookupSearchBtn = document.getElementById('registerLookupSearchBtn');
+  const registerLookupFeedback = document.getElementById('registerLookupFeedback');
+  const registerLookupResults = document.getElementById('registerLookupResults');
 
   let registrationsCache = [];
   let familiesCache = [];
   let findFamilyMatchesCache = [];
+  let registerLookupMatchesCache = [];
   let incomingRequestsCache = [];
   let outgoingRequestsCache = [];
   const familyTreeCache = new Map();
@@ -4989,6 +5068,145 @@
     return String(findRequesterUserIdInput?.value || getKnownUserId() || '').trim();
   }
 
+  function getRegisterLookupRequesterUserId() {
+    const known = String(getKnownUserId() || '').trim();
+    return known || null;
+  }
+
+  function maskDisplayName(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return 'Unknown';
+    if (parts.length === 1) {
+      const first = parts[0];
+      return `${first.charAt(0)}***`;
+    }
+    const first = parts[0];
+    const last = parts[parts.length - 1];
+    return `${first.charAt(0)}*** ${last.charAt(0)}***`;
+  }
+
+  function renderRegisterLookupMatches(matches) {
+    if (!registerLookupResults) return;
+    const rows = Array.isArray(matches) ? matches : [];
+    const hasKnownUserId = Boolean(getRegisterLookupRequesterUserId());
+    if (!rows.length) {
+      registerLookupResults.className = 'stats-loading';
+      registerLookupResults.textContent = 'No possible family matches found for this registry lookup.';
+      return;
+    }
+
+    registerLookupResults.className = 'find-match-list';
+    registerLookupResults.innerHTML = rows.map((row) => {
+      const confidence = String(row.confidence_level || 'low').toLowerCase();
+      const confidenceLabel = confidence === 'high' ? 'High' : confidence === 'medium' ? 'Medium' : 'Low';
+      const actionLabel = hasKnownUserId ? 'Request Connection' : 'Register First to Request';
+      const actionType = hasKnownUserId ? 'request' : 'register-first';
+      return `
+        <article class="find-match-card">
+          <div class="find-match-head">
+            <div>
+              <strong>${escapeHtml(maskDisplayName(row.full_name || 'Unknown'))}</strong><br>
+              <span style="font-size:0.69rem; color:var(--secondary-text);">${escapeHtml(row.masked_identifier || '****')}</span>
+            </div>
+            <span class="find-confidence ${escapeHtml(confidence)}">${escapeHtml(confidenceLabel)} (${escapeHtml(String(row.confidence_score || 0))}%)</span>
+          </div>
+          <div class="find-match-meta">
+            ${row.age_display ? `Identity: ${escapeHtml(row.age_display)}<br>` : ''}
+            Region: ${escapeHtml(row.region || 'Unknown region')}<br>
+            Reason: ${escapeHtml(row.reason_summary || 'Review candidate details carefully')}
+          </div>
+          <div class="find-match-actions">
+            <button type="button" data-register-lookup-action="${escapeHtml(actionType)}" data-target-user-id="${escapeHtml(row.user_id || '')}">${escapeHtml(actionLabel)}</button>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  async function runRegisterFamilyLookup() {
+    if (!registerLookupResults) return;
+    const lastName = String(registerLookupLastNameInput?.value || '').trim();
+    if (!lastName) {
+      if (registerLookupFeedback) {
+        registerLookupFeedback.textContent = 'Last Name is required for family lookup.';
+        registerLookupFeedback.classList.remove('is-success');
+      }
+      return;
+    }
+
+    postSessionEvent('register_family_lookup_started', 'Register page family lookup started.');
+    const requesterUserId = getRegisterLookupRequesterUserId();
+    registerLookupResults.className = 'stats-loading';
+    registerLookupResults.textContent = 'Searching possible matches...';
+
+    try {
+      const res = await apiFetch('/find-family/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requester_user_id: requesterUserId,
+          first_name: String(registerLookupFirstNameInput?.value || '').trim() || null,
+          last_name: lastName,
+          date_of_birth: String(registerLookupDobInput?.value || '').trim() || null,
+          country: String(registerLookupCountryInput?.value || '').trim() || null,
+          state_region: String(registerLookupStateRegionInput?.value || '').trim() || null,
+          known_relative_name: String(registerLookupKnownRelativeNameInput?.value || '').trim() || null,
+          relationship_guess: String(registerLookupRelationshipGuessInput?.value || '').trim() || null,
+          preferred_contact_method: String(registerLookupPreferredContactMethodInput?.value || '').trim() || null,
+        }),
+      });
+      const rows = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        if (registerLookupFeedback) {
+          registerLookupFeedback.textContent = rows?.detail || 'Family lookup failed.';
+          registerLookupFeedback.classList.remove('is-success');
+        }
+        registerLookupResults.className = 'stats-loading';
+        registerLookupResults.textContent = 'Family lookup failed.';
+        return;
+      }
+
+      registerLookupMatchesCache = Array.isArray(rows) ? rows : [];
+      renderRegisterLookupMatches(registerLookupMatchesCache);
+      postSessionEvent('register_family_lookup_results', `Register page family lookup returned ${registerLookupMatchesCache.length} candidate(s).`);
+      if (registerLookupFeedback) {
+        registerLookupFeedback.textContent = `${registerLookupMatchesCache.length} possible match(es) found.`;
+        registerLookupFeedback.classList.add('is-success');
+      }
+      if (!requesterUserId) {
+        postSessionEvent('register_family_request_prompted', 'Register-first prompt shown before request connection action.');
+      }
+    } catch {
+      if (registerLookupFeedback) {
+        registerLookupFeedback.textContent = 'Family lookup failed.';
+        registerLookupFeedback.classList.remove('is-success');
+      }
+      registerLookupResults.className = 'stats-loading';
+      registerLookupResults.textContent = 'Family lookup failed.';
+    }
+  }
+
+  async function createRegisterLookupConnectionRequest(targetUserId) {
+    const requesterUserId = getRegisterLookupRequesterUserId();
+    if (!requesterUserId || !targetUserId) return;
+    const res = await apiFetch('/connection-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requester_user_id: requesterUserId,
+        target_user_id: targetUserId,
+        relationship_guess: String(registerLookupRelationshipGuessInput?.value || '').trim() || null,
+        preferred_contact_method: String(registerLookupPreferredContactMethodInput?.value || '').trim() || null,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data?.detail || 'Could not create connection request.');
+    }
+    postSessionEvent('register_family_request_created', `Register page request created for candidate ${targetUserId}.`);
+    return data;
+  }
+
   function normalizeRequestStatus(status) {
     const raw = String(status || '').trim().toLowerCase();
     if (raw === 'pending') return 'Pending Request';
@@ -5854,6 +6072,41 @@
   refreshOutgoingRequestsBtn?.addEventListener('click', () => {
     loadOutgoingConnectionRequests();
   });
+  registerLookupSearchBtn?.addEventListener('click', async () => {
+    await runRegisterFamilyLookup();
+  });
+  registerLookupResults?.addEventListener('click', async (event) => {
+    const actionBtn = event.target.closest('[data-register-lookup-action]');
+    if (!actionBtn) return;
+    const action = String(actionBtn.getAttribute('data-register-lookup-action') || '').trim();
+    const targetUserId = String(actionBtn.getAttribute('data-target-user-id') || '').trim();
+    if (!targetUserId) return;
+
+    if (action === 'register-first') {
+      if (registerLookupFeedback) {
+        registerLookupFeedback.textContent = 'Register first to request a verified family connection.';
+        registerLookupFeedback.classList.remove('is-success');
+      }
+      postSessionEvent('register_family_request_prompted', `Register-first prompt shown for candidate ${targetUserId}.`);
+      return;
+    }
+
+    actionBtn.disabled = true;
+    try {
+      await createRegisterLookupConnectionRequest(targetUserId);
+      if (registerLookupFeedback) {
+        registerLookupFeedback.textContent = 'Pending connection request created.';
+        registerLookupFeedback.classList.add('is-success');
+      }
+      await Promise.all([loadIncomingConnectionRequests(), loadOutgoingConnectionRequests(), loadActivityLog(), loadAdminActivityLog()]);
+    } catch (err) {
+      actionBtn.disabled = false;
+      if (registerLookupFeedback) {
+        registerLookupFeedback.textContent = err.message || 'Could not create connection request.';
+        registerLookupFeedback.classList.remove('is-success');
+      }
+    }
+  });
   form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
 
   // Export button handlers
@@ -5961,11 +6214,17 @@
         `<div class="id-block">Family ID: <span>${data.family_id}</span></div>`;
       successMsg.classList.add('show');
       form.reset();
+      if (registerLookupFeedback) {
+        registerLookupFeedback.textContent = 'Registration complete. You can now request a verified family connection.';
+        registerLookupFeedback.classList.add('is-success');
+      }
+      if (Array.isArray(registerLookupMatchesCache) && registerLookupMatchesCache.length) {
+        renderRegisterLookupMatches(registerLookupMatchesCache);
+      }
       loadStats();
       loadRegistrations();
       loadFamilies();
       loadActivityLog();
-      setActivePage('admin-dashboard');
       successMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (err) {
       showError('Network error — is the server running?');

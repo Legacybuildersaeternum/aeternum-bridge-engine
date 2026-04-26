@@ -20,6 +20,10 @@ _SESSION_EVENT_TYPES = {
     "activity_log_viewed",
     "find_family_request_clicked",
     "find_family_not_a_match",
+    "register_family_lookup_started",
+    "register_family_lookup_results",
+    "register_family_request_prompted",
+    "register_family_request_created",
 }
 
 
