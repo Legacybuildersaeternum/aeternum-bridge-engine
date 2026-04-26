@@ -3291,10 +3291,10 @@
           </div>
         </details>
         <details class="admin-collapsible" id="pendingRequestsAdminPanel" open>
-          <summary>Pending Family Requests</summary>
-          <div class="activity-log-wrap" style="max-height:320px; opacity:1; padding:10px 14px 14px;">
-            <button id="refreshPendingRequestsBtn" type="button" class="secondary" style="margin-bottom:10px;">Refresh Pending Requests</button>
-            <div id="adminPendingRequestsList" class="stats-loading">Loading pending family requests...</div>
+          <summary>Connection Requests</summary>
+          <div class="activity-log-wrap" style="max-height:400px; opacity:1; padding:10px 14px 14px;">
+            <button id="refreshPendingRequestsBtn" type="button" class="secondary" style="margin-bottom:10px;">Refresh Connection Requests</button>
+            <div id="adminPendingRequestsList" class="stats-loading">Loading connection requests...</div>
           </div>
         </details>
       </div>
@@ -5456,15 +5456,33 @@
     }
   }
 
+  function normalizeAdminRequestStatus(status) {
+    const raw = String(status || '').trim().toLowerCase();
+    if (raw === 'pending_outside_verification' || raw === 'pending') return 'Pending';
+    if (raw === 'accepted') return 'Accepted';
+    if (raw === 'rejected' || raw === 'declined') return 'Rejected';
+    if (raw === 'connection_completed') return 'Completed';
+    return raw ? toDisplayLabel(raw) : 'Pending';
+  }
+
+  function adminRequestStatusClass(status) {
+    const raw = String(status || '').trim().toLowerCase();
+    if (raw === 'accepted' || raw === 'connection_completed') return 'awaiting_verification';
+    if (raw === 'rejected' || raw === 'declined') return 'verification_complete';
+    return 'pending_request';
+  }
+
   function renderAdminPendingFamilyRequests(rows) {
     if (!adminPendingRequestsList) return;
     const items = Array.isArray(rows) ? rows : [];
     if (!items.length) {
       adminPendingRequestsList.className = 'stats-loading';
-      adminPendingRequestsList.textContent = 'No pending family requests.';
+      adminPendingRequestsList.textContent = 'No connection requests found.';
       return;
     }
     adminPendingRequestsList.className = 'connection-request-list';
+    const statusRaw = (item) => String(item.status || '').trim().toLowerCase();
+    const isPending = (item) => statusRaw(item) === 'pending_outside_verification' || statusRaw(item) === 'pending';
     adminPendingRequestsList.innerHTML = items.map((item) => `
       <article class="connection-request-card">
         <div class="connection-request-head">
@@ -5472,14 +5490,20 @@
             <strong>${escapeHtml(String(item.requester_user_id || ''))}</strong><br>
             <span style="font-size:0.69rem; color:var(--secondary-text);">Target: ${escapeHtml(String(item.target_user_id || ''))}</span>
           </div>
-          <span class="request-status-chip pending_request">${escapeHtml(String(item.status || 'pending_outside_verification'))}</span>
+          <span class="request-status-chip ${adminRequestStatusClass(item.status)}">${escapeHtml(normalizeAdminRequestStatus(item.status))}</span>
         </div>
         <div class="connection-request-meta">
-          Relationship guess: ${escapeHtml(String(item.relationship_guess || 'not provided'))}<br>
-          Preferred contact method: ${escapeHtml(String(item.preferred_contact_method || 'not provided'))}<br>
+          Relationship: ${escapeHtml(String(item.relationship_guess || 'not provided'))}<br>
+          Contact method: ${escapeHtml(String(item.preferred_contact_method || 'not provided'))}<br>
           Created: ${escapeHtml(String(item.created_at || 'unknown'))}<br>
           Outside verification required before approval.
         </div>
+        ${isPending(item) ? `
+          <div class="connection-request-actions">
+            <button type="button" data-admin-request-action="accept" data-request-id="${escapeHtml(String(item.request_id || ''))}">Accept &amp; Link</button>
+            <button type="button" class="secondary" data-admin-request-action="reject" data-request-id="${escapeHtml(String(item.request_id || ''))}">Reject</button>
+          </div>
+        ` : ''}
       </article>
     `).join('');
   }
@@ -5487,19 +5511,19 @@
   async function loadAdminPendingFamilyRequests() {
     if (!adminPendingRequestsList) return;
     adminPendingRequestsList.className = 'stats-loading';
-    adminPendingRequestsList.textContent = 'Loading pending family requests...';
+    adminPendingRequestsList.textContent = 'Loading connection requests...';
     try {
-      const res = await apiFetch('/family-connection/requests/pending');
+      const res = await apiFetch('/connection-requests');
       const rows = await res.json().catch(() => ([]));
       if (!res.ok) {
         adminPendingRequestsList.className = 'stats-loading';
-        adminPendingRequestsList.textContent = rows?.detail || 'Could not load pending requests.';
+        adminPendingRequestsList.textContent = rows?.detail || 'Could not load connection requests.';
         return;
       }
       renderAdminPendingFamilyRequests(rows);
     } catch {
       adminPendingRequestsList.className = 'stats-loading';
-      adminPendingRequestsList.textContent = 'Could not load pending requests.';
+      adminPendingRequestsList.textContent = 'Could not load connection requests.';
     }
   }
 
@@ -6109,10 +6133,10 @@
         return;
       }
       if (findFamilyFeedback) {
-        findFamilyFeedback.textContent = 'Request sent. Outside-app verification required.';
+        findFamilyFeedback.textContent = 'Connection request created. Both parties must verify outside the app by phone, email, text, or mail before acceptance.';
         findFamilyFeedback.classList.add('is-success');
       }
-      actionBtn.textContent = 'REQUEST SENT';
+      actionBtn.textContent = 'Request Pending';
       actionBtn.disabled = true;
       if (incomingRequestUserIdInput && !String(incomingRequestUserIdInput.value || '').trim()) {
         incomingRequestUserIdInput.value = targetUserId;
@@ -6173,6 +6197,32 @@
   refreshPendingRequestsBtn?.addEventListener('click', () => {
     loadAdminPendingFamilyRequests();
   });
+
+  adminPendingRequestsList?.addEventListener('click', async (event) => {
+    const actionBtn = event.target.closest('[data-admin-request-action]');
+    if (!actionBtn) return;
+    const action = String(actionBtn.getAttribute('data-admin-request-action') || '').trim();
+    const requestId = String(actionBtn.getAttribute('data-request-id') || '').trim();
+    if (!requestId) return;
+    actionBtn.disabled = true;
+    const endpoint = action === 'accept'
+      ? `/connection-request/${encodeURIComponent(requestId)}/accept`
+      : `/connection-request/${encodeURIComponent(requestId)}/reject`;
+    try {
+      const res = await apiFetch(endpoint, { method: 'PATCH' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        actionBtn.disabled = false;
+        alert(data?.detail || `Could not ${action} request.`);
+        return;
+      }
+      await loadAdminPendingFamilyRequests();
+      await Promise.all([loadRegistrations(), loadFamilies(), loadActivityLog(), loadAdminActivityLog()]);
+    } catch {
+      actionBtn.disabled = false;
+      alert(`Could not ${action} request. Please try again.`);
+    }
+  });
   registerLookupSearchBtn?.addEventListener('click', async () => {
     await runRegisterFamilyLookup();
   });
@@ -6196,10 +6246,10 @@
     try {
       await createRegisterLookupConnectionRequest(targetUserId);
       if (registerLookupFeedback) {
-        registerLookupFeedback.textContent = 'Request sent. Outside-app verification required.';
+        registerLookupFeedback.textContent = 'Connection request created. Both parties must verify outside the app by phone, email, text, or mail before acceptance.';
         registerLookupFeedback.classList.add('is-success');
       }
-      actionBtn.textContent = 'REQUEST SENT';
+      actionBtn.textContent = 'Request Pending';
       actionBtn.disabled = true;
       await Promise.all([loadIncomingConnectionRequests(), loadOutgoingConnectionRequests(), loadActivityLog(), loadAdminActivityLog(), loadAdminPendingFamilyRequests()]);
     } catch (err) {

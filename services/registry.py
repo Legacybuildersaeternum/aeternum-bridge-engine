@@ -1222,6 +1222,156 @@ def get_pending_family_connection_requests() -> list[PendingFamilyConnectionRequ
     return records
 
 
+def get_all_connection_requests() -> list[PendingFamilyConnectionRequestRecord]:
+    """Return all connection requests for admin review, sorted newest first."""
+    requests = [_normalize_connection_request(item) for item in _load_connection_requests()]
+    requests.sort(key=lambda item: str(item.get("created_at") or item.get("timestamp") or ""), reverse=True)
+    records: list[PendingFamilyConnectionRequestRecord] = []
+    for item in requests:
+        records.append(
+            PendingFamilyConnectionRequestRecord(
+                request_id=str(item.get("request_id") or ""),
+                requester_user_id=str(item.get("requester_user_id") or ""),
+                target_user_id=str(item.get("target_user_id") or ""),
+                requester_name=str(item.get("requester_name") or "") or None,
+                target_masked_name=str(item.get("target_masked_name") or "") or None,
+                relationship_guess=str(item.get("relationship_guess") or "") or None,
+                preferred_contact_method=str(item.get("preferred_contact_method") or "") or None,
+                created_at=str(item.get("created_at") or item.get("timestamp") or datetime.now(timezone.utc).isoformat()),
+                status=str(item.get("status") or "pending_outside_verification"),
+                outside_contact_required=bool(item.get("outside_contact_required", True)),
+            )
+        )
+    return records
+
+
+def admin_accept_connection_request(
+    request_id: str,
+    session_id: Optional[str] = None,
+) -> PendingFamilyConnectionRequestRecord:
+    """Admin accepts a connection request and immediately links both users."""
+    with _REGISTRY_FILE_LOCK:
+        requests = [_normalize_connection_request(item) for item in _load_connection_requests()]
+        users = [_normalize_user(u) for u in _load()]
+        users_by_id = {str(user.get("user_id") or ""): user for user in users}
+
+        target_req = next(
+            (item for item in requests if str(item.get("request_id") or "") == request_id),
+            None,
+        )
+        if not target_req:
+            raise ValueError("Connection request not found")
+
+        requester_id = str(target_req.get("requester_user_id") or "")
+        receiver_id = str(target_req.get("target_user_id") or "")
+        requester = users_by_id.get(requester_id)
+        receiver = users_by_id.get(receiver_id)
+        if not requester or not receiver:
+            raise ValueError("Requester or target profile not found in registry")
+
+        # Link both users into each other's linked_to_user_ids
+        requester_links = _normalize_linked_to_user_ids(requester.get("linked_to_user_ids"), requester.get("linked_to_user_id"))
+        receiver_links = _normalize_linked_to_user_ids(receiver.get("linked_to_user_ids"), receiver.get("linked_to_user_id"))
+        if receiver_id not in requester_links:
+            requester_links.append(receiver_id)
+        if requester_id not in receiver_links:
+            receiver_links.append(requester_id)
+        requester_links = sorted(set(requester_links))
+        receiver_links = sorted(set(receiver_links))
+
+        updated_users: list[dict[str, Any]] = []
+        for user in users:
+            uid = str(user.get("user_id") or "")
+            if uid == requester_id:
+                updated_user = dict(user)
+                _set_linked_fields(updated_user, requester_links)
+                updated_users.append(_normalize_user(updated_user))
+            elif uid == receiver_id:
+                updated_user = dict(user)
+                _set_linked_fields(updated_user, receiver_links)
+                updated_users.append(_normalize_user(updated_user))
+            else:
+                updated_users.append(_normalize_user(user))
+
+        now = datetime.now(timezone.utc).isoformat()
+        target_req["status"] = "accepted"
+        target_req["updated_at"] = now
+
+        _save(updated_users)
+        _save_connection_requests(requests)
+
+    write_activity_event(
+        event_type="family_connection_request_accepted",
+        message=f"Admin accepted connection request {request_id}. Users {requester_id} and {receiver_id} are now linked.",
+        user_id=requester_id,
+        family_id=str(users_by_id.get(requester_id, {}).get("family_id") or "") or None,
+        family_name=str(users_by_id.get(requester_id, {}).get("family_name") or "") or None,
+        session_id=session_id,
+    )
+
+    return PendingFamilyConnectionRequestRecord(
+        request_id=str(target_req.get("request_id") or ""),
+        requester_user_id=requester_id,
+        target_user_id=receiver_id,
+        requester_name=str(target_req.get("requester_name") or "") or None,
+        target_masked_name=str(target_req.get("target_masked_name") or "") or None,
+        relationship_guess=str(target_req.get("relationship_guess") or "") or None,
+        preferred_contact_method=str(target_req.get("preferred_contact_method") or "") or None,
+        created_at=str(target_req.get("created_at") or target_req.get("timestamp") or now),
+        status="accepted",
+        outside_contact_required=bool(target_req.get("outside_contact_required", True)),
+    )
+
+
+def admin_reject_connection_request(
+    request_id: str,
+    session_id: Optional[str] = None,
+) -> PendingFamilyConnectionRequestRecord:
+    """Admin rejects a connection request. Users are NOT linked."""
+    with _REGISTRY_FILE_LOCK:
+        requests = [_normalize_connection_request(item) for item in _load_connection_requests()]
+        users = [_normalize_user(u) for u in _load()]
+        users_by_id = {str(user.get("user_id") or ""): user for user in users}
+
+        target_req = next(
+            (item for item in requests if str(item.get("request_id") or "") == request_id),
+            None,
+        )
+        if not target_req:
+            raise ValueError("Connection request not found")
+
+        requester_id = str(target_req.get("requester_user_id") or "")
+        receiver_id = str(target_req.get("target_user_id") or "")
+
+        now = datetime.now(timezone.utc).isoformat()
+        target_req["status"] = "rejected"
+        target_req["updated_at"] = now
+
+        _save_connection_requests(requests)
+
+    write_activity_event(
+        event_type="family_connection_request_rejected",
+        message=f"Admin rejected connection request {request_id} between {requester_id} and {receiver_id}.",
+        user_id=requester_id,
+        family_id=str(users_by_id.get(requester_id, {}).get("family_id") or "") or None,
+        family_name=str(users_by_id.get(requester_id, {}).get("family_name") or "") or None,
+        session_id=session_id,
+    )
+
+    return PendingFamilyConnectionRequestRecord(
+        request_id=str(target_req.get("request_id") or ""),
+        requester_user_id=requester_id,
+        target_user_id=receiver_id,
+        requester_name=str(target_req.get("requester_name") or "") or None,
+        target_masked_name=str(target_req.get("target_masked_name") or "") or None,
+        relationship_guess=str(target_req.get("relationship_guess") or "") or None,
+        preferred_contact_method=str(target_req.get("preferred_contact_method") or "") or None,
+        created_at=str(target_req.get("created_at") or target_req.get("timestamp") or now),
+        status="rejected",
+        outside_contact_required=bool(target_req.get("outside_contact_required", True)),
+    )
+
+
 def get_connection_requests_for_user(user_id: str, direction: str = "incoming") -> list[ConnectionRequestRecord]:
     normalized_user_id = str(user_id or "").strip()
     if not normalized_user_id:

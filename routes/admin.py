@@ -152,6 +152,54 @@ def get_pending_family_connection_requests() -> list[PendingFamilyConnectionRequ
     return registry.get_pending_family_connection_requests()
 
 
+@router.post("/connection-request/create", response_model=FamilyConnectionRequestResponse)
+def create_connection_request_v2(
+    payload: FamilyConnectionRequestPayload,
+    x_session_id: Optional[str] = Header(default=None),
+) -> FamilyConnectionRequestResponse:
+    """Create a safe outside-verification family connection request."""
+    try:
+        return registry.create_family_connection_request(payload, session_id=x_session_id)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.get("/connection-requests", response_model=list[PendingFamilyConnectionRequestRecord])
+def get_all_connection_requests() -> list[PendingFamilyConnectionRequestRecord]:
+    """List all connection requests for admin review, regardless of status."""
+    return registry.get_all_connection_requests()
+
+
+@router.patch("/connection-request/{request_id}/accept", response_model=PendingFamilyConnectionRequestRecord)
+def admin_accept_connection_request(
+    request_id: str,
+    x_session_id: Optional[str] = Header(default=None),
+) -> PendingFamilyConnectionRequestRecord:
+    """Admin accepts a connection request and immediately links both users."""
+    try:
+        return registry.admin_accept_connection_request(request_id, session_id=x_session_id)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.patch("/connection-request/{request_id}/reject", response_model=PendingFamilyConnectionRequestRecord)
+def admin_reject_connection_request(
+    request_id: str,
+    x_session_id: Optional[str] = Header(default=None),
+) -> PendingFamilyConnectionRequestRecord:
+    """Admin rejects a connection request. Users are not linked."""
+    try:
+        return registry.admin_reject_connection_request(request_id, session_id=x_session_id)
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+
+
 @router.get("/connection-requests/incoming", response_model=list[ConnectionRequestRecord])
 def get_incoming_connection_requests(
     user_id: str = Query(...),
