@@ -1977,6 +1977,10 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
         "merged_into_user_id",
         "notes",
         "duplicate_pair_flags",
+        "entry_agreement_accepted",
+        "entry_agreement_accepted_at",
+        "ecosystem_updates_opt_in",
+        "return_reconnection_interest",
     ]:
         normalized.setdefault(key, None)
 
@@ -2009,6 +2013,14 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
     if not normalized.get("merged_into_user_id"):
         normalized["merged_into_user_id"] = None
     normalized["duplicate_pair_flags"] = _normalize_duplicate_pair_flags(normalized.get("duplicate_pair_flags"))
+    normalized["entry_agreement_accepted"] = bool(normalized.get("entry_agreement_accepted"))
+    normalized["entry_agreement_accepted_at"] = str(
+        normalized.get("entry_agreement_accepted_at") or normalized.get("registered_at") or datetime.now(timezone.utc).isoformat()
+    )
+    normalized["ecosystem_updates_opt_in"] = bool(normalized.get("ecosystem_updates_opt_in"))
+    normalized["return_reconnection_interest"] = _normalize_dropdown_token(
+        str(normalized.get("return_reconnection_interest") or "maybe_learning_more")
+    )
     if not normalized.get("state"):
         normalized["state"] = "Not provided"
     if not normalized.get("country"):
@@ -2070,6 +2082,10 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
             (payload.travel_timeframe or TravelTimeframe.not_sure_yet).value
         ),
         notes=payload.notes,
+        entry_agreement_accepted=True,
+        entry_agreement_accepted_at=registered_at,
+        ecosystem_updates_opt_in=bool(payload.ecosystem_updates_opt_in),
+        return_reconnection_interest=payload.return_reconnection_interest,
         registered_at=registered_at,
     )
     users.append(record.model_dump(mode="json"))
@@ -2078,6 +2094,34 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
     write_activity_event(
         event_type="registration_submitted",
         message=f"New registration submitted for {record.full_name}.",
+        user_id=record.user_id,
+        family_id=record.family_id,
+        family_name=record.family_name,
+        session_id=session_id,
+    )
+    write_activity_event(
+        event_type="entry_agreement_accepted",
+        message=f"Entry agreement accepted for {record.full_name}.",
+        user_id=record.user_id,
+        family_id=record.family_id,
+        family_name=record.family_name,
+        session_id=session_id,
+    )
+    if bool(record.ecosystem_updates_opt_in):
+        write_activity_event(
+            event_type="ecosystem_updates_opted_in",
+            message=f"Ecosystem updates opt-in recorded for {record.full_name}.",
+            user_id=record.user_id,
+            family_id=record.family_id,
+            family_name=record.family_name,
+            session_id=session_id,
+        )
+    write_activity_event(
+        event_type="return_reconnection_interest_recorded",
+        message=(
+            f"Return/reconnection interest recorded for {record.full_name}: "
+            f"{record.return_reconnection_interest}."
+        ),
         user_id=record.user_id,
         family_id=record.family_id,
         family_name=record.family_name,
@@ -2114,6 +2158,8 @@ def get_stats() -> StatsResponse:
     largest_family_size = max(family_member_counts.values(), default=0)
     total_interested = sum(1 for r in users if r.get("interested_in_return"))
     total_with_contact_info = sum(1 for r in users if r.get("email") or r.get("phone") or r.get("phone_number"))
+    entry_agreement_accepted_count = sum(1 for r in users if bool(r.get("entry_agreement_accepted")))
+    ecosystem_updates_opt_in_count = sum(1 for r in users if bool(r.get("ecosystem_updates_opt_in")))
 
     region_distribution: dict[str, int] = {}
     travel_timeframe_distribution: dict[str, int] = {}
@@ -2121,6 +2167,7 @@ def get_stats() -> StatsResponse:
     country_distribution: dict[str, int] = {}
     role_distribution: dict[str, int] = {}
     household_position_distribution: dict[str, int] = {}
+    return_reconnection_interest_distribution: dict[str, int] = {}
     region_travel_timeframe_combinations: dict[str, int] = {}
     region_interest_combinations: dict[str, int] = {}
 
@@ -2154,6 +2201,11 @@ def get_stats() -> StatsResponse:
         position = r.get("household_position") or "not_provided"
         household_position_distribution[position] = household_position_distribution.get(position, 0) + 1
 
+        return_interest = r.get("return_reconnection_interest") or "maybe_learning_more"
+        return_reconnection_interest_distribution[return_interest] = (
+            return_reconnection_interest_distribution.get(return_interest, 0) + 1
+        )
+
     return StatsResponse(
         total_users=total_users,
         total_families=total_families,
@@ -2161,6 +2213,9 @@ def get_stats() -> StatsResponse:
         largest_family_size=largest_family_size,
         total_interested_in_return=total_interested,
         total_with_contact_info=total_with_contact_info,
+        entry_agreement_accepted_count=entry_agreement_accepted_count,
+        ecosystem_updates_opt_in_count=ecosystem_updates_opt_in_count,
+        return_reconnection_interest_distribution=return_reconnection_interest_distribution,
         region_distribution=region_distribution,
         travel_timeframe_distribution=travel_timeframe_distribution,
         state_distribution=state_distribution,
@@ -2330,6 +2385,8 @@ def update_registration(
         "relationship_role",
         "household_position",
         "relationship_notes",
+        "ecosystem_updates_opt_in",
+        "return_reconnection_interest",
     ]
     for field in editable_fields:
         if field in updates:
@@ -2713,6 +2770,10 @@ def export_registrations_csv() -> str:
         "merged_into_user_id",
         "user_stage",
         "notes",
+        "entry_agreement_accepted",
+        "entry_agreement_accepted_at",
+        "ecosystem_updates_opt_in",
+        "return_reconnection_interest",
         "registered_at",
     ]
     writer.writerow(headers)
@@ -2745,6 +2806,10 @@ def export_registrations_csv() -> str:
             reg.merged_into_user_id or "",
             reg.user_stage,
             reg.notes or "",
+            str(reg.entry_agreement_accepted),
+            reg.entry_agreement_accepted_at,
+            str(reg.ecosystem_updates_opt_in),
+            str(reg.return_reconnection_interest),
             reg.registered_at,
         ]
         writer.writerow(row)

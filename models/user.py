@@ -67,6 +67,12 @@ class HouseholdPosition(str, Enum):
     dependent = "dependent"
 
 
+class ReturnReconnectionInterest(str, Enum):
+    yes_interested_return_reconnection = "yes_interested_return_reconnection"
+    maybe_learning_more = "maybe_learning_more"
+    no_documenting_family_history = "no_documenting_family_history"
+
+
 class UserRegistration(BaseModel):
     full_name: str
     family_name: str
@@ -89,6 +95,10 @@ class UserRegistration(BaseModel):
     linked_to_user_id: Optional[str] = None
     relationship_notes: Optional[str] = None
     notes: Optional[str] = None
+    entry_agreement_accepted: bool
+    ecosystem_updates_opt_in: bool = False
+    return_reconnection_interest: ReturnReconnectionInterest
+    entry_agreement_accepted_at: Optional[str] = None
 
     model_config = {
         "json_schema_extra": {
@@ -111,6 +121,9 @@ class UserRegistration(BaseModel):
                 "household_position": "primary_representative",
                 "relationship_notes": "Primary household contact",
                 "notes": "Ward family reconnection profile",
+                "entry_agreement_accepted": True,
+                "ecosystem_updates_opt_in": False,
+                "return_reconnection_interest": "maybe_learning_more",
             }
         }
     }
@@ -170,6 +183,15 @@ class UserRegistration(BaseModel):
         value = _normalize_dropdown_token(raw)
         return value or None
 
+    @field_validator("return_reconnection_interest", mode="before")
+    @classmethod
+    def normalize_return_reconnection_interest(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        raw = v.value if isinstance(v, Enum) else str(v)
+        value = _normalize_dropdown_token(raw)
+        return value or None
+
     @field_validator(
         "email",
         "phone_number",
@@ -209,6 +231,13 @@ class UserRegistration(BaseModel):
         local, domain = v.split("@", 1)
         if not local or "." not in domain:
             raise ValueError("email must be valid")
+        return v
+
+    @field_validator("entry_agreement_accepted")
+    @classmethod
+    def entry_agreement_must_be_accepted(cls, v: bool) -> bool:
+        if v is not True:
+            raise ValueError("entry_agreement_accepted must be true")
         return v
 
     @field_validator("linked_to_user_ids", mode="before")
@@ -252,6 +281,10 @@ class UserRecord(BaseModel):
     merged_into_user_id: Optional[str] = None
     user_stage: UserStage
     notes: Optional[str] = None
+    entry_agreement_accepted: bool
+    entry_agreement_accepted_at: str
+    ecosystem_updates_opt_in: bool = False
+    return_reconnection_interest: ReturnReconnectionInterest
     registered_at: str
 
 
@@ -324,6 +357,8 @@ class RegistrationUpdateRequest(BaseModel):
     linked_to_user_ids: Optional[list[str]] = None
     linked_to_user_id: Optional[str] = None
     relationship_notes: Optional[str] = None
+    ecosystem_updates_opt_in: Optional[bool] = None
+    return_reconnection_interest: Optional[ReturnReconnectionInterest] = None
 
     @field_validator("full_name", "family_name")
     @classmethod
@@ -381,6 +416,15 @@ class RegistrationUpdateRequest(BaseModel):
     @field_validator("household_position", mode="before")
     @classmethod
     def normalize_household_position(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        raw = v.value if isinstance(v, Enum) else str(v)
+        value = _normalize_dropdown_token(raw)
+        return value or None
+
+    @field_validator("return_reconnection_interest", mode="before")
+    @classmethod
+    def normalize_return_reconnection_interest(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return None
         raw = v.value if isinstance(v, Enum) else str(v)
@@ -455,6 +499,9 @@ class StatsResponse(BaseModel):
     largest_family_size: int
     total_interested_in_return: int
     total_with_contact_info: int
+    entry_agreement_accepted_count: int
+    ecosystem_updates_opt_in_count: int
+    return_reconnection_interest_distribution: dict[str, int]
     region_distribution: dict[str, int]
     travel_timeframe_distribution: dict[str, int]
     state_distribution: dict[str, int]

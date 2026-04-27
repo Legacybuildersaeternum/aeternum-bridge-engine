@@ -362,6 +362,26 @@
       cursor: pointer;
     }
 
+    .agreement-section {
+      border-color: rgba(201, 168, 76, 0.36);
+      background: rgba(17, 33, 52, 0.9);
+    }
+
+    .agreement-copy {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--body-text);
+      font-size: 0.84rem;
+      line-height: 1.6;
+      display: grid;
+      gap: 8px;
+    }
+
+    .checkbox-row.required-agreement label {
+      font-weight: 600;
+      color: var(--gold-lt);
+    }
+
     /* ── Buttons ── */
     button {
       display: block;
@@ -2915,6 +2935,33 @@
         <div id="registerLookupFeedback" class="guidance-feedback" style="min-height:22px; margin-top:10px;"></div>
         <div id="registerLookupResults" class="stats-loading" style="margin-top:10px;">Search to view possible existing family matches.</div>
       </section>
+      <section class="optional-section agreement-section" aria-labelledby="entry-agreement-title">
+        <h3 id="entry-agreement-title">Aeternum Entry Agreement</h3>
+        <ul class="agreement-copy">
+          <li>Aeternum Bridge helps families document lineage, reconnect with relatives, and preserve cultural/family history.</li>
+          <li>Your registration information may be used to help identify possible family matches inside the system.</li>
+          <li>Connection requests require outside-app verification and mutual confirmation before families are merged.</li>
+          <li>This MVP is not a legal, immigration, DNA, or government verification system.</li>
+          <li>You control whether you want to participate in future Legacy Builders Aeternum ecosystem updates.</li>
+        </ul>
+        <div class="checkbox-row required-agreement" style="margin-top:14px; margin-bottom:12px;">
+          <input type="checkbox" id="entry_agreement_accepted" />
+          <label for="entry_agreement_accepted">I understand and agree to the Aeternum Bridge Entry Agreement.</label>
+        </div>
+        <div class="checkbox-row" style="margin-bottom:12px;">
+          <input type="checkbox" id="ecosystem_updates_opt_in" />
+          <label for="ecosystem_updates_opt_in">I am interested in receiving future Legacy Builders Aeternum ecosystem updates.</label>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label for="return_reconnection_interest">Return / Reconnection Interest</label>
+          <select id="return_reconnection_interest" required>
+            <option value="">— Select interest —</option>
+            <option value="yes_interested_return_reconnection">Yes, interested in ancestral return or reconnection</option>
+            <option value="maybe_learning_more">Maybe / learning more</option>
+            <option value="no_documenting_family_history">No, only documenting family history</option>
+          </select>
+        </div>
+      </section>
       <button type="submit">Submit Registration</button>
     </form>
 
@@ -3195,6 +3242,9 @@
               <option value="find_family_results_shown">Find Family Results Shown</option>
               <option value="find_family_request_clicked">Find Family Request Clicked</option>
               <option value="find_family_not_a_match">Find Family Not A Match</option>
+              <option value="entry_agreement_accepted">Entry Agreement Accepted</option>
+              <option value="ecosystem_updates_opted_in">Ecosystem Updates Opted In</option>
+              <option value="return_reconnection_interest_recorded">Return/Reconnection Interest Recorded</option>
             </select>
           </div>
           <button type="button" class="secondary activity-filter-btn" id="activityFilterApplyBtn">Apply</button>
@@ -3701,6 +3751,8 @@
     total_families: null,
     total_interested_in_return: null,
     total_with_contact_info: null,
+    entry_agreement_accepted_count: null,
+    ecosystem_updates_opt_in_count: null,
   };
 
   function renderSystemStatusBadges() {
@@ -4153,6 +4205,11 @@
       ['Total Families', stats.total_families ?? stats.total_family_groups ?? 0],
       ['Total Family Groups', stats.total_family_groups ?? stats.total_families ?? 0],
       ['Largest Family Size', stats.largest_family_size ?? 0],
+      ['Entry Agreement Accepted', stats.entry_agreement_accepted_count ?? 0],
+      ['Ecosystem Updates Opt-ins', stats.ecosystem_updates_opt_in_count ?? 0],
+      ['Return/Reconnection: Yes', (stats.return_reconnection_interest_distribution || {}).yes_interested_return_reconnection ?? 0],
+      ['Return/Reconnection: Maybe', (stats.return_reconnection_interest_distribution || {}).maybe_learning_more ?? 0],
+      ['Return/Reconnection: No', (stats.return_reconnection_interest_distribution || {}).no_documenting_family_history ?? 0],
       ['Total Activity Events', latestActivityEventCount ?? '--'],
     ];
     adminQuickStats.innerHTML = tiles.map(([label, value]) => `
@@ -6556,6 +6613,9 @@
     const linked_to_user_ids = collectCheckedValues('linked_to_user_ids');
     const relationship_notes = optionalValue(document.getElementById('relationship_notes').value);
     const notes = optionalValue(document.getElementById('notes').value);
+    const entry_agreement_accepted = document.getElementById('entry_agreement_accepted').checked;
+    const ecosystem_updates_opt_in = document.getElementById('ecosystem_updates_opt_in').checked;
+    const return_reconnection_interest = optionalValue(document.getElementById('return_reconnection_interest').value);
 
     // Basic client-side validation
     if (!date_of_birth) {
@@ -6570,6 +6630,16 @@
 
     if (email && !isValidEmail(email)) {
       showError('Please enter a valid email address or leave it blank.');
+      return;
+    }
+
+    if (!entry_agreement_accepted) {
+      showError('You must accept the Aeternum Bridge Entry Agreement before registration.');
+      return;
+    }
+
+    if (!return_reconnection_interest) {
+      showError('Please select your Return / Reconnection Interest before registration.');
       return;
     }
 
@@ -6595,6 +6665,9 @@
         linked_to_user_ids,
         relationship_notes,
         notes,
+        entry_agreement_accepted,
+        ecosystem_updates_opt_in,
+        return_reconnection_interest,
       };
 
       const res = await apiFetch('/register_user', {
@@ -6768,6 +6841,20 @@
         return part.charAt(0).toUpperCase() + part.slice(1);
       })
       .join(' ');
+  }
+
+  function returnInterestLabel(value) {
+    const normalized = String(value || '').trim();
+    if (normalized === 'yes_interested_return_reconnection') {
+      return 'Yes, interested in ancestral return or reconnection';
+    }
+    if (normalized === 'maybe_learning_more') {
+      return 'Maybe / learning more';
+    }
+    if (normalized === 'no_documenting_family_history') {
+      return 'No, only documenting family history';
+    }
+    return toDisplayLabel(normalized || 'not_provided');
   }
 
   function timeframeToStage(timeframe) {
@@ -7947,6 +8034,8 @@
         total_families: data.total_family_groups ?? data.total_families ?? 0,
         total_interested_in_return: data.total_interested_in_return ?? 0,
         total_with_contact_info: data.total_with_contact_info ?? 0,
+        entry_agreement_accepted_count: data.entry_agreement_accepted_count ?? 0,
+        ecosystem_updates_opt_in_count: data.ecosystem_updates_opt_in_count ?? 0,
       };
       latestStatsSnapshot = data;
 
@@ -7959,6 +8048,12 @@
         total_with_contact_info:
           previousStatValues.total_with_contact_info !== null &&
           previousStatValues.total_with_contact_info !== current.total_with_contact_info,
+        entry_agreement_accepted_count:
+          previousStatValues.entry_agreement_accepted_count !== null &&
+          previousStatValues.entry_agreement_accepted_count !== current.entry_agreement_accepted_count,
+        ecosystem_updates_opt_in_count:
+          previousStatValues.ecosystem_updates_opt_in_count !== null &&
+          previousStatValues.ecosystem_updates_opt_in_count !== current.ecosystem_updates_opt_in_count,
       };
 
       container.innerHTML = `
@@ -7973,6 +8068,14 @@
             <div class="num${changed.total_with_contact_info ? ' updated' : ''}">${current.total_with_contact_info}</div>
             <div class="lbl">With Contact Info</div>
           </div>
+          <div class="stat-box" style="grid-column:1/-1">
+            <div class="num${changed.entry_agreement_accepted_count ? ' updated' : ''}">${current.entry_agreement_accepted_count}</div>
+            <div class="lbl">Entry Agreement Accepted</div>
+          </div>
+          <div class="stat-box" style="grid-column:1/-1">
+            <div class="num${changed.ecosystem_updates_opt_in_count ? ' updated' : ''}">${current.ecosystem_updates_opt_in_count}</div>
+            <div class="lbl">Ecosystem Updates Opt-ins</div>
+          </div>
         </div>
         <div class="stats-subgroup">
           <h4>Region Distribution</h4>
@@ -7986,6 +8089,13 @@
           <table class="region-table">
             <thead><tr><th>Timeframe</th><th>Count</th></tr></thead>
             <tbody>${renderDistributionRows(data.travel_timeframe_distribution, true)}</tbody>
+          </table>
+        </div>
+        <div class="stats-subgroup">
+          <h4>Return / Reconnection Interest</h4>
+          <table class="region-table">
+            <thead><tr><th>Category</th><th>Count</th></tr></thead>
+            <tbody>${Object.entries(data.return_reconnection_interest_distribution || {}).map(([label, count]) => `<tr><td>${returnInterestLabel(label)}</td><td>${count}</td></tr>`).join('') || '<tr><td colspan="2" style="color:var(--muted)">No data yet</td></tr>'}</tbody>
           </table>
         </div>
         <div class="stats-subgroup">
@@ -8008,6 +8118,8 @@
       previousStatValues.total_families = current.total_families;
       previousStatValues.total_interested_in_return = current.total_interested_in_return;
       previousStatValues.total_with_contact_info = current.total_with_contact_info;
+      previousStatValues.entry_agreement_accepted_count = current.entry_agreement_accepted_count;
+      previousStatValues.ecosystem_updates_opt_in_count = current.ecosystem_updates_opt_in_count;
       renderAdminSummary();
 
       const now = new Date();
