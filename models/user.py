@@ -516,6 +516,7 @@ class StatsResponse(BaseModel):
     return_reconnection_interest_distribution: dict[str, int]
     onboarding_completed_count: int
     onboarding_started_not_completed_count: int
+    total_messages_count: int
     region_distribution: dict[str, int]
     travel_timeframe_distribution: dict[str, int]
     state_distribution: dict[str, int]

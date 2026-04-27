@@ -2070,6 +2070,36 @@
       box-shadow: 0 10px 36px rgba(0, 0, 0, 0.38);
     }
 
+    /* ── Messages ── */
+    .msg-bubble {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .msg-bubble.sent {
+      align-self: flex-end;
+      background: rgba(201, 168, 76, 0.18);
+      border: 1px solid rgba(201, 168, 76, 0.25);
+      color: var(--gold-lt);
+    }
+    .msg-bubble.received {
+      align-self: flex-start;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--body-text);
+    }
+    .msg-bubble .msg-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .msg-bubble.unread {
+      border-color: var(--gold);
+    }
+
     .page-kicker {
       display: inline-block;
       margin-bottom: 10px;
@@ -2738,6 +2768,7 @@
   <button type="button" class="app-nav-link" data-page-target="register">Register</button>
   <button type="button" class="app-nav-link" data-page-target="family-tree">Family Tree</button>
   <button type="button" class="app-nav-link" data-page-target="find-family">Find Family</button>
+  <button type="button" class="app-nav-link" data-page-target="messages">Messages</button>
   <button type="button" class="app-nav-link" data-page-target="activity-log">Activity Log</button>
   <button type="button" class="app-nav-link" data-page-target="export-backup">Export &amp; Backup</button>
   <button type="button" class="app-nav-link" data-page-target="admin-dashboard">Admin Dashboard</button>
@@ -3384,6 +3415,49 @@
         </div>
         <p class="activity-log-hint">Heartbeat events are hidden by default to keep timeline entries readable. Select Session Active in Event Type to view them.</p>
         <div id="activityLogList"><p class="stats-loading">Loading activity log...</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page-section" data-page="messages">
+    <section class="page-header-card">
+      <span class="page-kicker">Messages</span>
+      <h2 class="page-title">Connection-Locked Messaging</h2>
+      <p class="page-copy">Send and receive messages only with users you are connected to. All messages are identity-bound and logged for audit integrity.</p>
+    </section>
+
+    <div class="two-col-layout">
+      <div class="card" id="messagesPanel">
+        <h2>Send a Message</h2>
+        <div class="field">
+          <label for="msgMyUserId">Your User ID</label>
+          <input type="text" id="msgMyUserId" placeholder="usr_..." />
+        </div>
+        <div class="field">
+          <label for="msgConnectedUserSelect">Connected User</label>
+          <select id="msgConnectedUserSelect">
+            <option value="">— Enter Your User ID first —</option>
+          </select>
+        </div>
+        <button type="button" id="msgLoadConnectedBtn">Load Connected Users</button>
+        <div id="msgConnectionStatus" class="message" style="margin-top:8px;"></div>
+
+        <div id="msgCompose" style="margin-top:16px; display:none;">
+          <div class="field">
+            <label for="msgTextInput">Message</label>
+            <textarea id="msgTextInput" rows="3" maxlength="2000" placeholder="Type your message here (max 2000 characters)…" style="width:100%; resize:vertical; font-size:0.95rem; padding:8px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text);"></textarea>
+            <div id="msgCharCount" style="font-size:0.78rem; color:var(--muted); text-align:right; margin-top:3px;">0 / 2000</div>
+          </div>
+          <button type="button" id="msgSendBtn">Send Message</button>
+          <div id="msgSendFeedback" class="message" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <div class="card" id="msgConversationPanel" style="display:none;">
+        <h2>Conversation</h2>
+        <div id="msgConversationHeader" style="font-size:0.85rem; color:var(--muted); margin-bottom:10px;"></div>
+        <div id="msgThreadList" style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        <button type="button" id="msgRefreshConversationBtn" style="margin-top:12px;">Refresh Conversation</button>
       </div>
     </div>
   </section>
@@ -4347,6 +4421,7 @@
       ['Ecosystem Updates Opt-ins', stats.ecosystem_updates_opt_in_count ?? 0],
       ['Onboarding Completed', stats.onboarding_completed_count ?? 0],
       ['Onboarding Started Not Completed', stats.onboarding_started_not_completed_count ?? 0],
+      ['Total Messages Sent', stats.total_messages_count ?? 0],
       ['Return/Reconnection: Yes', (stats.return_reconnection_interest_distribution || {}).yes_interested_return_reconnection ?? 0],
       ['Return/Reconnection: Maybe', (stats.return_reconnection_interest_distribution || {}).maybe_learning_more ?? 0],
       ['Return/Reconnection: No', (stats.return_reconnection_interest_distribution || {}).no_documenting_family_history ?? 0],
@@ -6115,6 +6190,9 @@
       logPageViewOnce('activity-log', 'activity_log_viewed', 'Activity Log tab opened.');
       loadActivityLog();
     }
+    if (pageName === 'messages') {
+      initMessagesPage();
+    }
     if (pageName === 'admin-dashboard') {
       logPageViewOnce('admin-dashboard', 'admin_dashboard_viewed', 'Admin Dashboard tab opened.');
       renderAdminSummary();
@@ -6366,6 +6444,158 @@
     window.sessionStorage.setItem(key, sessionId);
     postSessionEvent(eventType, message);
   }
+
+  /* ── Phase 39: Messages ── */
+  let _msgConnectedUsers = [];
+  let _msgSelectedUserId = null;
+
+  function initMessagesPage() {
+    const myIdInput = document.getElementById('msgMyUserId');
+    const knownId = getKnownUserId ? getKnownUserId() : '';
+    if (knownId && myIdInput && !myIdInput.value.trim()) {
+      myIdInput.value = knownId;
+    }
+    const textInput = document.getElementById('msgTextInput');
+    if (textInput) {
+      textInput.addEventListener('input', () => {
+        const count = document.getElementById('msgCharCount');
+        if (count) count.textContent = `${textInput.value.length} / 2000`;
+      });
+    }
+    document.getElementById('msgLoadConnectedBtn')?.addEventListener('click', loadConnectedUsersForMessages);
+    document.getElementById('msgSendBtn')?.addEventListener('click', sendMessageAction);
+    document.getElementById('msgRefreshConversationBtn')?.addEventListener('click', () => {
+      if (_msgSelectedUserId) loadMessageConversation();
+    });
+    document.getElementById('msgConnectedUserSelect')?.addEventListener('change', function () {
+      _msgSelectedUserId = this.value || null;
+      if (_msgSelectedUserId) {
+        document.getElementById('msgCompose').style.display = '';
+        document.getElementById('msgConversationPanel').style.display = '';
+        loadMessageConversation();
+      } else {
+        document.getElementById('msgCompose').style.display = 'none';
+        document.getElementById('msgConversationPanel').style.display = 'none';
+        document.getElementById('msgThreadList').innerHTML = '';
+      }
+    });
+  }
+
+  async function loadConnectedUsersForMessages() {
+    const myId = String(document.getElementById('msgMyUserId')?.value || '').trim();
+    const statusEl = document.getElementById('msgConnectionStatus');
+    if (!myId) {
+      if (statusEl) { statusEl.textContent = 'Please enter your User ID.'; statusEl.className = 'message error'; }
+      return;
+    }
+    if (statusEl) { statusEl.textContent = 'Loading…'; statusEl.className = 'message'; }
+    try {
+      const res = await apiFetch(`/messages/connected-users?user_id=${encodeURIComponent(myId)}`);
+      const data = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        if (statusEl) { statusEl.textContent = data?.detail || 'Error loading connected users.'; statusEl.className = 'message error'; }
+        return;
+      }
+      _msgConnectedUsers = Array.isArray(data) ? data : [];
+      const sel = document.getElementById('msgConnectedUserSelect');
+      if (sel) {
+        sel.innerHTML = _msgConnectedUsers.length
+          ? '<option value="">— Select a connected user —</option>' +
+            _msgConnectedUsers.map(u => `<option value="${escapeHtml(u.user_id)}">${escapeHtml(u.full_name || u.user_id)}</option>`).join('')
+          : '<option value="">— No accepted connections found —</option>';
+      }
+      if (statusEl) {
+        statusEl.textContent = _msgConnectedUsers.length
+          ? `${_msgConnectedUsers.length} connected user(s) loaded.`
+          : 'No accepted connections. Connect with family members first.';
+        statusEl.className = 'message ' + (_msgConnectedUsers.length ? 'success' : 'warning');
+      }
+    } catch (err) {
+      if (statusEl) { statusEl.textContent = 'Network error loading connected users.'; statusEl.className = 'message error'; }
+    }
+  }
+
+  async function loadMessageConversation() {
+    const myId = String(document.getElementById('msgMyUserId')?.value || '').trim();
+    if (!myId || !_msgSelectedUserId) return;
+    const threadList = document.getElementById('msgThreadList');
+    const header = document.getElementById('msgConversationHeader');
+    if (threadList) threadList.innerHTML = '<div class="stats-loading">Loading conversation…</div>';
+    try {
+      const res = await apiFetch(`/messages/conversation?user_a=${encodeURIComponent(myId)}&user_b=${encodeURIComponent(_msgSelectedUserId)}`);
+      const messages = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        if (threadList) threadList.innerHTML = `<div class="stats-loading">${escapeHtml(messages?.detail || 'Could not load conversation.')}</div>`;
+        return;
+      }
+      const selectedUser = _msgConnectedUsers.find(u => u.user_id === _msgSelectedUserId);
+      if (header) header.textContent = selectedUser ? `Conversation with ${selectedUser.full_name || _msgSelectedUserId}` : `Conversation`;
+      if (!Array.isArray(messages) || !messages.length) {
+        if (threadList) threadList.innerHTML = '<div class="stats-loading">No messages yet. Start the conversation!</div>';
+        return;
+      }
+      if (threadList) {
+        threadList.innerHTML = messages.map(msg => {
+          const isSent = msg.sender_id === myId;
+          const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleString() : '';
+          const unreadClass = (!isSent && msg.status !== 'read') ? ' unread' : '';
+          return `<div class="msg-bubble ${isSent ? 'sent' : 'received'}${unreadClass}">
+            <div>${escapeHtml(msg.message_text || '')}</div>
+            <div class="msg-meta">${escapeHtml(ts)}${msg.status === 'read' ? ' · Read' : ''}</div>
+          </div>`;
+        }).join('');
+        threadList.scrollTop = threadList.scrollHeight;
+      }
+      // Mark unread received messages as read
+      messages.filter(m => m.sender_id !== myId && m.status !== 'read').forEach(m => {
+        apiFetch('/messages/read', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ user_id: myId, message_id: m.message_id }) }).catch(() => {});
+      });
+    } catch {
+      if (threadList) threadList.innerHTML = '<div class="stats-loading">Network error loading conversation.</div>';
+    }
+  }
+
+  async function sendMessageAction() {
+    const myId = String(document.getElementById('msgMyUserId')?.value || '').trim();
+    const textInput = document.getElementById('msgTextInput');
+    const text = String(textInput?.value || '').trim();
+    const feedbackEl = document.getElementById('msgSendFeedback');
+    if (!myId || !_msgSelectedUserId) {
+      if (feedbackEl) { feedbackEl.textContent = 'Please select a connected user.'; feedbackEl.className = 'message error'; }
+      return;
+    }
+    if (!text) {
+      if (feedbackEl) { feedbackEl.textContent = 'Message cannot be empty.'; feedbackEl.className = 'message error'; }
+      return;
+    }
+    if (text.length > 2000) {
+      if (feedbackEl) { feedbackEl.textContent = 'Message exceeds 2000 characters.'; feedbackEl.className = 'message error'; }
+      return;
+    }
+    const sendBtn = document.getElementById('msgSendBtn');
+    if (sendBtn) sendBtn.disabled = true;
+    if (feedbackEl) { feedbackEl.textContent = 'Sending…'; feedbackEl.className = 'message'; }
+    try {
+      const res = await apiFetch('/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender_id: myId, receiver_id: _msgSelectedUserId, message_text: text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (feedbackEl) { feedbackEl.textContent = data?.detail || 'Failed to send message.'; feedbackEl.className = 'message error'; }
+        return;
+      }
+      if (textInput) { textInput.value = ''; const count = document.getElementById('msgCharCount'); if (count) count.textContent = '0 / 2000'; }
+      if (feedbackEl) { feedbackEl.textContent = 'Message sent!'; feedbackEl.className = 'message success'; }
+      await loadMessageConversation();
+    } catch {
+      if (feedbackEl) { feedbackEl.textContent = 'Network error sending message.'; feedbackEl.className = 'message error'; }
+    } finally {
+      if (sendBtn) sendBtn.disabled = false;
+    }
+  }
+  /* ── End Phase 39: Messages ── */
 
   async function apiFetch(url, options = {}) {
     const headers = buildTrackedHeaders(options.headers || {});

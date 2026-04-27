@@ -1617,6 +1617,7 @@ def write_activity_event(
     family_id: Optional[str] = None,
     family_name: Optional[str] = None,
     session_id: Optional[str] = None,
+    extra: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """Write one legacy activity entry and return the stored record."""
     with _ACTIVITY_LOG_LOCK:
@@ -1626,7 +1627,7 @@ def write_activity_event(
             session_events = [event for event in events if str(event.get("session_id") or "") == session_id]
             session_sequence = len(session_events) + 1
 
-        entry = {
+        entry: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "session_id": session_id,
             "session_sequence": session_sequence,
@@ -1636,6 +1637,10 @@ def write_activity_event(
             "family_name": family_name,
             "message": message,
         }
+        if extra and isinstance(extra, dict):
+            for k, v in extra.items():
+                if k not in entry:
+                    entry[k] = v
         events.append(entry)
         # Keep file size bounded for MVP operations.
         if len(events) > 1000:
@@ -2222,6 +2227,7 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
 
 
 def get_stats() -> StatsResponse:
+    from services.messages import get_total_messages_count
     users = [_normalize_user(u) for u in _load()]
     users = [u for u in users if _is_tree_active(u)]
 
@@ -2301,6 +2307,7 @@ def get_stats() -> StatsResponse:
         return_reconnection_interest_distribution=return_reconnection_interest_distribution,
         onboarding_completed_count=onboarding_completed_count,
         onboarding_started_not_completed_count=onboarding_started_not_completed_count,
+        total_messages_count=get_total_messages_count(),
         region_distribution=region_distribution,
         travel_timeframe_distribution=travel_timeframe_distribution,
         state_distribution=state_distribution,
