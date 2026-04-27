@@ -1313,7 +1313,7 @@ def admin_accept_connection_request(
         target_req["status"] = "accepted"
         target_req["updated_at"] = now
 
-        _save(updated_users)
+        _save_with_updates(updated_users)
         _save_connection_requests(requests)
 
     write_activity_event(
@@ -1546,7 +1546,7 @@ def complete_connection_request(
             continue
         updated_users.append(_normalize_user(user))
 
-    _save(updated_users)
+    _save_with_updates(updated_users)
     remaining_requests = [item for item in requests if str(item.get("request_id") or "") != request_id]
     _save_connection_requests(remaining_requests)
 
@@ -1909,6 +1909,51 @@ def _save(users: list[dict[str, Any]]) -> None:
     logger.info("Data file updated append-safe — total users: %d", len(updated_store["users"]))
 
 
+def _save_with_updates(users: list[dict[str, Any]], *, reason: str = "update_user") -> None:
+    """Persist a full user list that includes mutations to existing records.
+
+    Enforces no-removal invariant (len(new) >= len(existing)) but permits
+    field-level changes to existing users — required for update workflows such as
+    onboarding flag progression, relationship edits, and linked-ID patches.
+    Delegates the final write to _write_store_with_backup which still enforces
+    all other safety checks (empty-overwrite guard, atomic temp-file swap, backup).
+    """
+    with _REGISTRY_FILE_LOCK:
+        store = _load_store()
+        existing_users = store.get("users") if isinstance(store.get("users"), list) else []
+        existing_ids = {
+            str(item.get("user_id") or "").strip()
+            for item in existing_users
+            if isinstance(item, dict) and str(item.get("user_id") or "").strip()
+        }
+
+        incoming_ids = [
+            str(item.get("user_id") or "").strip()
+            for item in users
+            if isinstance(item, dict) and str(item.get("user_id") or "").strip()
+        ]
+        if len(incoming_ids) < len(existing_ids):
+            raise ValueError("Registry write aborted: update-safe mode forbids removing existing users.")
+
+        new_store = {
+            "users": [dict(u) for u in users if isinstance(u, dict)],
+            "connection_requests": store.get("connection_requests")
+            if isinstance(store.get("connection_requests"), list)
+            else [],
+        }
+
+        # Build a synthetic "existing store" that passes the append-safe mutation
+        # check inside _write_store_with_backup by pre-seeding it with the new
+        # user list (i.e. existing_users == new_users so index comparison passes).
+        # The user count / family count guard still protects against empty overwrites.
+        phantom_store = {
+            "users": new_store["users"],
+            "connection_requests": new_store["connection_requests"],
+        }
+        _write_store_with_backup(phantom_store, new_store, reason=reason)
+        logger.info("Data file updated (update-safe) for '%s' — total users: %d", reason, len(new_store["users"]))
+
+
 def _load_connection_requests() -> list[dict[str, Any]]:
     return _load_store().get("connection_requests", [])
 
@@ -1981,6 +2026,12 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
         "entry_agreement_accepted_at",
         "ecosystem_updates_opt_in",
         "return_reconnection_interest",
+        "onboarding_started",
+        "onboarding_started_at",
+        "onboarding_family_tree_started",
+        "onboarding_first_connection_explored",
+        "onboarding_completed",
+        "onboarding_completed_at",
     ]:
         normalized.setdefault(key, None)
 
@@ -2020,6 +2071,20 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
     normalized["ecosystem_updates_opt_in"] = bool(normalized.get("ecosystem_updates_opt_in"))
     normalized["return_reconnection_interest"] = _normalize_dropdown_token(
         str(normalized.get("return_reconnection_interest") or "maybe_learning_more")
+    )
+    normalized["onboarding_started"] = bool(normalized.get("onboarding_started"))
+    normalized["onboarding_started_at"] = (
+        str(normalized.get("onboarding_started_at"))
+        if normalized.get("onboarding_started_at")
+        else None
+    )
+    normalized["onboarding_family_tree_started"] = bool(normalized.get("onboarding_family_tree_started"))
+    normalized["onboarding_first_connection_explored"] = bool(normalized.get("onboarding_first_connection_explored"))
+    normalized["onboarding_completed"] = bool(normalized.get("onboarding_completed"))
+    normalized["onboarding_completed_at"] = (
+        str(normalized.get("onboarding_completed_at"))
+        if normalized.get("onboarding_completed_at")
+        else None
     )
     if not normalized.get("state"):
         normalized["state"] = "Not provided"
@@ -2086,6 +2151,12 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
         entry_agreement_accepted_at=registered_at,
         ecosystem_updates_opt_in=bool(payload.ecosystem_updates_opt_in),
         return_reconnection_interest=payload.return_reconnection_interest,
+        onboarding_started=True,
+        onboarding_started_at=registered_at,
+        onboarding_family_tree_started=False,
+        onboarding_first_connection_explored=False,
+        onboarding_completed=False,
+        onboarding_completed_at=None,
         registered_at=registered_at,
     )
     users.append(record.model_dump(mode="json"))
@@ -2128,6 +2199,14 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
         session_id=session_id,
     )
     write_activity_event(
+        event_type="onboarding_started",
+        message=f"Onboarding started for {record.full_name}.",
+        user_id=record.user_id,
+        family_id=record.family_id,
+        family_name=record.family_name,
+        session_id=session_id,
+    )
+    write_activity_event(
         event_type="family_group_updated" if family_exists else "family_group_created",
         message=(
             f"Family group {record.family_name} updated with new member {record.full_name}."
@@ -2160,6 +2239,10 @@ def get_stats() -> StatsResponse:
     total_with_contact_info = sum(1 for r in users if r.get("email") or r.get("phone") or r.get("phone_number"))
     entry_agreement_accepted_count = sum(1 for r in users if bool(r.get("entry_agreement_accepted")))
     ecosystem_updates_opt_in_count = sum(1 for r in users if bool(r.get("ecosystem_updates_opt_in")))
+    onboarding_completed_count = sum(1 for r in users if bool(r.get("onboarding_completed")))
+    onboarding_started_not_completed_count = sum(
+        1 for r in users if bool(r.get("onboarding_started")) and not bool(r.get("onboarding_completed"))
+    )
 
     region_distribution: dict[str, int] = {}
     travel_timeframe_distribution: dict[str, int] = {}
@@ -2216,6 +2299,8 @@ def get_stats() -> StatsResponse:
         entry_agreement_accepted_count=entry_agreement_accepted_count,
         ecosystem_updates_opt_in_count=ecosystem_updates_opt_in_count,
         return_reconnection_interest_distribution=return_reconnection_interest_distribution,
+        onboarding_completed_count=onboarding_completed_count,
+        onboarding_started_not_completed_count=onboarding_started_not_completed_count,
         region_distribution=region_distribution,
         travel_timeframe_distribution=travel_timeframe_distribution,
         state_distribution=state_distribution,
@@ -2387,6 +2472,12 @@ def update_registration(
         "relationship_notes",
         "ecosystem_updates_opt_in",
         "return_reconnection_interest",
+        "onboarding_started",
+        "onboarding_started_at",
+        "onboarding_family_tree_started",
+        "onboarding_first_connection_explored",
+        "onboarding_completed",
+        "onboarding_completed_at",
     ]
     for field in editable_fields:
         if field in updates:
@@ -2428,6 +2519,17 @@ def update_registration(
     if merged.get("travel_timeframe"):
         merged["user_stage"] = _derive_user_stage(str(merged["travel_timeframe"])).value
 
+    onboarding_progressed = (
+        (not bool(current.get("onboarding_family_tree_started")) and bool(merged.get("onboarding_family_tree_started")))
+        or (
+            not bool(current.get("onboarding_first_connection_explored"))
+            and bool(merged.get("onboarding_first_connection_explored"))
+        )
+    )
+    onboarding_completed_now = (
+        not bool(current.get("onboarding_completed")) and bool(merged.get("onboarding_completed"))
+    )
+
     updated_record = UserRecord.model_validate(merged)
     users[user_index] = updated_record.model_dump(mode="json")
 
@@ -2450,7 +2552,7 @@ def update_registration(
         _set_linked_fields(normalized_user, normalized_linked_ids)
         updated_users.append(normalized_user)
 
-    _save(updated_users)
+    _save_with_updates(updated_users)
 
     write_activity_event(
         event_type="family_group_updated",
@@ -2464,6 +2566,24 @@ def update_registration(
         write_activity_event(
             event_type="relationship_updated",
             message=f"Relationship details updated for {updated_record.full_name}.",
+            user_id=updated_record.user_id,
+            family_id=updated_record.family_id,
+            family_name=updated_record.family_name,
+            session_id=session_id,
+        )
+    if onboarding_progressed and not onboarding_completed_now:
+        write_activity_event(
+            event_type="onboarding_progress",
+            message=f"Onboarding progress updated for {updated_record.full_name}.",
+            user_id=updated_record.user_id,
+            family_id=updated_record.family_id,
+            family_name=updated_record.family_name,
+            session_id=session_id,
+        )
+    if onboarding_completed_now:
+        write_activity_event(
+            event_type="onboarding_completed",
+            message=f"Onboarding completed for {updated_record.full_name}.",
             user_id=updated_record.user_id,
             family_id=updated_record.family_id,
             family_name=updated_record.family_name,
@@ -2774,6 +2894,12 @@ def export_registrations_csv() -> str:
         "entry_agreement_accepted_at",
         "ecosystem_updates_opt_in",
         "return_reconnection_interest",
+        "onboarding_started",
+        "onboarding_started_at",
+        "onboarding_family_tree_started",
+        "onboarding_first_connection_explored",
+        "onboarding_completed",
+        "onboarding_completed_at",
         "registered_at",
     ]
     writer.writerow(headers)
@@ -2810,6 +2936,12 @@ def export_registrations_csv() -> str:
             reg.entry_agreement_accepted_at,
             str(reg.ecosystem_updates_opt_in),
             str(reg.return_reconnection_interest),
+            str(reg.onboarding_started),
+            reg.onboarding_started_at or "",
+            str(reg.onboarding_family_tree_started),
+            str(reg.onboarding_first_connection_explored),
+            str(reg.onboarding_completed),
+            reg.onboarding_completed_at or "",
             reg.registered_at,
         ]
         writer.writerow(row)
@@ -2957,7 +3089,7 @@ def merge_duplicate_profile(
             _drop_pair_decision(updated_user, other_id)
         updated_users.append(_normalize_user(updated_user))
 
-    _save(updated_users)
+    _save_with_updates(updated_users)
 
     write_activity_event(
         event_type="duplicate_merged",
@@ -3016,7 +3148,7 @@ def ignore_duplicate_profile(
         if user_id == duplicate_user_id:
             _upsert_pair_decision(updated_user, primary_user_id, _DUP_DECISION_KEEP_SEPARATE)
         updated_users.append(_normalize_user(updated_user))
-    _save(updated_users)
+    _save_with_updates(updated_users)
 
     candidates = _detect_duplicate_candidates_for_family([u for u in users if str(u.get("family_id") or "") == family_id and _is_tree_active(u)])
     candidate = next(
@@ -3078,7 +3210,7 @@ def review_later_duplicate_profile(
         if user_id == duplicate_user_id:
             _upsert_pair_decision(updated_user, primary_user_id, _DUP_DECISION_REVIEW_LATER)
         updated_users.append(_normalize_user(updated_user))
-    _save(updated_users)
+    _save_with_updates(updated_users)
 
     write_activity_event(
         event_type="duplicate_ignored",

@@ -285,6 +285,12 @@ class UserRecord(BaseModel):
     entry_agreement_accepted_at: str
     ecosystem_updates_opt_in: bool = False
     return_reconnection_interest: ReturnReconnectionInterest
+    onboarding_started: bool = False
+    onboarding_started_at: Optional[str] = None
+    onboarding_family_tree_started: bool = False
+    onboarding_first_connection_explored: bool = False
+    onboarding_completed: bool = False
+    onboarding_completed_at: Optional[str] = None
     registered_at: str
 
 
@@ -359,6 +365,12 @@ class RegistrationUpdateRequest(BaseModel):
     relationship_notes: Optional[str] = None
     ecosystem_updates_opt_in: Optional[bool] = None
     return_reconnection_interest: Optional[ReturnReconnectionInterest] = None
+    onboarding_started: Optional[bool] = None
+    onboarding_started_at: Optional[str] = None
+    onboarding_family_tree_started: Optional[bool] = None
+    onboarding_first_connection_explored: Optional[bool] = None
+    onboarding_completed: Optional[bool] = None
+    onboarding_completed_at: Optional[str] = None
 
     @field_validator("full_name", "family_name")
     @classmethod
@@ -502,6 +514,8 @@ class StatsResponse(BaseModel):
     entry_agreement_accepted_count: int
     ecosystem_updates_opt_in_count: int
     return_reconnection_interest_distribution: dict[str, int]
+    onboarding_completed_count: int
+    onboarding_started_not_completed_count: int
     region_distribution: dict[str, int]
     travel_timeframe_distribution: dict[str, int]
     state_distribution: dict[str, int]

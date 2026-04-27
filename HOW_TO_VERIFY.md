@@ -4,6 +4,10 @@
 
 Use this checklist to verify the Phase 37 trust and consent layer while preserving Phase 35 and Phase 36 behavior.
 
+## Phase 38: User Flow + First-Time Onboarding Experience
+
+Use the additional checks below to validate onboarding and guided UX behavior.
+
 ### 1. Start server
 
 ```bash
@@ -124,3 +128,62 @@ Do not stage/commit:
 - data/diaspora_registry.json
 - data/diaspora_registry_backup.json
 - data/registry_backups/*
+
+### 12. Phase 38 onboarding redirect check
+
+After successful registration:
+
+1. Confirm the app routes to the Welcome / Onboarding screen (not Home).
+2. Confirm the screen includes:
+	- "You are now part of Aeternum Bridge."
+	- Title: "Welcome to Aeternum Bridge"
+	- Subtext: "Your journey begins by building your family identity and reconnecting your lineage."
+
+### 13. Welcome actions routing check
+
+On the Welcome / Onboarding screen:
+
+1. Click "Build Your Family Tree" and confirm Family Tree page opens.
+2. Click "Find Family Connections" and confirm Find Family page opens.
+3. Click "View Activity" and confirm Activity Log page opens.
+
+### 14. Onboarding checklist + persistence check
+
+1. Confirm Quick Start Status shows:
+	- Profile created ✅
+	- Family tree started ☐
+	- First connection explored ☐
+2. Visit Family Tree and confirm "Family tree started" becomes ✅.
+3. Visit Find Family and confirm "First connection explored" becomes ✅.
+4. Confirm onboarding fields persist in the user profile:
+	- onboarding_started
+	- onboarding_family_tree_started
+	- onboarding_first_connection_explored
+	- onboarding_completed
+
+### 15. Onboarding activity events check
+
+Confirm Activity Log includes:
+
+- onboarding_started (on registration)
+- onboarding_progress (when first checklist actions are completed)
+- onboarding_completed (when checklist reaches completion)
+
+### 16. New-user nav indicator check
+
+1. For incomplete onboarding users, confirm top navigation subtly highlights remaining next step.
+2. After onboarding completion, confirm highlight is removed.
+
+### 17. Empty state copy check
+
+Confirm these exact empty-state messages render:
+
+- Family Tree: "Your family tree has not been started yet."
+- Find Family: "No connection requests yet - explore and find possible matches."
+- Activity Log: "No activity yet - your journey begins here."
+
+### 18. Existing user behavior check
+
+1. Open app with an existing user already in registry.
+2. Confirm existing users are not force-redirected into onboarding on every load.
+3. Confirm data guard and existing family connection behavior remain stable.

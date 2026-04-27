@@ -1947,6 +1947,18 @@
       box-shadow: 0 8px 22px rgba(201, 168, 76, 0.22);
     }
 
+    .app-nav-link.needs-attention {
+      border-color: rgba(255, 215, 0, 0.72);
+      box-shadow: 0 0 14px rgba(255, 215, 0, 0.24);
+      animation: navAttentionPulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes navAttentionPulse {
+      0% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.14); }
+      50% { box-shadow: 0 0 18px rgba(255, 215, 0, 0.34); }
+      100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.14); }
+    }
+
     .page-stack {
       max-width: 1240px;
       margin: 0 auto;
@@ -1961,6 +1973,93 @@
 
     .page-section.is-active {
       display: grid;
+      animation: pageFadeIn 280ms ease;
+    }
+
+    @keyframes pageFadeIn {
+      0% {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .onboarding-shell {
+      display: grid;
+      place-items: center;
+      min-height: 58vh;
+    }
+
+    .onboarding-panel {
+      width: min(820px, 100%);
+      border: 1px solid rgba(201, 168, 76, 0.34);
+      border-radius: 16px;
+      background: linear-gradient(160deg, rgba(20, 36, 56, 0.96), rgba(10, 24, 40, 0.92));
+      box-shadow: 0 16px 42px rgba(0, 0, 0, 0.44), 0 0 24px rgba(201, 168, 76, 0.16);
+      padding: 30px 24px;
+      display: grid;
+      gap: 18px;
+      text-align: center;
+    }
+
+    .onboarding-title {
+      color: var(--gold);
+      font-size: clamp(1.4rem, 3vw, 2.1rem);
+      line-height: 1.2;
+    }
+
+    .onboarding-subtext {
+      color: var(--body-text);
+      font-size: 0.95rem;
+      line-height: 1.7;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .onboarding-actions {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .onboarding-step-list {
+      text-align: left;
+      border: 1px solid rgba(201, 168, 76, 0.22);
+      border-radius: 12px;
+      background: rgba(17, 33, 52, 0.75);
+      padding: 14px;
+      display: grid;
+      gap: 6px;
+      color: var(--body-text);
+      font-size: 0.87rem;
+      line-height: 1.55;
+    }
+
+    .quick-start-panel {
+      text-align: left;
+      border: 1px solid rgba(201, 168, 76, 0.22);
+      border-radius: 12px;
+      background: rgba(17, 33, 52, 0.75);
+      padding: 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .quick-start-title {
+      color: var(--gold-lt);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .quick-start-item {
+      color: var(--body-text);
+      font-size: 0.86rem;
+      line-height: 1.5;
+    }
     }
 
     .page-header-card {
@@ -2989,6 +3088,36 @@
     </div>
   </section>
 
+  <section class="page-section" data-page="welcome">
+    <section class="page-header-card">
+      <span class="page-kicker">Welcome</span>
+      <h2 class="page-title">You are now part of Aeternum Bridge.</h2>
+      <p class="page-copy">Your onboarding checklist tracks how quickly your lineage journey is taking shape.</p>
+    </section>
+
+    <div class="onboarding-shell">
+      <section class="onboarding-panel" aria-labelledby="onboarding-title">
+        <h3 id="onboarding-title" class="onboarding-title">Welcome to Aeternum Bridge</h3>
+        <p class="onboarding-subtext">Your journey begins by building your family identity and reconnecting your lineage.</p>
+
+        <div class="onboarding-actions">
+          <button type="button" data-page-target="family-tree">Build Your Family Tree</button>
+          <button type="button" data-page-target="find-family">Find Family Connections</button>
+          <button type="button" data-page-target="activity-log">View Activity</button>
+        </div>
+
+        <div id="onboardingGuidance" class="onboarding-step-list"></div>
+
+        <div class="quick-start-panel">
+          <div class="quick-start-title">Quick Start Status</div>
+          <div id="onboardingQuickStartChecklist"></div>
+        </div>
+
+        <p id="onboardingStateHint" class="onboarding-subtext" style="font-size:0.82rem;"></p>
+      </section>
+    </div>
+  </section>
+
   <section class="page-section" data-page="family-tree">
     <section class="page-header-card">
       <span class="page-kicker">Family Tree</span>
@@ -3166,7 +3295,7 @@
         <p class="optional-note" style="margin-bottom:10px;">
           Older profiles may appear as low-confidence matches when no date of birth is stored. Request connection only when you recognize the person or can verify outside the app.
         </p>
-        <div id="findFamilyResults" class="stats-loading">Run a search to view possible match cards.</div>
+        <div id="findFamilyResults" class="stats-loading">No connection requests yet - explore and find possible matches.</div>
       </div>
     </div>
 
@@ -3245,6 +3374,9 @@
               <option value="entry_agreement_accepted">Entry Agreement Accepted</option>
               <option value="ecosystem_updates_opted_in">Ecosystem Updates Opted In</option>
               <option value="return_reconnection_interest_recorded">Return/Reconnection Interest Recorded</option>
+              <option value="onboarding_started">Onboarding Started</option>
+              <option value="onboarding_progress">Onboarding Progress</option>
+              <option value="onboarding_completed">Onboarding Completed</option>
             </select>
           </div>
           <button type="button" class="secondary activity-filter-btn" id="activityFilterApplyBtn">Apply</button>
@@ -3652,6 +3784,9 @@
   const registerLookupResults = document.getElementById('registerLookupResults');
   const adminPendingRequestsList = document.getElementById('adminPendingRequestsList');
   const refreshPendingRequestsBtn = document.getElementById('refreshPendingRequestsBtn');
+  const onboardingGuidance = document.getElementById('onboardingGuidance');
+  const onboardingQuickStartChecklist = document.getElementById('onboardingQuickStartChecklist');
+  const onboardingStateHint = document.getElementById('onboardingStateHint');
 
   let registrationsCache = [];
   let familiesCache = [];
@@ -3689,6 +3824,7 @@
   let latestActivitySnapshot = [];
   let latestLineageSignals = [];
   let latestActivityEventCount = null;
+  let onboardingProfileState = null;
   const SESSION_STORAGE_KEY = 'aeternum_session_id';
   const KNOWN_USER_STORAGE_KEY = 'aeternum_known_user_id';
   const REGISTRATION_STARTED_FLAG_KEY = 'aeternum_registration_started_logged';
@@ -3753,6 +3889,8 @@
     total_with_contact_info: null,
     entry_agreement_accepted_count: null,
     ecosystem_updates_opt_in_count: null,
+    onboarding_completed_count: null,
+    onboarding_started_not_completed_count: null,
   };
 
   function renderSystemStatusBadges() {
@@ -4207,6 +4345,8 @@
       ['Largest Family Size', stats.largest_family_size ?? 0],
       ['Entry Agreement Accepted', stats.entry_agreement_accepted_count ?? 0],
       ['Ecosystem Updates Opt-ins', stats.ecosystem_updates_opt_in_count ?? 0],
+      ['Onboarding Completed', stats.onboarding_completed_count ?? 0],
+      ['Onboarding Started Not Completed', stats.onboarding_started_not_completed_count ?? 0],
       ['Return/Reconnection: Yes', (stats.return_reconnection_interest_distribution || {}).yes_interested_return_reconnection ?? 0],
       ['Return/Reconnection: Maybe', (stats.return_reconnection_interest_distribution || {}).maybe_learning_more ?? 0],
       ['Return/Reconnection: No', (stats.return_reconnection_interest_distribution || {}).no_documenting_family_history ?? 0],
@@ -5482,7 +5622,7 @@
     const rows = Array.isArray(matches) ? matches : [];
     if (!rows.length) {
       findFamilyResults.className = 'stats-loading';
-      findFamilyResults.textContent = 'No possible family matches found for this search.';
+      findFamilyResults.textContent = 'No connection requests yet - explore and find possible matches.';
       return;
     }
     const hasStrongMatch = rows.some((row) => Number(row?.confidence_score || 0) >= 60 || String(row?.confidence_level || '').toLowerCase() === 'high');
@@ -5942,7 +6082,11 @@
     if (pageName === 'home') {
       loadHomeDashboard();
     }
+    if (pageName === 'welcome') {
+      refreshOnboardingProfile();
+    }
     if (pageName === 'family-tree') {
+      persistOnboardingProgress({ onboarding_family_tree_started: true, onboarding_started: true }).then(maybeCompleteOnboarding);
       if (!familiesCache.length) {
         loadFamilies();
       }
@@ -5950,6 +6094,7 @@
       loadTreeDuplicateReview();
     }
     if (pageName === 'find-family') {
+      persistOnboardingProgress({ onboarding_first_connection_explored: true, onboarding_started: true }).then(maybeCompleteOnboarding);
       const knownUserId = getKnownUserId();
       if (knownUserId) {
         if (findRequesterUserIdInput && !String(findRequesterUserIdInput.value || '').trim()) {
@@ -5980,6 +6125,7 @@
       loadAdminPendingFamilyRequests();
       loadIntelligenceDashboard();
     }
+    updateOnboardingNavHighlights();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -6014,6 +6160,152 @@
     const normalized = String(userId || '').trim();
     if (!normalized) return;
     window.localStorage.setItem(KNOWN_USER_STORAGE_KEY, normalized);
+    onboardingProfileState = null;
+    updateOnboardingNavHighlights();
+  }
+
+  function getKnownUserProfileFromCache() {
+    const knownUserId = String(getKnownUserId() || '').trim();
+    if (!knownUserId) return null;
+    return registrationsCache.find((record) => String(record?.user_id || '').trim() === knownUserId) || null;
+  }
+
+  function getOnboardingChecklist(profile) {
+    if (!profile) {
+      return {
+        profileCreated: false,
+        familyTreeStarted: false,
+        firstConnectionExplored: false,
+        completed: false,
+      };
+    }
+    const profileCreated = Boolean(String(profile.user_id || '').trim());
+    const familyTreeStarted = Boolean(profile.onboarding_family_tree_started);
+    const firstConnectionExplored = Boolean(profile.onboarding_first_connection_explored);
+    const completed = Boolean(profile.onboarding_completed) || (profileCreated && familyTreeStarted && firstConnectionExplored);
+    return {
+      profileCreated,
+      familyTreeStarted,
+      firstConnectionExplored,
+      completed,
+    };
+  }
+
+  function renderOnboardingPanel(profile) {
+    if (!onboardingQuickStartChecklist || !onboardingGuidance || !onboardingStateHint) return;
+    const checklist = getOnboardingChecklist(profile);
+
+    onboardingQuickStartChecklist.innerHTML = `
+      <div class="quick-start-item">Profile created ${checklist.profileCreated ? '✅' : '☐'}</div>
+      <div class="quick-start-item">Family tree started ${checklist.familyTreeStarted ? '✅' : '☐'}</div>
+      <div class="quick-start-item">First connection explored ${checklist.firstConnectionExplored ? '✅' : '☐'}</div>
+    `;
+
+    if (checklist.completed) {
+      onboardingGuidance.innerHTML = '<div>Onboarding complete. Continue expanding lineage depth and reconnection pathways.</div>';
+      onboardingStateHint.textContent = 'Onboarding complete. You can navigate freely across Family Tree, Find Family, and Activity Log.';
+      return;
+    }
+
+    onboardingGuidance.innerHTML = `
+      <div>Step 1: Register yourself as the root of your family</div>
+      <div>Step 2: Add known family members</div>
+      <div>Step 3: Explore possible matches</div>
+      <div>Step 4: Send connection requests</div>
+    `;
+    onboardingStateHint.textContent = 'Complete all quick-start items to finish first-time onboarding.';
+  }
+
+  function updateOnboardingNavHighlights() {
+    const registerBtn = document.querySelector('.app-nav-link[data-page-target="register"]');
+    const familyTreeBtn = document.querySelector('.app-nav-link[data-page-target="family-tree"]');
+    if (registerBtn) registerBtn.classList.remove('needs-attention');
+    if (familyTreeBtn) familyTreeBtn.classList.remove('needs-attention');
+
+    const knownUserId = String(getKnownUserId() || '').trim();
+    if (!knownUserId) {
+      if (registerBtn) registerBtn.classList.add('needs-attention');
+      return;
+    }
+
+    const profile = onboardingProfileState || getKnownUserProfileFromCache();
+    const checklist = getOnboardingChecklist(profile);
+    if (!checklist.completed && !checklist.familyTreeStarted && familyTreeBtn) {
+      familyTreeBtn.classList.add('needs-attention');
+    }
+  }
+
+  async function refreshOnboardingProfile() {
+    if (!getKnownUserId()) {
+      onboardingProfileState = null;
+      renderOnboardingPanel(null);
+      updateOnboardingNavHighlights();
+      return null;
+    }
+    if (!registrationsCache.length) {
+      await loadRegistrations();
+    }
+    onboardingProfileState = getKnownUserProfileFromCache();
+    renderOnboardingPanel(onboardingProfileState);
+    updateOnboardingNavHighlights();
+    return onboardingProfileState;
+  }
+
+  async function persistOnboardingProgress(patch) {
+    const knownUserId = String(getKnownUserId() || '').trim();
+    if (!knownUserId) return;
+    const profile = onboardingProfileState || await refreshOnboardingProfile();
+    if (!profile) return;
+
+    const nextPatch = {};
+    Object.entries(patch || {}).forEach(([key, value]) => {
+      if (profile[key] !== value) {
+        nextPatch[key] = value;
+      }
+    });
+    if (!Object.keys(nextPatch).length) return;
+
+    try {
+      const res = await apiFetch(`/registrations/${encodeURIComponent(knownUserId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextPatch),
+      });
+      if (!res.ok) return;
+      const updated = await res.json().catch(() => null);
+      if (updated && typeof updated === 'object') {
+        onboardingProfileState = updated;
+      }
+      await loadRegistrations();
+      renderOnboardingPanel(onboardingProfileState || getKnownUserProfileFromCache());
+      updateOnboardingNavHighlights();
+      await loadStats();
+      await loadActivityLog();
+      await loadAdminActivityLog();
+    } catch {
+      // Do not block core UX if onboarding progress write fails.
+    }
+  }
+
+  async function maybeCompleteOnboarding() {
+    const profile = onboardingProfileState || await refreshOnboardingProfile();
+    if (!profile) return;
+    const checklist = getOnboardingChecklist(profile);
+    if (checklist.completed) {
+      if (!profile.onboarding_completed) {
+        await persistOnboardingProgress({
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString(),
+        });
+      }
+      return;
+    }
+    if (checklist.profileCreated && checklist.familyTreeStarted && checklist.firstConnectionExplored) {
+      await persistOnboardingProgress({
+        onboarding_completed: true,
+        onboarding_completed_at: new Date().toISOString(),
+      });
+    }
   }
 
   function buildTrackedHeaders(extraHeaders = {}) {
@@ -6720,11 +7012,16 @@
       }
       await runRegisterFamilyLookup();
       await autoRunFindFamilySearch('registration-success');
-      loadStats();
-      loadRegistrations();
-      loadFamilies();
-      loadActivityLog();
-      successMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await Promise.all([
+        loadStats(),
+        loadRegistrations(),
+        loadFamilies(),
+        loadActivityLog(),
+        loadAdminActivityLog(),
+      ]);
+      await refreshOnboardingProfile();
+      setActivePage('welcome');
+      maybeCompleteOnboarding();
     } catch (err) {
       showError('Network error — is the server running?');
     }
@@ -7177,7 +7474,7 @@
   }
 
   function getTreeEmptyMessage() {
-    return 'Family tree will appear once members are connected.';
+    return 'Your family tree has not been started yet.';
   }
 
   function getTreeNodeKey(familyId, node, pathKey) {
@@ -8036,6 +8333,8 @@
         total_with_contact_info: data.total_with_contact_info ?? 0,
         entry_agreement_accepted_count: data.entry_agreement_accepted_count ?? 0,
         ecosystem_updates_opt_in_count: data.ecosystem_updates_opt_in_count ?? 0,
+        onboarding_completed_count: data.onboarding_completed_count ?? 0,
+        onboarding_started_not_completed_count: data.onboarding_started_not_completed_count ?? 0,
       };
       latestStatsSnapshot = data;
 
@@ -8054,6 +8353,12 @@
         ecosystem_updates_opt_in_count:
           previousStatValues.ecosystem_updates_opt_in_count !== null &&
           previousStatValues.ecosystem_updates_opt_in_count !== current.ecosystem_updates_opt_in_count,
+        onboarding_completed_count:
+          previousStatValues.onboarding_completed_count !== null &&
+          previousStatValues.onboarding_completed_count !== current.onboarding_completed_count,
+        onboarding_started_not_completed_count:
+          previousStatValues.onboarding_started_not_completed_count !== null &&
+          previousStatValues.onboarding_started_not_completed_count !== current.onboarding_started_not_completed_count,
       };
 
       container.innerHTML = `
@@ -8075,6 +8380,14 @@
           <div class="stat-box" style="grid-column:1/-1">
             <div class="num${changed.ecosystem_updates_opt_in_count ? ' updated' : ''}">${current.ecosystem_updates_opt_in_count}</div>
             <div class="lbl">Ecosystem Updates Opt-ins</div>
+          </div>
+          <div class="stat-box" style="grid-column:1/-1">
+            <div class="num${changed.onboarding_completed_count ? ' updated' : ''}">${current.onboarding_completed_count}</div>
+            <div class="lbl">Onboarding Completed</div>
+          </div>
+          <div class="stat-box" style="grid-column:1/-1">
+            <div class="num${changed.onboarding_started_not_completed_count ? ' updated' : ''}">${current.onboarding_started_not_completed_count}</div>
+            <div class="lbl">Onboarding Started Not Completed</div>
           </div>
         </div>
         <div class="stats-subgroup">
@@ -8120,6 +8433,8 @@
       previousStatValues.total_with_contact_info = current.total_with_contact_info;
       previousStatValues.entry_agreement_accepted_count = current.entry_agreement_accepted_count;
       previousStatValues.ecosystem_updates_opt_in_count = current.ecosystem_updates_opt_in_count;
+      previousStatValues.onboarding_completed_count = current.onboarding_completed_count;
+      previousStatValues.onboarding_started_not_completed_count = current.onboarding_started_not_completed_count;
       renderAdminSummary();
 
       const now = new Date();
@@ -8343,6 +8658,7 @@
           loadAdminActivityLog(),
           loadIntelligenceDashboard(),
         ]);
+        await refreshOnboardingProfile();
         return;
       } catch {
         if (attempt === maxAttempts) {
@@ -8454,7 +8770,7 @@
       }
 
       if (!events.length) {
-        activityLogList.innerHTML = '<p class="stats-loading">No activity events yet.</p>';
+        activityLogList.innerHTML = '<p class="stats-loading">No activity yet - your journey begins here.</p>';
         return;
       }
 
@@ -8490,6 +8806,7 @@
   sendSessionHeartbeat();
   restoreActivityFilterState();
   renderSystemStatusBadges();
+  updateOnboardingNavHighlights();
 
   // Hydrate all key backend-backed sections on page open.
   bootstrapHydration();
