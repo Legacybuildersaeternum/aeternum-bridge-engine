@@ -517,6 +517,8 @@ class StatsResponse(BaseModel):
     onboarding_completed_count: int
     onboarding_started_not_completed_count: int
     total_messages_count: int
+    total_cohorts: int
+    total_cohort_memberships: int
     region_distribution: dict[str, int]
     travel_timeframe_distribution: dict[str, int]
     state_distribution: dict[str, int]

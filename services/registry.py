@@ -2228,6 +2228,7 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
 
 def get_stats() -> StatsResponse:
     from services.messages import get_total_messages_count
+    from services.cohorts import get_total_cohorts_count, get_total_memberships_count
     users = [_normalize_user(u) for u in _load()]
     users = [u for u in users if _is_tree_active(u)]
 
@@ -2308,6 +2309,8 @@ def get_stats() -> StatsResponse:
         onboarding_completed_count=onboarding_completed_count,
         onboarding_started_not_completed_count=onboarding_started_not_completed_count,
         total_messages_count=get_total_messages_count(),
+        total_cohorts=get_total_cohorts_count(),
+        total_cohort_memberships=get_total_memberships_count(),
         region_distribution=region_distribution,
         travel_timeframe_distribution=travel_timeframe_distribution,
         state_distribution=state_distribution,

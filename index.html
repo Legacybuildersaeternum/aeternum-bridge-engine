@@ -2100,6 +2100,76 @@
       border-color: var(--gold);
     }
 
+    /* ── Cohorts ── */
+    .cohort-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      margin-bottom: 10px;
+    }
+    .cohort-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .cohort-card-name {
+      font-weight: 600;
+      color: var(--gold);
+      font-size: 1rem;
+    }
+    .cohort-card-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .cohort-type-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      background: rgba(201,168,76,0.12);
+      color: var(--gold-lt);
+      border: 1px solid rgba(201,168,76,0.2);
+    }
+    .cohort-card-desc {
+      font-size: 0.87rem;
+      color: var(--body-text);
+      line-height: 1.5;
+    }
+    .cohort-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .cohort-member-count {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .cohort-msg-bubble {
+      padding: 9px 13px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      line-height: 1.5;
+    }
+    .cohort-msg-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
     .page-kicker {
       display: inline-block;
       margin-bottom: 10px;
@@ -2769,6 +2839,7 @@
   <button type="button" class="app-nav-link" data-page-target="family-tree">Family Tree</button>
   <button type="button" class="app-nav-link" data-page-target="find-family">Find Family</button>
   <button type="button" class="app-nav-link" data-page-target="messages">Messages</button>
+  <button type="button" class="app-nav-link" data-page-target="cohorts">Cohorts</button>
   <button type="button" class="app-nav-link" data-page-target="activity-log">Activity Log</button>
   <button type="button" class="app-nav-link" data-page-target="export-backup">Export &amp; Backup</button>
   <button type="button" class="app-nav-link" data-page-target="admin-dashboard">Admin Dashboard</button>
@@ -3466,6 +3537,82 @@
         <div id="msgThreadList" style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
         <button type="button" id="msgRefreshConversationBtn" style="margin-top:12px;">Refresh Conversation</button>
       </div>
+    </div>
+  </section>
+
+  <section class="page-section" data-page="cohorts">
+    <section class="page-header-card">
+      <span class="page-kicker">Cohorts</span>
+      <h2 class="page-title">Cultural Cohorts &amp; Movement Groups</h2>
+      <p class="page-copy">Join structured groups aligned to your origin, heritage, or intent. Connect with others on shared journeys — from heritage discovery to cultural reconnection and relocation planning.</p>
+    </section>
+
+    <!-- My Cohorts -->
+    <div class="card" id="myCohortsMembershipsCard">
+      <h2>My Cohorts</h2>
+      <div class="field">
+        <label for="cohortsMyUserId">Your User ID</label>
+        <input type="text" id="cohortsMyUserId" placeholder="usr_…" />
+      </div>
+      <button type="button" id="cohortsLoadMineBtn">Load My Cohorts</button>
+      <div id="myCohortsList" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- Suggested For You -->
+    <div class="card" id="cohortsSuggestedCard">
+      <h2>Suggested For You</h2>
+      <p style="font-size:0.88rem; color:var(--muted); margin-bottom:12px;">Enter your User ID above and click "Load My Cohorts" to see personalised suggestions based on your origin and interests.</p>
+      <div id="cohortsSuggestedList"></div>
+    </div>
+
+    <!-- All Cohorts -->
+    <div class="card" id="cohortsAllCard">
+      <h2>All Cohorts</h2>
+      <button type="button" id="cohortsRefreshAllBtn" style="margin-bottom:14px;">Refresh List</button>
+      <div id="cohortsAllList"><div class="stats-loading">Loading cohorts…</div></div>
+    </div>
+
+    <!-- Cohort Detail Panel -->
+    <div class="card" id="cohortDetailPanel" style="display:none;">
+      <button type="button" id="cohortDetailBackBtn" style="margin-bottom:12px; background:transparent; border:1px solid var(--border); color:var(--muted);">← Back to All Cohorts</button>
+      <h2 id="cohortDetailName"></h2>
+      <div id="cohortDetailMeta" style="font-size:0.82rem; color:var(--muted); margin-bottom:10px;"></div>
+      <p id="cohortDetailDesc" style="margin-bottom:14px;"></p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+        <button type="button" id="cohortDetailJoinBtn">Join Cohort</button>
+        <button type="button" id="cohortDetailLeaveBtn" style="display:none; background:transparent; border:1px solid var(--border); color:var(--muted);">Leave Cohort</button>
+      </div>
+      <div id="cohortDetailFeedback" class="message" style="margin-bottom:12px;"></div>
+
+      <h3 style="margin-bottom:10px;">Cohort Board</h3>
+      <div id="cohortMsgThread" style="max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:12px;"></div>
+      <div id="cohortMsgCompose" style="display:none;">
+        <textarea id="cohortMsgInput" rows="2" maxlength="2000" placeholder="Post a message to this cohort…" style="width:100%; resize:vertical; font-size:0.93rem; padding:8px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text);"></textarea>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+          <span id="cohortMsgCharCount" style="font-size:0.77rem; color:var(--muted);">0 / 2000</span>
+          <button type="button" id="cohortMsgSendBtn">Post</button>
+        </div>
+        <div id="cohortMsgFeedback" class="message" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <!-- Create Cohort (admin-style) -->
+    <div class="card" id="cohortsCreateCard">
+      <h2>Create a Cohort</h2>
+      <div class="field"><label for="newCohortName">Name</label><input type="text" id="newCohortName" placeholder="e.g. Yoruba Heritage Circle" maxlength="120" /></div>
+      <div class="field">
+        <label for="newCohortType">Type</label>
+        <select id="newCohortType">
+          <option value="tribe">Tribe</option>
+          <option value="region">Region</option>
+          <option value="intent">Intent</option>
+          <option value="unknown_guided">Unknown / Guided Discovery</option>
+        </select>
+      </div>
+      <div class="field"><label for="newCohortRegion">Origin Region (optional)</label><input type="text" id="newCohortRegion" placeholder="e.g. west_africa" maxlength="80" /></div>
+      <div class="field"><label for="newCohortDesc">Description</label><textarea id="newCohortDesc" rows="3" maxlength="600" style="width:100%; resize:vertical; padding:8px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text);"></textarea></div>
+      <button type="button" id="cohortsCreateBtn">Create Cohort</button>
+      <div id="cohortsCreateFeedback" class="message" style="margin-top:8px;"></div>
     </div>
   </section>
 
@@ -4429,6 +4576,8 @@
       ['Onboarding Completed', stats.onboarding_completed_count ?? 0],
       ['Onboarding Started Not Completed', stats.onboarding_started_not_completed_count ?? 0],
       ['Total Messages Sent', stats.total_messages_count ?? 0],
+      ['Total Cohorts', stats.total_cohorts ?? 0],
+      ['Total Cohort Memberships', stats.total_cohort_memberships ?? 0],
       ['Return/Reconnection: Heritage', (stats.return_reconnection_interest_distribution || {}).yes_interested_return_reconnection ?? 0],
       ['Return/Reconnection: Cultural', (stats.return_reconnection_interest_distribution || {}).maybe_learning_more ?? 0],
       ['Return/Reconnection: History Only', (stats.return_reconnection_interest_distribution || {}).no_documenting_family_history ?? 0],
@@ -6195,6 +6344,9 @@
       loadIncomingConnectionRequests();
       loadOutgoingConnectionRequests();
     }
+    if (pageName === 'cohorts') {
+      initCohortsPage();
+    }
     if (pageName === 'activity-log') {
       logPageViewOnce('activity-log', 'activity_log_viewed', 'Activity Log tab opened.');
       loadActivityLog();
@@ -6453,6 +6605,287 @@
     window.sessionStorage.setItem(key, sessionId);
     postSessionEvent(eventType, message);
   }
+
+  /* ── Phase 40: Cohorts ── */
+  let _allCohorts = [];
+  let _myCohortIds = new Set();
+  let _activeCohortId = null;
+  let _cohortsInitialised = false;
+
+  function _cohortTypeBadge(type) {
+    const labels = { tribe: 'Tribe', region: 'Region', intent: 'Intent', unknown_guided: 'Discovery' };
+    return `<span class="cohort-type-badge">${escapeHtml(labels[type] || type)}</span>`;
+  }
+
+  function _renderCohortCard(cohort, isMember) {
+    const joinedClass = isMember ? ' style="display:none;"' : '';
+    const leaveClass = isMember ? '' : ' style="display:none;"';
+    return `
+      <div class="cohort-card" data-cohort-id="${escapeHtml(cohort.cohort_id)}">
+        <div class="cohort-card-header">
+          <span class="cohort-card-name">${escapeHtml(cohort.name)}</span>
+          <div class="cohort-card-badges">
+            ${_cohortTypeBadge(cohort.type)}
+            ${cohort.origin_region ? `<span class="cohort-type-badge">${escapeHtml(cohort.origin_region)}</span>` : ''}
+          </div>
+        </div>
+        <p class="cohort-card-desc">${escapeHtml(cohort.description || '')}</p>
+        <div class="cohort-card-footer">
+          <span class="cohort-member-count">${cohort.member_count ?? 0} member${(cohort.member_count ?? 0) !== 1 ? 's' : ''}</span>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="cohort-view-btn" data-cohort-id="${escapeHtml(cohort.cohort_id)}">View</button>
+            <button type="button" class="cohort-join-btn" data-cohort-id="${escapeHtml(cohort.cohort_id)}"${joinedClass}>Join</button>
+            <button type="button" class="cohort-leave-btn" data-cohort-id="${escapeHtml(cohort.cohort_id)}"${leaveClass} style="background:transparent; border:1px solid var(--border); color:var(--muted);">Leave</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  async function initCohortsPage() {
+    if (!_cohortsInitialised) {
+      _cohortsInitialised = true;
+      document.getElementById('cohortsLoadMineBtn')?.addEventListener('click', loadMyCohorts);
+      document.getElementById('cohortsRefreshAllBtn')?.addEventListener('click', loadAllCohorts);
+      document.getElementById('cohortsCreateBtn')?.addEventListener('click', createCohortAction);
+      document.getElementById('cohortDetailBackBtn')?.addEventListener('click', () => {
+        document.getElementById('cohortDetailPanel').style.display = 'none';
+        document.getElementById('cohortsAllCard').style.display = '';
+        document.getElementById('cohortsCreateCard').style.display = '';
+      });
+      document.getElementById('cohortMsgInput')?.addEventListener('input', () => {
+        const el = document.getElementById('cohortMsgInput');
+        const ct = document.getElementById('cohortMsgCharCount');
+        if (ct) ct.textContent = `${el.value.length} / 2000`;
+      });
+      document.getElementById('cohortMsgSendBtn')?.addEventListener('click', sendCohortMessageAction);
+      // Delegate join/leave/view clicks on all-list and my-list
+      ['cohortsAllList', 'myCohortsList', 'cohortsSuggestedList'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', handleCohortCardClick);
+      });
+      const knownId = getKnownUserId ? getKnownUserId() : '';
+      const inp = document.getElementById('cohortsMyUserId');
+      if (knownId && inp && !inp.value.trim()) inp.value = knownId;
+    }
+    await loadAllCohorts();
+    if (document.getElementById('cohortsMyUserId')?.value?.trim()) {
+      await loadMyCohorts();
+    }
+  }
+
+  async function loadAllCohorts() {
+    const listEl = document.getElementById('cohortsAllList');
+    if (listEl) listEl.innerHTML = '<div class="stats-loading">Loading…</div>';
+    try {
+      const res = await apiFetch('/cohorts/list');
+      const data = await res.json().catch(() => ([]));
+      if (!res.ok) { if (listEl) listEl.innerHTML = `<div class="stats-loading">${escapeHtml(data?.detail || 'Error')}</div>`; return; }
+      _allCohorts = Array.isArray(data) ? data : [];
+      if (!_allCohorts.length) { if (listEl) listEl.innerHTML = '<div class="stats-loading">No cohorts yet.</div>'; return; }
+      if (listEl) listEl.innerHTML = _allCohorts.map(c => _renderCohortCard(c, _myCohortIds.has(c.cohort_id))).join('');
+    } catch { if (listEl) listEl.innerHTML = '<div class="stats-loading">Network error.</div>'; }
+  }
+
+  async function loadMyCohorts() {
+    const userId = String(document.getElementById('cohortsMyUserId')?.value || '').trim();
+    const listEl = document.getElementById('myCohortsList');
+    const sugEl = document.getElementById('cohortsSuggestedList');
+    if (!userId) { if (listEl) { listEl.innerHTML = '<div class="stats-loading">Enter your User ID first.</div>'; } return; }
+    if (listEl) listEl.innerHTML = '<div class="stats-loading">Loading…</div>';
+    try {
+      const [myRes, allRes] = await Promise.all([
+        apiFetch(`/cohorts/user/${encodeURIComponent(userId)}`),
+        Promise.resolve(),
+      ]);
+      const myData = await myRes.json().catch(() => ([]));
+      if (!myRes.ok) { if (listEl) listEl.innerHTML = `<div class="stats-loading">${escapeHtml(myData?.detail || 'Error')}</div>`; return; }
+      const myCohorts = Array.isArray(myData) ? myData : [];
+      _myCohortIds = new Set(myCohorts.map(c => c.cohort_id));
+      if (listEl) {
+        listEl.innerHTML = myCohorts.length
+          ? myCohorts.map(c => _renderCohortCard(c, true)).join('')
+          : '<div class="stats-loading">You have not joined any cohorts yet.</div>';
+      }
+      // refresh all-list to sync join/leave buttons
+      if (_allCohorts.length) {
+        const allEl = document.getElementById('cohortsAllList');
+        if (allEl && !document.getElementById('cohortDetailPanel').style.display === 'none') {
+          allEl.innerHTML = _allCohorts.map(c => _renderCohortCard(c, _myCohortIds.has(c.cohort_id))).join('');
+        }
+      }
+      // Suggestions: use registry data to suggest cohorts
+      if (sugEl) {
+        sugEl.innerHTML = '<div class="stats-loading">Loading suggestions…</div>';
+        try {
+          // Get user origin from registrations cache
+          let origin = null, interest = null;
+          if (typeof registrationsCache !== 'undefined' && registrationsCache.length) {
+            const me = registrationsCache.find(u => u.user_id === userId);
+            origin = me?.origin_region || null;
+            interest = me?.return_reconnection_interest || null;
+          }
+          const sugRes = await apiFetch('/cohorts/suggest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ origin_region: origin, return_reconnection_interest: interest }),
+          });
+          const sugData = await sugRes.json().catch(() => ([]));
+          const suggestions = Array.isArray(sugData) ? sugData.filter(c => !_myCohortIds.has(c.cohort_id)) : [];
+          sugEl.innerHTML = suggestions.length
+            ? suggestions.map(c => _renderCohortCard(c, false)).join('')
+            : '<div class="stats-loading">No new suggestions — you may already be in the relevant cohorts.</div>';
+        } catch { sugEl.innerHTML = '<div class="stats-loading">Could not load suggestions.</div>'; }
+      }
+    } catch { if (listEl) listEl.innerHTML = '<div class="stats-loading">Network error.</div>'; }
+  }
+
+  async function handleCohortCardClick(evt) {
+    const viewBtn = evt.target.closest('.cohort-view-btn');
+    const joinBtn = evt.target.closest('.cohort-join-btn');
+    const leaveBtn = evt.target.closest('.cohort-leave-btn');
+    if (viewBtn) { await openCohortDetail(viewBtn.dataset.cohortId); return; }
+    if (joinBtn) { await joinCohortAction(joinBtn.dataset.cohortId); return; }
+    if (leaveBtn) { await leaveCohortAction(leaveBtn.dataset.cohortId); return; }
+  }
+
+  async function openCohortDetail(cohortId) {
+    _activeCohortId = cohortId;
+    const res = await apiFetch(`/cohorts/${encodeURIComponent(cohortId)}`);
+    const cohort = await res.json().catch(() => ({}));
+    if (!res.ok) return;
+    document.getElementById('cohortDetailName').textContent = cohort.name || '';
+    document.getElementById('cohortDetailMeta').textContent =
+      `Type: ${cohort.type || '—'}${cohort.origin_region ? ' · Region: ' + cohort.origin_region : ''} · ${cohort.member_count ?? 0} member${(cohort.member_count ?? 0) !== 1 ? 's' : ''}`;
+    document.getElementById('cohortDetailDesc').textContent = cohort.description || '';
+    const isMember = _myCohortIds.has(cohortId);
+    document.getElementById('cohortDetailJoinBtn').style.display = isMember ? 'none' : '';
+    document.getElementById('cohortDetailLeaveBtn').style.display = isMember ? '' : 'none';
+    document.getElementById('cohortMsgCompose').style.display = isMember ? '' : 'none';
+    document.getElementById('cohortDetailFeedback').textContent = '';
+    document.getElementById('cohortDetailPanel').style.display = '';
+    document.getElementById('cohortsAllCard').style.display = 'none';
+    document.getElementById('cohortsCreateCard').style.display = 'none';
+    await loadCohortMessages();
+    document.getElementById('cohortDetailJoinBtn').onclick = () => joinCohortAction(cohortId);
+    document.getElementById('cohortDetailLeaveBtn').onclick = () => leaveCohortAction(cohortId);
+  }
+
+  async function loadCohortMessages() {
+    if (!_activeCohortId) return;
+    const threadEl = document.getElementById('cohortMsgThread');
+    if (!threadEl) return;
+    threadEl.innerHTML = '<div class="stats-loading">Loading…</div>';
+    try {
+      const res = await apiFetch(`/cohorts/${encodeURIComponent(_activeCohortId)}/messages`);
+      const msgs = await res.json().catch(() => ([]));
+      if (!res.ok || !Array.isArray(msgs) || !msgs.length) {
+        threadEl.innerHTML = '<div class="stats-loading">No messages yet. Join and be the first to post!</div>';
+        return;
+      }
+      const myId = String(document.getElementById('cohortsMyUserId')?.value || '').trim();
+      threadEl.innerHTML = msgs.map(m => {
+        const isMine = m.sender_id === myId;
+        const ts = m.timestamp ? new Date(m.timestamp).toLocaleString() : '';
+        return `<div class="cohort-msg-bubble" style="${isMine ? 'border-color:rgba(201,168,76,0.3); background:rgba(201,168,76,0.07);' : ''}">
+          <div style="font-size:0.78rem; color:var(--gold-lt); margin-bottom:3px;">${escapeHtml(m.sender_id)}</div>
+          <div>${escapeHtml(m.message_text || '')}</div>
+          <div class="cohort-msg-meta">${escapeHtml(ts)}</div>
+        </div>`;
+      }).join('');
+      threadEl.scrollTop = threadEl.scrollHeight;
+    } catch { threadEl.innerHTML = '<div class="stats-loading">Network error.</div>'; }
+  }
+
+  async function joinCohortAction(cohortId) {
+    const userId = String(document.getElementById('cohortsMyUserId')?.value || '').trim();
+    const feedbackEl = document.getElementById('cohortDetailFeedback');
+    if (!userId) { if (feedbackEl) { feedbackEl.textContent = 'Enter your User ID first.'; feedbackEl.className = 'message error'; } return; }
+    try {
+      const res = await apiFetch('/cohorts/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, cohort_id: cohortId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { if (feedbackEl) { feedbackEl.textContent = data?.detail || 'Could not join.'; feedbackEl.className = 'message error'; } return; }
+      _myCohortIds.add(cohortId);
+      if (feedbackEl) { feedbackEl.textContent = 'You joined this cohort!'; feedbackEl.className = 'message success'; }
+      document.getElementById('cohortDetailJoinBtn').style.display = 'none';
+      document.getElementById('cohortDetailLeaveBtn').style.display = '';
+      document.getElementById('cohortMsgCompose').style.display = '';
+      await loadAllCohorts();
+      await loadMyCohorts();
+    } catch { if (feedbackEl) { feedbackEl.textContent = 'Network error.'; feedbackEl.className = 'message error'; } }
+  }
+
+  async function leaveCohortAction(cohortId) {
+    const userId = String(document.getElementById('cohortsMyUserId')?.value || '').trim();
+    const feedbackEl = document.getElementById('cohortDetailFeedback');
+    if (!userId) { if (feedbackEl) { feedbackEl.textContent = 'Enter your User ID first.'; feedbackEl.className = 'message error'; } return; }
+    try {
+      const res = await apiFetch('/cohorts/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, cohort_id: cohortId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { if (feedbackEl) { feedbackEl.textContent = data?.detail || 'Could not leave.'; feedbackEl.className = 'message error'; } return; }
+      _myCohortIds.delete(cohortId);
+      if (feedbackEl) { feedbackEl.textContent = 'You left this cohort.'; feedbackEl.className = 'message warning'; }
+      document.getElementById('cohortDetailJoinBtn').style.display = '';
+      document.getElementById('cohortDetailLeaveBtn').style.display = 'none';
+      document.getElementById('cohortMsgCompose').style.display = 'none';
+      await loadAllCohorts();
+      await loadMyCohorts();
+    } catch { if (feedbackEl) { feedbackEl.textContent = 'Network error.'; feedbackEl.className = 'message error'; } }
+  }
+
+  async function sendCohortMessageAction() {
+    const userId = String(document.getElementById('cohortsMyUserId')?.value || '').trim();
+    const textEl = document.getElementById('cohortMsgInput');
+    const text = String(textEl?.value || '').trim();
+    const feedbackEl = document.getElementById('cohortMsgFeedback');
+    if (!userId || !_activeCohortId) { if (feedbackEl) { feedbackEl.textContent = 'Enter your User ID and open a cohort first.'; feedbackEl.className = 'message error'; } return; }
+    if (!text) { if (feedbackEl) { feedbackEl.textContent = 'Message cannot be empty.'; feedbackEl.className = 'message error'; } return; }
+    const sendBtn = document.getElementById('cohortMsgSendBtn');
+    if (sendBtn) sendBtn.disabled = true;
+    try {
+      const res = await apiFetch('/cohorts/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, cohort_id: _activeCohortId, message_text: text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { if (feedbackEl) { feedbackEl.textContent = data?.detail || 'Failed to send.'; feedbackEl.className = 'message error'; } return; }
+      if (textEl) { textEl.value = ''; const ct = document.getElementById('cohortMsgCharCount'); if (ct) ct.textContent = '0 / 2000'; }
+      if (feedbackEl) { feedbackEl.textContent = 'Posted!'; feedbackEl.className = 'message success'; }
+      await loadCohortMessages();
+    } catch { if (feedbackEl) { feedbackEl.textContent = 'Network error.'; feedbackEl.className = 'message error'; } }
+    finally { if (sendBtn) sendBtn.disabled = false; }
+  }
+
+  async function createCohortAction() {
+    const name = String(document.getElementById('newCohortName')?.value || '').trim();
+    const type = String(document.getElementById('newCohortType')?.value || '').trim();
+    const region = String(document.getElementById('newCohortRegion')?.value || '').trim();
+    const desc = String(document.getElementById('newCohortDesc')?.value || '').trim();
+    const feedbackEl = document.getElementById('cohortsCreateFeedback');
+    if (!name || !desc) { if (feedbackEl) { feedbackEl.textContent = 'Name and description are required.'; feedbackEl.className = 'message error'; } return; }
+    try {
+      const res = await apiFetch('/cohorts/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, type, description: desc, origin_region: region || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { if (feedbackEl) { feedbackEl.textContent = data?.detail || 'Failed to create.'; feedbackEl.className = 'message error'; } return; }
+      if (feedbackEl) { feedbackEl.textContent = `Cohort "${name}" created!`; feedbackEl.className = 'message success'; }
+      document.getElementById('newCohortName').value = '';
+      document.getElementById('newCohortRegion').value = '';
+      document.getElementById('newCohortDesc').value = '';
+      await loadAllCohorts();
+    } catch { if (feedbackEl) { feedbackEl.textContent = 'Network error.'; feedbackEl.className = 'message error'; } }
+  }
+  /* ── End Phase 40: Cohorts ── */
 
   /* ── Phase 39: Messages ── */
   let _msgConnectedUsers = [];
