@@ -3066,29 +3066,36 @@
         <div id="registerLookupResults" class="stats-loading" style="margin-top:10px;">Search to view possible existing family matches.</div>
       </section>
       <section class="optional-section agreement-section" aria-labelledby="entry-agreement-title">
-        <h3 id="entry-agreement-title">Aeternum Entry Agreement</h3>
+        <h3 id="entry-agreement-title">Aeternum Bridge Entry Agreement</h3>
         <ul class="agreement-copy">
-          <li>Aeternum Bridge helps families document lineage, reconnect with relatives, and preserve cultural/family history.</li>
-          <li>Your registration information may be used to help identify possible family matches inside the system.</li>
-          <li>Connection requests require outside-app verification and mutual confirmation before families are merged.</li>
-          <li>This MVP is not a legal, immigration, DNA, or government verification system.</li>
-          <li>You control whether you want to participate in future Legacy Builders Aeternum ecosystem updates.</li>
+          <li>Aeternum Bridge Engine is a cultural identity and reconnection system designed to help users document lineage, explore heritage, and reconnect with others who may share ancestral, regional, or familial ties.</li>
+          <li>Your registration information is used ONLY to: help identify potential family or ancestry-based connections; organize identity data into structured, user-controlled profiles; and support guided discovery of heritage where information is unknown.</li>
+          <li>Aeternum does NOT assign or confirm identity. It provides guidance based on user-submitted data, optional ancestry inputs (such as DNA results), and pattern-based matching across the network.</li>
+          <li>If your ancestry or origin is unknown, Aeternum provides a discovery pathway to help you explore possible roots through education, tools, and community support.</li>
+          <li>Connection requests between users require mutual acceptance, external or real-world verification where applicable, and user responsibility for confirming identity before forming real-world relationships.</li>
+          <li>Messaging and communication are restricted to accepted connections and are logged to preserve system integrity and user safety.</li>
+          <li>Aeternum Bridge Engine is NOT a government system, legal identity verification service, DNA testing provider, or immigration or relocation authority.</li>
+          <li>Aeternum MAY provide guidance, information, and pathways related to cultural reconnection, heritage exploration, and global movement—but does not guarantee outcomes.</li>
+          <li>Users may optionally participate in ancestral cohort groups, cultural reconnection communities, and future Legacy Builders Aeternum ecosystem features.</li>
+          <li>You maintain full control over your participation, your identity inputs, and your level of engagement with other users and system features.</li>
         </ul>
         <div class="checkbox-row required-agreement" style="margin-top:14px; margin-bottom:12px;">
           <input type="checkbox" id="entry_agreement_accepted" />
-          <label for="entry_agreement_accepted">I understand and agree to the Aeternum Bridge Entry Agreement.</label>
+          <label for="entry_agreement_accepted">I understand and agree to the Aeternum Bridge Entry Agreement and acknowledge that this system provides guidance, not identity certification.</label>
         </div>
         <div class="checkbox-row" style="margin-bottom:12px;">
           <input type="checkbox" id="ecosystem_updates_opt_in" />
-          <label for="ecosystem_updates_opt_in">I am interested in receiving future Legacy Builders Aeternum ecosystem updates.</label>
+          <label for="ecosystem_updates_opt_in">I would like to participate in future Legacy Builders Aeternum ecosystem features and updates.</label>
         </div>
         <div class="field" style="margin-bottom:0;">
           <label for="return_reconnection_interest">Return / Reconnection Interest</label>
           <select id="return_reconnection_interest" required>
             <option value="">— Select interest —</option>
-            <option value="yes_interested_return_reconnection">Yes, interested in ancestral return or reconnection</option>
-            <option value="maybe_learning_more">Maybe / learning more</option>
-            <option value="no_documenting_family_history">No, only documenting family history</option>
+            <option value="yes_interested_return_reconnection">Exploring my heritage</option>
+            <option value="maybe_learning_more">Interested in cultural reconnection</option>
+            <option value="no_documenting_family_history">Considering future relocation</option>
+            <option value="connect_similar_origin">Want to connect with others of similar origin</option>
+            <option value="document_family_history_only">Prefer to document family history only</option>
           </select>
         </div>
       </section>
@@ -4422,9 +4429,11 @@
       ['Onboarding Completed', stats.onboarding_completed_count ?? 0],
       ['Onboarding Started Not Completed', stats.onboarding_started_not_completed_count ?? 0],
       ['Total Messages Sent', stats.total_messages_count ?? 0],
-      ['Return/Reconnection: Yes', (stats.return_reconnection_interest_distribution || {}).yes_interested_return_reconnection ?? 0],
-      ['Return/Reconnection: Maybe', (stats.return_reconnection_interest_distribution || {}).maybe_learning_more ?? 0],
-      ['Return/Reconnection: No', (stats.return_reconnection_interest_distribution || {}).no_documenting_family_history ?? 0],
+      ['Return/Reconnection: Heritage', (stats.return_reconnection_interest_distribution || {}).yes_interested_return_reconnection ?? 0],
+      ['Return/Reconnection: Cultural', (stats.return_reconnection_interest_distribution || {}).maybe_learning_more ?? 0],
+      ['Return/Reconnection: History Only', (stats.return_reconnection_interest_distribution || {}).no_documenting_family_history ?? 0],
+      ['Return/Reconnection: Similar Origin', (stats.return_reconnection_interest_distribution || {}).connect_similar_origin ?? 0],
+      ['Return/Reconnection: Doc Only', (stats.return_reconnection_interest_distribution || {}).document_family_history_only ?? 0],
       ['Total Activity Events', latestActivityEventCount ?? '--'],
     ];
     adminQuickStats.innerHTML = tiles.map(([label, value]) => `
