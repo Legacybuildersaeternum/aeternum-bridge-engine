@@ -35,6 +35,12 @@ def get_stats() -> StatsResponse:
     return registry.get_stats()
 
 
+@router.get("/registry-safety")
+def get_registry_safety() -> dict[str, Any]:
+    """Return live registry safety and backup metadata for admin visibility."""
+    return registry.get_registry_safety_status()
+
+
 @router.get("/registrations", response_model=list[UserRecord])
 def get_registrations() -> list[UserRecord]:
     """Return all saved registrations for admin review."""

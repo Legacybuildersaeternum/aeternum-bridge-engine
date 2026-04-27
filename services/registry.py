@@ -41,11 +41,13 @@ logger = logging.getLogger(__name__)
 
 DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "diaspora_registry.json"
 REGISTRY_BACKUP_FILE = Path(__file__).resolve().parents[1] / "data" / "diaspora_registry_backup.json"
+REGISTRY_TIMESTAMP_BACKUP_DIR = Path(__file__).resolve().parents[1] / "data" / "registry_backups"
 _EMPTY_STORE: dict[str, Any] = {"users": [], "connection_requests": []}
 ACTIVITY_LOG_FILE = Path(__file__).resolve().parents[1] / "data" / "legacy_activity_log.json"
 _EMPTY_ACTIVITY_STORE: dict[str, Any] = {"events": []}
 _ACTIVITY_LOG_LOCK = threading.RLock()
 _REGISTRY_FILE_LOCK = threading.RLock()
+DATA_GUARD_STATUS = "ACTIVE"
 
 
 def _empty_registry_store() -> dict[str, Any]:
@@ -1710,11 +1712,74 @@ def _validate_store_shape(store: dict[str, Any]) -> None:
         )
 
 
-def _write_store_with_backup(existing_store: dict[str, Any], new_store: dict[str, Any], *, reason: str) -> None:
+def _is_live_registry_path(path: Path) -> bool:
+    return path.name == "diaspora_registry.json" and path.parent.name == "data"
+
+
+def _store_user_and_family_counts(store: dict[str, Any]) -> tuple[int, int]:
+    users = store.get("users") if isinstance(store.get("users"), list) else []
+    normalized_users = [item for item in users if isinstance(item, dict)]
+    family_ids = {
+        str(item.get("family_id") or "").strip()
+        for item in normalized_users
+        if str(item.get("family_id") or "").strip()
+    }
+    return len(normalized_users), len(family_ids)
+
+
+def _create_timestamped_registry_backup() -> Optional[Path]:
+    if not DATA_FILE.exists():
+        return None
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+    REGISTRY_TIMESTAMP_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    backup_path = REGISTRY_TIMESTAMP_BACKUP_DIR / f"diaspora_registry_{timestamp}.json"
+    shutil.copy2(DATA_FILE, backup_path)
+    return backup_path
+
+
+def _latest_registry_backup_path() -> Optional[Path]:
+    candidates: list[Path] = []
+    if REGISTRY_BACKUP_FILE.exists():
+        candidates.append(REGISTRY_BACKUP_FILE)
+    if REGISTRY_TIMESTAMP_BACKUP_DIR.exists():
+        candidates.extend(path for path in REGISTRY_TIMESTAMP_BACKUP_DIR.glob("diaspora_registry_*.json") if path.is_file())
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def _write_store_with_backup(
+    existing_store: dict[str, Any],
+    new_store: dict[str, Any],
+    *,
+    reason: str,
+    force_empty_overwrite: bool = False,
+) -> None:
     with _REGISTRY_FILE_LOCK:
         _ensure_file()
         _validate_store_shape(existing_store)
         _validate_store_shape(new_store)
+
+        existing_user_count, existing_family_count = _store_user_and_family_counts(existing_store)
+        new_user_count, new_family_count = _store_user_and_family_counts(new_store)
+
+        if (
+            _is_live_registry_path(DATA_FILE)
+            and not force_empty_overwrite
+            and existing_user_count > 0
+            and existing_family_count > 0
+            and (new_user_count == 0 or new_family_count == 0)
+        ):
+            logger.warning(
+                "REGISTRY WRITE BLOCKED: attempted empty overwrite of live registry. "
+                "existing_users=%d existing_families=%d new_users=%d new_families=%d reason=%s",
+                existing_user_count,
+                existing_family_count,
+                new_user_count,
+                new_family_count,
+                reason,
+            )
+            raise ValueError("REGISTRY WRITE BLOCKED: attempted empty overwrite of live registry.")
 
         existing_users = existing_store.get("users", [])
         new_users = new_store.get("users", [])
@@ -1725,6 +1790,9 @@ def _write_store_with_backup(existing_store: dict[str, Any], new_store: dict[str
                 raise ValueError("Registry write aborted: append-safe mode forbids mutating existing users.")
 
         REGISTRY_BACKUP_FILE.parent.mkdir(parents=True, exist_ok=True)
+        timestamp_backup = _create_timestamped_registry_backup()
+        if timestamp_backup:
+            logger.debug("Timestamped registry backup created at %s", timestamp_backup)
         shutil.copy2(DATA_FILE, REGISTRY_BACKUP_FILE)
         logger.debug("Registry backup created at %s", REGISTRY_BACKUP_FILE)
 
@@ -1745,6 +1813,20 @@ def _write_store_with_backup(existing_store: dict[str, Any], new_store: dict[str
             len(new_store.get("users", [])),
             len(new_store.get("connection_requests", [])),
         )
+
+
+def get_registry_safety_status() -> dict[str, Any]:
+    store = _load_store()
+    users, families = _store_user_and_family_counts(store)
+    latest_backup = _latest_registry_backup_path()
+    return {
+        "registry_path": str(DATA_FILE),
+        "total_users": users,
+        "total_families": families,
+        "last_backup_detected": str(latest_backup) if latest_backup else "none",
+        "data_guard_status": DATA_GUARD_STATUS,
+        "backup_before_write": "ACTIVE",
+    }
 
 
 def run_persistence_safety_check() -> dict[str, Any]:

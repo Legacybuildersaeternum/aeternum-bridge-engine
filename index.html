@@ -3263,6 +3263,10 @@
         </div>
         <button class="secondary" onclick="loadStats()">Refresh Stats</button>
         <p class="stats-meta" id="lastUpdated">Last updated: --</p>
+        <section class="insights-card" aria-labelledby="registry-safety-title" style="margin-top:12px;">
+          <h3 id="registry-safety-title">Registry Safety Lock</h3>
+          <div id="registrySafetyContent" class="stats-loading">Loading registry safety status...</div>
+        </section>
         <section class="insights-card" aria-labelledby="insights-title">
           <h3 id="insights-title">Registry Insights</h3>
           <div id="insightsContent" class="stats-loading">Insights will appear once registrations begin.</div>
@@ -3453,6 +3457,7 @@
   const errorMsg   = document.getElementById('errorMsg');
   const statsLastUpdated = document.getElementById('lastUpdated');
   const insightsContent = document.getElementById('insightsContent');
+  const registrySafetyContent = document.getElementById('registrySafetyContent');
   const pageSections = Array.from(document.querySelectorAll('.page-section'));
   const pageNavButtons = Array.from(document.querySelectorAll('[data-page-target]'));
   const registrationsPanel = document.getElementById('registrationsPanel');
@@ -7622,6 +7627,25 @@
     `;
   }
 
+  async function loadRegistrySafetyStatus() {
+    if (!registrySafetyContent) return;
+    try {
+      const res = await apiFetch('/registry-safety');
+      const data = await res.json();
+      registrySafetyContent.innerHTML = `
+        <ul class="insights-list">
+          <li>Active registry file: <strong>${escapeHtml(String(data.registry_path || 'unknown'))}</strong></li>
+          <li>Total users: <strong>${escapeHtml(String(data.total_users ?? 0))}</strong></li>
+          <li>Total families: <strong>${escapeHtml(String(data.total_families ?? 0))}</strong></li>
+          <li>Last backup detected: <strong>${escapeHtml(String(data.last_backup_detected || 'none'))}</strong></li>
+          <li>Data guard status: <strong>${escapeHtml(String(data.data_guard_status || 'ACTIVE'))}</strong></li>
+        </ul>
+      `;
+    } catch {
+      registrySafetyContent.innerHTML = '<p class="stats-loading">Could not load registry safety status.</p>';
+    }
+  }
+
   /* ── Home Dashboard ── */
   async function loadHomeDashboard() {
     try {
@@ -7740,10 +7764,12 @@
       const now = new Date();
       statsLastUpdated.textContent = `Last updated: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
       renderInsights(data);
+      await loadRegistrySafetyStatus();
     } catch {
       container.innerHTML = `<p class="stats-loading">Could not load stats.</p>`;
       insightsContent.innerHTML = '<p class="stats-loading">Unable to generate insights right now.</p>';
       statsLastUpdated.textContent = 'Last updated: unavailable';
+      await loadRegistrySafetyStatus();
     }
   }
 
