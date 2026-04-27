@@ -148,6 +148,12 @@ def create_family_connection_request(
         return registry.create_family_connection_request(payload, session_id=x_session_id)
     except ValueError as exc:
         message = str(exc)
+        registry.write_activity_event(
+            event_type="family_connection_request_failed",
+            message=f"Connection request failed: {message}",
+            user_id=str(payload.requester_user_id or "") or None,
+            session_id=x_session_id,
+        )
         status_code = 404 if "not found" in message.lower() else 400
         raise HTTPException(status_code=status_code, detail=message) from exc
 
@@ -168,6 +174,12 @@ def create_connection_request_v2(
         return registry.create_family_connection_request(payload, session_id=x_session_id)
     except ValueError as exc:
         message = str(exc)
+        registry.write_activity_event(
+            event_type="family_connection_request_failed",
+            message=f"Connection request failed: {message}",
+            user_id=str(payload.requester_user_id or "") or None,
+            session_id=x_session_id,
+        )
         status_code = 404 if "not found" in message.lower() else 400
         raise HTTPException(status_code=status_code, detail=message) from exc
 

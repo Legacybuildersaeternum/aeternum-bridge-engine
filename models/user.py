@@ -605,6 +605,7 @@ class FamilyConnectionRequestPayload(BaseModel):
     target_user_id: str
     relationship_guess: Optional[str] = None
     preferred_contact_method: Optional[str] = None
+    note: Optional[str] = None
     search_context: Optional[dict] = None
 
 
@@ -623,6 +624,7 @@ class PendingFamilyConnectionRequestRecord(BaseModel):
     target_masked_name: Optional[str] = None
     relationship_guess: Optional[str] = None
     preferred_contact_method: Optional[str] = None
+    note: Optional[str] = None
     created_at: str
     status: str
     outside_contact_required: bool

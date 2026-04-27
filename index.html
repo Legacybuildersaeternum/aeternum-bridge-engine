@@ -3450,6 +3450,53 @@
   </div>
 </div>
 
+<!-- Connection Request Confirmation Modal -->
+<div class="admin-modal" id="connectionConfirmModal" aria-hidden="true">
+  <div class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="connConfirmTitle" style="width:min(540px,100%);">
+    <div class="admin-modal-head">
+      <h3 id="connConfirmTitle">Confirm Connection Request</h3>
+      <p id="connConfirmSubtitle" style="color:var(--muted);font-size:0.72rem;">Review details before sending</p>
+    </div>
+    <div id="connConfirmBody">
+      <div style="margin-bottom:14px;">
+        <div style="font-size:0.78rem;color:var(--secondary-text);margin-bottom:5px;">Requesting connection with:</div>
+        <strong id="connConfirmTargetName" style="font-size:1.05rem;color:var(--gold-lt);">—</strong>
+        <div style="margin-top:5px;font-size:0.75rem;color:var(--muted);">
+          Confidence: <span id="connConfirmConfidence">—</span>
+          &nbsp;|&nbsp;
+          Relationship: <span id="connConfirmRelationship">—</span>
+        </div>
+      </div>
+      <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:var(--secondary-text);line-height:1.55;">
+        <strong style="color:var(--gold-lt);">Verification required:</strong>
+        Connection requires outside-app verification before any merge or link happens.
+        Both sides must confirm contact before admin can approve.
+        No profiles are automatically linked.
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label for="connConfirmContactMethod" style="font-size:0.8rem;">Preferred Contact Method <span style="color:var(--gold-lt);" aria-hidden="true">*</span></label>
+        <select id="connConfirmContactMethod" required>
+          <option value="">— Select method —</option>
+          <option value="phone">Phone call</option>
+          <option value="email">Email</option>
+          <option value="text">Text message</option>
+          <option value="mail">Mail</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label for="connConfirmNote" style="font-size:0.8rem;">Note <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <textarea id="connConfirmNote" rows="3" placeholder="Add context to help identify you (optional)…" style="resize:vertical;"></textarea>
+      </div>
+      <div id="connConfirmError" style="color:#e57373;font-size:0.78rem;min-height:18px;margin-bottom:8px;"></div>
+      <div class="admin-modal-actions">
+        <button type="button" id="connConfirmSendBtn">Send Request</button>
+        <button type="button" class="secondary" id="connConfirmCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   /* ── Registration ── */
   const form       = document.getElementById('regForm');
@@ -3508,6 +3555,20 @@
   const registrationEditModal = document.getElementById('registrationEditModal');
   const registrationEditForm = document.getElementById('registrationEditForm');
   const editRegError = document.getElementById('editRegError');
+
+  // ── Connection Confirm Modal ──
+  const connectionConfirmModal = document.getElementById('connectionConfirmModal');
+  const connConfirmTargetName = document.getElementById('connConfirmTargetName');
+  const connConfirmConfidence = document.getElementById('connConfirmConfidence');
+  const connConfirmRelationship = document.getElementById('connConfirmRelationship');
+  const connConfirmContactMethod = document.getElementById('connConfirmContactMethod');
+  const connConfirmNote = document.getElementById('connConfirmNote');
+  const connConfirmError = document.getElementById('connConfirmError');
+  const connConfirmSendBtn = document.getElementById('connConfirmSendBtn');
+  const connConfirmCancelBtn = document.getElementById('connConfirmCancelBtn');
+
+  // Modal state — holds pending request data until user confirms
+  let _connModalState = null; // { targetUserId, matchRow, source, requesterUserId, originBtn }
   const editRegUserId = document.getElementById('editRegUserId');
   const editRegCancelBtn = document.getElementById('editRegCancelBtn');
   const findFamilyForm = document.getElementById('findFamilyForm');
@@ -5252,6 +5313,113 @@
     return 'pending_request';
   }
 
+  // ── Connection Confirm Modal ──────────────────────────────────────────────
+
+  function openConnectionConfirmModal(matchRow, source, requesterUserId, originBtn) {
+    if (!connectionConfirmModal) return;
+    _connModalState = { targetUserId: String(matchRow?.user_id || ''), matchRow, source, requesterUserId, originBtn };
+
+    const maskedName = maskDisplayName(matchRow?.full_name || 'Unknown');
+    const confidence = String(matchRow?.confidence_level || 'low');
+    const confidenceScore = Number(matchRow?.confidence_score || 0);
+    const confidenceLabel = `${confidence.charAt(0).toUpperCase()}${confidence.slice(1)} (${confidenceScore}%)`;
+    const relationshipGuess = String(matchRow?.relationship_guess || '');
+
+    if (connConfirmTargetName) connConfirmTargetName.textContent = maskedName;
+    if (connConfirmConfidence) connConfirmConfidence.textContent = confidenceLabel;
+    if (connConfirmRelationship) connConfirmRelationship.textContent = relationshipGuess || 'not specified';
+    if (connConfirmContactMethod) connConfirmContactMethod.value = '';
+    if (connConfirmNote) connConfirmNote.value = '';
+    if (connConfirmError) connConfirmError.textContent = '';
+    if (connConfirmSendBtn) connConfirmSendBtn.disabled = false;
+
+    connectionConfirmModal.classList.add('open');
+    connectionConfirmModal.setAttribute('aria-hidden', 'false');
+    connConfirmContactMethod?.focus();
+  }
+
+  function closeConnectionConfirmModal() {
+    if (!connectionConfirmModal) return;
+    connectionConfirmModal.classList.remove('open');
+    connectionConfirmModal.setAttribute('aria-hidden', 'true');
+    _connModalState = null;
+  }
+
+  async function submitConnectionConfirmModal() {
+    if (!_connModalState) return;
+    const { targetUserId, matchRow, source, requesterUserId, originBtn } = _connModalState;
+    const contactMethod = String(connConfirmContactMethod?.value || '').trim();
+    const note = String(connConfirmNote?.value || '').trim();
+
+    if (!contactMethod) {
+      if (connConfirmError) connConfirmError.textContent = 'Please select a preferred contact method.';
+      connConfirmContactMethod?.focus();
+      return;
+    }
+    if (!requesterUserId || !targetUserId) {
+      if (connConfirmError) connConfirmError.textContent = 'Requester or target could not be identified.';
+      return;
+    }
+
+    if (connConfirmSendBtn) connConfirmSendBtn.disabled = true;
+    if (connConfirmError) connConfirmError.textContent = '';
+
+    try {
+      const res = await apiFetch('/family-connection/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requester_user_id: requesterUserId,
+          target_user_id: targetUserId,
+          relationship_guess: String(matchRow?.relationship_guess || '').trim() || null,
+          preferred_contact_method: contactMethod,
+          note: note || null,
+          search_context: {
+            source,
+            confidence_score: Number(matchRow?.confidence_score || 0),
+            confidence_level: String(matchRow?.confidence_level || 'low'),
+            reason_summary: String(matchRow?.reason_summary || ''),
+          },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (connConfirmError) connConfirmError.textContent = data?.detail || 'Could not create connection request.';
+        if (connConfirmSendBtn) connConfirmSendBtn.disabled = false;
+        return;
+      }
+
+      closeConnectionConfirmModal();
+
+      // Update the originating button to reflect sent state
+      if (originBtn) {
+        originBtn.textContent = 'Request Pending';
+        originBtn.disabled = true;
+      }
+
+      // Update feedback on the source page
+      const isDuplicate = String(data?.message || '').toLowerCase().includes('already pending');
+      const feedbackMsg = isDuplicate
+        ? 'Connection request already pending outside verification.'
+        : 'Connection request sent. Both sides must verify outside the app before merge.';
+
+      if (source === 'find_family' && findFamilyFeedback) {
+        findFamilyFeedback.textContent = feedbackMsg;
+        findFamilyFeedback.classList.add('is-success');
+      } else if (source === 'register_lookup' && registerLookupFeedback) {
+        registerLookupFeedback.textContent = feedbackMsg;
+        registerLookupFeedback.classList.add('is-success');
+      }
+
+      await Promise.all([loadIncomingConnectionRequests(), loadOutgoingConnectionRequests(), loadActivityLog(), loadAdminActivityLog(), loadAdminPendingFamilyRequests()]);
+    } catch {
+      if (connConfirmSendBtn) connConfirmSendBtn.disabled = false;
+      if (connConfirmError) connConfirmError.textContent = 'Could not create connection request.';
+    }
+  }
+
+  // ── End Connection Confirm Modal ─────────────────────────────────────────
+
   function renderFindFamilyMatches(matches) {
     if (!findFamilyResults) return;
     const rows = Array.isArray(matches) ? matches : [];
@@ -5461,6 +5629,116 @@
     }
   }
 
+  // ── Connection Confirm Modal helpers ──────────────────────────────────────
+  function openConnectionConfirmModal(matchRow, source, requesterUserId, originBtn) {
+    if (!connectionConfirmModal) return;
+    _connModalState = { targetUserId: String(matchRow?.user_id || ''), matchRow, source, requesterUserId, originBtn };
+    const confidence = String(matchRow?.confidence_level || 'low');
+    const score = Number(matchRow?.confidence_score || 0);
+    const confidenceLabel = confidence === 'high' ? 'High' : confidence === 'medium' ? 'Medium' : 'Low';
+    if (connConfirmTargetName) connConfirmTargetName.textContent = maskDisplayName(matchRow?.full_name || 'Unknown');
+    if (connConfirmConfidence) connConfirmConfidence.textContent = `${confidenceLabel} (${score}%)`;
+    if (connConfirmRelationship) connConfirmRelationship.textContent = String(matchRow?.relationship_guess || 'not specified');
+    if (connConfirmContactMethod) connConfirmContactMethod.value = '';
+    if (connConfirmNote) connConfirmNote.value = '';
+    if (connConfirmError) connConfirmError.textContent = '';
+    if (connConfirmSendBtn) connConfirmSendBtn.disabled = false;
+    connectionConfirmModal.classList.add('open');
+    connectionConfirmModal.setAttribute('aria-hidden', 'false');
+    connConfirmContactMethod?.focus();
+  }
+
+  function closeConnectionConfirmModal() {
+    if (!connectionConfirmModal) return;
+    connectionConfirmModal.classList.remove('open');
+    connectionConfirmModal.setAttribute('aria-hidden', 'true');
+    if (_connModalState?.originBtn) {
+      _connModalState.originBtn.disabled = false;
+    }
+    _connModalState = null;
+  }
+
+  async function submitConnectionConfirmModal() {
+    if (!_connModalState) return;
+    const { targetUserId, matchRow, source, requesterUserId, originBtn } = _connModalState;
+    const contactMethod = String(connConfirmContactMethod?.value || '').trim();
+    if (!contactMethod) {
+      if (connConfirmError) connConfirmError.textContent = 'Please select a preferred contact method.';
+      connConfirmContactMethod?.focus();
+      return;
+    }
+    if (!requesterUserId || !targetUserId) {
+      if (connConfirmError) connConfirmError.textContent = 'Requester or target could not be identified. Please refresh and try again.';
+      return;
+    }
+
+    if (connConfirmSendBtn) connConfirmSendBtn.disabled = true;
+    if (connConfirmError) connConfirmError.textContent = '';
+
+    try {
+      const res = await apiFetch('/family-connection/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId || '' },
+        body: JSON.stringify({
+          requester_user_id: requesterUserId,
+          target_user_id: targetUserId,
+          relationship_guess: String(matchRow?.relationship_guess || '').trim() || null,
+          preferred_contact_method: contactMethod,
+          note: String(connConfirmNote?.value || '').trim() || null,
+          search_context: {
+            source,
+            confidence_score: Number(matchRow?.confidence_score || 0),
+            confidence_level: String(matchRow?.confidence_level || 'low'),
+            reason_summary: String(matchRow?.reason_summary || ''),
+          },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (connConfirmError) connConfirmError.textContent = data?.detail || 'Could not create connection request.';
+        if (connConfirmSendBtn) connConfirmSendBtn.disabled = false;
+        return;
+      }
+
+      // Success — close modal and show feedback on source page
+      connectionConfirmModal.classList.remove('open');
+      connectionConfirmModal.setAttribute('aria-hidden', 'true');
+      _connModalState = null;
+
+      if (originBtn) {
+        originBtn.textContent = 'Request Pending';
+        originBtn.disabled = true;
+      }
+
+      const isDuplicate = String(data?.message || '').includes('already pending');
+      const feedbackText = isDuplicate
+        ? 'A connection request is already pending for this match.'
+        : 'Connection request sent. Both sides must verify outside the app before merge.';
+
+      if (source === 'find_family' && findFamilyFeedback) {
+        findFamilyFeedback.textContent = feedbackText;
+        findFamilyFeedback.classList.add('is-success');
+        if (incomingRequestUserIdInput && !String(incomingRequestUserIdInput.value || '').trim()) {
+          incomingRequestUserIdInput.value = targetUserId;
+        }
+        if (outgoingRequestUserIdInput) outgoingRequestUserIdInput.value = requesterUserId;
+      } else if (source === 'register_lookup' && registerLookupFeedback) {
+        registerLookupFeedback.textContent = feedbackText;
+        registerLookupFeedback.classList.add('is-success');
+      }
+
+      postSessionEvent(
+        isDuplicate ? 'family_connection_request_duplicate_blocked' : 'family_connection_request_created',
+        `Connection request for candidate ${targetUserId} via ${source}. Contact: ${contactMethod}.`
+      );
+      await Promise.all([loadIncomingConnectionRequests(), loadOutgoingConnectionRequests(), loadActivityLog(), loadAdminActivityLog(), loadAdminPendingFamilyRequests()]);
+    } catch {
+      if (connConfirmError) connConfirmError.textContent = 'Could not create connection request. Please try again.';
+      if (connConfirmSendBtn) connConfirmSendBtn.disabled = false;
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   function normalizeAdminRequestStatus(status) {
     const raw = String(status || '').trim().toLowerCase();
     if (raw === 'pending_outside_verification' || raw === 'pending') return 'Pending';
@@ -5492,14 +5770,16 @@
       <article class="connection-request-card">
         <div class="connection-request-head">
           <div>
-            <strong>${escapeHtml(String(item.requester_user_id || ''))}</strong><br>
-            <span style="font-size:0.69rem; color:var(--secondary-text);">Target: ${escapeHtml(String(item.target_user_id || ''))}</span>
+            <strong>${escapeHtml(String(item.requester_name || item.requester_user_id || ''))}</strong>
+            <span style="font-size:0.69rem;color:var(--muted);display:block;">${escapeHtml(String(item.requester_user_id || ''))}</span>
+            <span style="font-size:0.69rem; color:var(--secondary-text);">Target: ${escapeHtml(String(item.target_masked_name || item.target_user_id || ''))}</span>
           </div>
           <span class="request-status-chip ${adminRequestStatusClass(item.status)}">${escapeHtml(normalizeAdminRequestStatus(item.status))}</span>
         </div>
         <div class="connection-request-meta">
           Relationship: ${escapeHtml(String(item.relationship_guess || 'not provided'))}<br>
           Contact method: ${escapeHtml(String(item.preferred_contact_method || 'not provided'))}<br>
+          ${item.note ? `Note: ${escapeHtml(String(item.note))}<br>` : ''}
           Created: ${escapeHtml(String(item.created_at || 'unknown'))}<br>
           Outside verification required before approval.
         </div>
@@ -5815,6 +6095,18 @@
   registrationsContent.addEventListener('click', handleRegistrationActions);
   registrationEditForm.addEventListener('submit', handleRegistrationEditSave);
   editRegCancelBtn.addEventListener('click', closeRegistrationEditModal);
+
+  // Connection Confirm Modal event listeners
+  connConfirmCancelBtn?.addEventListener('click', closeConnectionConfirmModal);
+  connConfirmSendBtn?.addEventListener('click', submitConnectionConfirmModal);
+  connectionConfirmModal?.addEventListener('click', (event) => {
+    if (event.target === connectionConfirmModal) closeConnectionConfirmModal();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && connectionConfirmModal?.classList.contains('open')) {
+      closeConnectionConfirmModal();
+    }
+  });
   treeRoleFilter.addEventListener('change', renderVisualFamilyTree);
   treeFamilyFilter.addEventListener('change', () => {
     activeTreeFamilyId = String(treeFamilyFilter.value || '').trim();
@@ -6108,55 +6400,14 @@
       return;
     }
 
-    actionBtn.disabled = true;
-    try {
-      postSessionEvent('find_family_request_clicked', `Requested connection to candidate ${targetUserId}.`);
-      const targetMatch = (findFamilyMatchesCache || []).find((row) => String(row?.user_id || '') === String(targetUserId || ''));
-      const res = await apiFetch('/family-connection/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requester_user_id: requesterUserId,
-          target_user_id: targetUserId,
-          relationship_guess: String(findRelationshipGuessInput?.value || '').trim() || null,
-          preferred_contact_method: String(findPreferredContactMethodInput?.value || '').trim() || null,
-          search_context: {
-            source: 'find_family',
-            confidence_score: Number(targetMatch?.confidence_score || 0),
-            confidence_level: String(targetMatch?.confidence_level || 'low'),
-            reason_summary: String(targetMatch?.reason_summary || ''),
-          },
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        actionBtn.disabled = false;
-        if (findFamilyFeedback) {
-          findFamilyFeedback.textContent = data?.detail || 'Could not create connection request.';
-          findFamilyFeedback.classList.remove('is-success');
-        }
-        return;
-      }
-      if (findFamilyFeedback) {
-        findFamilyFeedback.textContent = 'Connection request created. Both parties must verify outside the app by phone, email, text, or mail before acceptance.';
-        findFamilyFeedback.classList.add('is-success');
-      }
-      actionBtn.textContent = 'Request Pending';
-      actionBtn.disabled = true;
-      if (incomingRequestUserIdInput && !String(incomingRequestUserIdInput.value || '').trim()) {
-        incomingRequestUserIdInput.value = targetUserId;
-      }
-      if (outgoingRequestUserIdInput) {
-        outgoingRequestUserIdInput.value = requesterUserId;
-      }
-      await Promise.all([loadIncomingConnectionRequests(), loadOutgoingConnectionRequests(), loadActivityLog(), loadAdminActivityLog(), loadAdminPendingFamilyRequests()]);
-    } catch {
-      actionBtn.disabled = false;
-      if (findFamilyFeedback) {
-        findFamilyFeedback.textContent = 'Could not create connection request.';
-        findFamilyFeedback.classList.remove('is-success');
-      }
-    }
+    // Open confirmation modal — user must choose contact method before request is sent
+    postSessionEvent('find_family_request_clicked', `Opened connection confirm modal for candidate ${targetUserId}.`);
+    const targetMatch = (findFamilyMatchesCache || []).find((row) => String(row?.user_id || '') === String(targetUserId || ''));
+    const matchRowWithGuess = {
+      ...(targetMatch || { user_id: targetUserId }),
+      relationship_guess: String(findRelationshipGuessInput?.value || targetMatch?.relationship_guess || '').trim() || null,
+    };
+    openConnectionConfirmModal(matchRowWithGuess, 'find_family', requesterUserId, actionBtn);
   });
 
   incomingRequestsList?.addEventListener('click', async (event) => {
@@ -6247,23 +6498,21 @@
       return;
     }
 
-    actionBtn.disabled = true;
-    try {
-      await createRegisterLookupConnectionRequest(targetUserId);
+    // Open confirmation modal — user must choose contact method before request is sent
+    const requesterUserId = getRegisterLookupRequesterUserId();
+    if (!requesterUserId) {
       if (registerLookupFeedback) {
-        registerLookupFeedback.textContent = 'Connection request created. Both parties must verify outside the app by phone, email, text, or mail before acceptance.';
-        registerLookupFeedback.classList.add('is-success');
-      }
-      actionBtn.textContent = 'Request Pending';
-      actionBtn.disabled = true;
-      await Promise.all([loadIncomingConnectionRequests(), loadOutgoingConnectionRequests(), loadActivityLog(), loadAdminActivityLog(), loadAdminPendingFamilyRequests()]);
-    } catch (err) {
-      actionBtn.disabled = false;
-      if (registerLookupFeedback) {
-        registerLookupFeedback.textContent = err.message || 'Could not create connection request.';
+        registerLookupFeedback.textContent = 'Register first to request a verified family connection.';
         registerLookupFeedback.classList.remove('is-success');
       }
+      return;
     }
+    const targetMatch = (registerLookupMatchesCache || []).find((row) => String(row?.user_id || '') === String(targetUserId || ''));
+    const matchRowWithGuess = {
+      ...(targetMatch || { user_id: targetUserId }),
+      relationship_guess: String(registerLookupRelationshipGuessInput?.value || targetMatch?.relationship_guess || '').trim() || null,
+    };
+    openConnectionConfirmModal(matchRowWithGuess, 'register_lookup', requesterUserId, actionBtn);
   });
   form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
 

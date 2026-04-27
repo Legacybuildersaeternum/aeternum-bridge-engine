@@ -1143,6 +1143,17 @@ def create_family_connection_request(
     if existing:
         request_id = str(existing.get("request_id") or "")
         status = str(existing.get("status") or "pending_outside_verification")
+        write_activity_event(
+            event_type="family_connection_request_duplicate_blocked",
+            message=(
+                f"Duplicate connection request blocked between {requester_user_id} and {target_user_id}. "
+                f"Existing request {request_id} already active."
+            ),
+            user_id=requester_user_id,
+            family_id=str(requester.get("family_id") or "") or None,
+            family_name=str(requester.get("family_name") or "") or None,
+            session_id=session_id,
+        )
         return FamilyConnectionRequestResponse(
             success=True,
             request_id=request_id,
@@ -1160,6 +1171,7 @@ def create_family_connection_request(
         "target_masked_name": _mask_identifier(target_user_id),
         "relationship_guess": payload.relationship_guess,
         "preferred_contact_method": payload.preferred_contact_method,
+        "note": str(payload.note or "").strip() or None,
         "search_context": payload.search_context or {},
         "status": "pending_outside_verification",
         "outside_contact_required": True,
@@ -1178,7 +1190,7 @@ def create_family_connection_request(
     _save_connection_requests(requests)
 
     write_activity_event(
-        event_type="FAMILY CONNECTION REQUEST CREATED",
+        event_type="family_connection_request_created",
         message=(
             f"Family connection request created between {requester_user_id} and {target_user_id}. "
             "Outside-app verification required before approval."
@@ -1216,6 +1228,7 @@ def get_pending_family_connection_requests() -> list[PendingFamilyConnectionRequ
                 target_masked_name=str(item.get("target_masked_name") or "") or None,
                 relationship_guess=str(item.get("relationship_guess") or "") or None,
                 preferred_contact_method=str(item.get("preferred_contact_method") or "") or None,
+                note=str(item.get("note") or "") or None,
                 created_at=str(item.get("created_at") or item.get("timestamp") or datetime.now(timezone.utc).isoformat()),
                 status=str(item.get("status") or "pending_outside_verification"),
                 outside_contact_required=bool(item.get("outside_contact_required", True)),
@@ -1239,6 +1252,7 @@ def get_all_connection_requests() -> list[PendingFamilyConnectionRequestRecord]:
                 target_masked_name=str(item.get("target_masked_name") or "") or None,
                 relationship_guess=str(item.get("relationship_guess") or "") or None,
                 preferred_contact_method=str(item.get("preferred_contact_method") or "") or None,
+                note=str(item.get("note") or "") or None,
                 created_at=str(item.get("created_at") or item.get("timestamp") or datetime.now(timezone.utc).isoformat()),
                 status=str(item.get("status") or "pending_outside_verification"),
                 outside_contact_required=bool(item.get("outside_contact_required", True)),
