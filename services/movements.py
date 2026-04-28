@@ -172,3 +172,23 @@ def get_user_movements(user_id: str) -> list[dict[str, Any]]:
             row["my_membership"] = member
             result.append(row)
     return result
+
+
+def get_member_count(movement: dict[str, Any]) -> int:
+    """Return the number of members in a movement."""
+    return len(movement.get("members") or [])
+
+
+def get_status_counts(movement: dict[str, Any]) -> dict[str, int]:
+    """Return a breakdown of member movement_status values."""
+    counts: dict[str, int] = {
+        "interested": 0,
+        "planning": 0,
+        "committed": 0,
+        "relocated": 0,
+    }
+    for m in (movement.get("members") or []):
+        status = m.get("movement_status", "interested")
+        if status in counts:
+            counts[status] += 1
+    return counts

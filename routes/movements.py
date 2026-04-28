@@ -6,6 +6,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from services import movements as movement_service
+from services import proofs as proof_service
 from services import registry
 
 router = APIRouter(tags=["Movements"], prefix="/movements")
@@ -37,8 +38,25 @@ class AssignMovementRoleRequest(BaseModel):
 
 
 @router.get("/list")
-def list_movements() -> list[dict[str, Any]]:
-    return movement_service.list_movements()
+def list_movements(
+    x_session_id: Optional[str] = Header(default=None),
+    user_id: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    movements = movement_service.list_movements()
+    for m in movements:
+        m["member_count"] = movement_service.get_member_count(m)
+        m["status_counts"] = movement_service.get_status_counts(m)
+        m["accepted_proof_count"] = proof_service.get_accepted_proof_count_for_movement(
+            str(m.get("movement_id") or "")
+        )
+    registry.write_activity_event(
+        event_type="MOVEMENT_LIST_LOADED",
+        message="Movement list loaded.",
+        user_id=user_id,
+        session_id=x_session_id,
+        extra={"count": len(movements)},
+    )
+    return movements
 
 
 @router.post("/create")
@@ -148,5 +166,38 @@ def assign_role(
 
 
 @router.get("/user/{user_id}")
-def get_user_movements(user_id: str) -> list[dict[str, Any]]:
-    return movement_service.get_user_movements(user_id)
+def get_user_movements(
+    user_id: str,
+    x_session_id: Optional[str] = Header(default=None),
+) -> list[dict[str, Any]]:
+    movements = movement_service.get_user_movements(user_id)
+    for m in movements:
+        m["member_count"] = movement_service.get_member_count(m)
+        m["status_counts"] = movement_service.get_status_counts(m)
+        m["accepted_proof_count"] = proof_service.get_accepted_proof_count_for_movement(
+            str(m.get("movement_id") or "")
+        )
+    return movements
+
+
+@router.get("/view/{movement_id}")
+def view_movement(
+    movement_id: str,
+    user_id: Optional[str] = None,
+    x_session_id: Optional[str] = Header(default=None),
+) -> dict[str, Any]:
+    movements = movement_service.list_movements()
+    target = next((m for m in movements if str(m.get("movement_id") or "") == movement_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Movement not found")
+    target["member_count"] = movement_service.get_member_count(target)
+    target["status_counts"] = movement_service.get_status_counts(target)
+    target["accepted_proof_count"] = proof_service.get_accepted_proof_count_for_movement(movement_id)
+    registry.write_activity_event(
+        event_type="MOVEMENT_VIEWED",
+        message=f"Movement viewed: {target.get('title')} ({movement_id}).",
+        user_id=user_id,
+        session_id=x_session_id,
+        extra={"movement_id": movement_id},
+    )
+    return target

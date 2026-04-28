@@ -3811,6 +3811,47 @@
       <button type="button" id="movementRefreshAllBtn" style="margin-bottom:12px;">Refresh List</button>
       <div id="movementAllList"><div class="stats-loading">Loading movement groups...</div></div>
     </div>
+
+    <div class="two-col-layout">
+      <div class="card" id="movementProofCard">
+        <h2>Submit Real World Proof</h2>
+        <p class="form-helper">Proof is reviewed by admins before trust updates are applied.</p>
+        <div class="field">
+          <label for="movementProofUserId">Your User ID</label>
+          <input type="text" id="movementProofUserId" placeholder="usr_..." />
+        </div>
+        <div class="field">
+          <label for="movementProofMovementId">Movement ID</label>
+          <input type="text" id="movementProofMovementId" placeholder="mov_..." />
+        </div>
+        <div class="field">
+          <label for="movementProofType">Proof Type</label>
+          <select id="movementProofType">
+            <option value="community_witness">Community witness</option>
+            <option value="group_photo">Group photo</option>
+            <option value="trip_receipt">Trip receipt</option>
+            <option value="check_in_confirmation">Check-in confirmation</option>
+            <option value="document_upload_future">Document upload (future)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="movementProofSummary">Public Summary</label>
+          <textarea id="movementProofSummary" rows="3" placeholder="What happened in the real world?"></textarea>
+        </div>
+        <div class="field">
+          <label for="movementProofPrivateNotes">Private Notes (Admin Only)</label>
+          <textarea id="movementProofPrivateNotes" rows="3" placeholder="Optional private context for admin review."></textarea>
+        </div>
+        <button type="button" id="movementProofSubmitBtn">Submit Proof</button>
+        <div id="movementProofFeedback" class="message" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="card" id="movementProofHistoryCard">
+        <h2>My Proof Submissions</h2>
+        <button type="button" id="movementProofLoadBtn" class="secondary" style="margin-bottom:12px;">Refresh My Proofs</button>
+        <div id="movementProofList" class="stats-loading">Enter your user ID and refresh to view submissions.</div>
+      </div>
+    </div>
   </section>
 
   <section class="page-section" data-page="export-backup">
@@ -4014,6 +4055,13 @@
           <div class="activity-log-wrap" style="max-height:400px; opacity:1; padding:10px 14px 14px;">
             <button id="refreshPendingRequestsBtn" type="button" class="secondary" style="margin-bottom:10px;">Refresh Connection Requests</button>
             <div id="adminPendingRequestsList" class="stats-loading">Loading connection requests...</div>
+          </div>
+        </details>
+        <details class="admin-collapsible" id="proofQueueAdminPanel" open>
+          <summary>Proof Review Queue</summary>
+          <div class="activity-log-wrap" style="max-height:400px; opacity:1; padding:10px 14px 14px;">
+            <button id="refreshProofQueueBtn" type="button" class="secondary" style="margin-bottom:10px;">Refresh Proof Queue</button>
+            <div id="adminProofQueueList" class="stats-loading">Loading proof submissions...</div>
           </div>
         </details>
       </div>
@@ -4317,6 +4365,17 @@
   const registerLookupResults = document.getElementById('registerLookupResults');
   const adminPendingRequestsList = document.getElementById('adminPendingRequestsList');
   const refreshPendingRequestsBtn = document.getElementById('refreshPendingRequestsBtn');
+  const movementProofUserIdInput = document.getElementById('movementProofUserId');
+  const movementProofMovementIdInput = document.getElementById('movementProofMovementId');
+  const movementProofTypeInput = document.getElementById('movementProofType');
+  const movementProofSummaryInput = document.getElementById('movementProofSummary');
+  const movementProofPrivateNotesInput = document.getElementById('movementProofPrivateNotes');
+  const movementProofSubmitBtn = document.getElementById('movementProofSubmitBtn');
+  const movementProofLoadBtn = document.getElementById('movementProofLoadBtn');
+  const movementProofFeedback = document.getElementById('movementProofFeedback');
+  const movementProofList = document.getElementById('movementProofList');
+  const adminProofQueueList = document.getElementById('adminProofQueueList');
+  const refreshProofQueueBtn = document.getElementById('refreshProofQueueBtn');
   const onboardingGuidance = document.getElementById('onboardingGuidance');
   const onboardingQuickStartChecklist = document.getElementById('onboardingQuickStartChecklist');
   const onboardingStateHint = document.getElementById('onboardingStateHint');
@@ -4328,6 +4387,7 @@
   let registerLookupMatchesCache = [];
   let incomingRequestsCache = [];
   let outgoingRequestsCache = [];
+  let movementProofRows = [];
   const familyTreeCache = new Map();
   let activeEditUserId = null;
   let activeEditInitial = null;
@@ -6550,6 +6610,78 @@
     }
   }
 
+  function renderAdminProofQueue(rows) {
+    if (!adminProofQueueList) return;
+    const items = Array.isArray(rows) ? rows : [];
+    if (!items.length) {
+      adminProofQueueList.className = 'stats-loading';
+      adminProofQueueList.textContent = 'No proof submissions pending review.';
+      return;
+    }
+    adminProofQueueList.className = 'connection-request-list';
+    adminProofQueueList.innerHTML = items.map((item) => `
+      <article class="connection-request-card">
+        <div class="connection-request-head">
+          <div>
+            <strong>${escapeHtml(String(item.user_id || 'unknown user'))}</strong><br>
+            <span style="font-size:0.69rem; color:var(--secondary-text);">${escapeHtml(String(item.proof_id || ''))}</span>
+          </div>
+          <span class="request-status-chip pending_request">${escapeHtml(toDisplayLabel(String(item.status || 'pending')))}</span>
+        </div>
+        <div class="connection-request-meta">
+          Movement: ${escapeHtml(String(item.movement_id || 'unknown'))}<br>
+          Proof type: ${escapeHtml(String(item.proof_type || 'unknown'))}<br>
+          Public summary: ${escapeHtml(String(item.public_summary || ''))}<br>
+          Private notes (admin only): ${escapeHtml(String(item.private_notes || 'none'))}<br>
+          Submitted: ${escapeHtml(String(item.submitted_at || 'unknown'))}
+        </div>
+        <div class="connection-request-actions">
+          <button type="button" data-proof-action="accepted" data-proof-id="${escapeHtml(String(item.proof_id || ''))}">Accept</button>
+          <button type="button" class="secondary" data-proof-action="rejected" data-proof-id="${escapeHtml(String(item.proof_id || ''))}">Reject</button>
+          <button type="button" class="secondary" data-proof-action="needs_info" data-proof-id="${escapeHtml(String(item.proof_id || ''))}">Needs Info</button>
+        </div>
+      </article>
+    `).join('');
+  }
+
+  async function loadAdminProofQueue() {
+    if (!adminProofQueueList) return;
+    adminProofQueueList.className = 'stats-loading';
+    adminProofQueueList.textContent = 'Loading proof submissions...';
+    try {
+      const res = await apiFetch('/proofs/list?status=pending');
+      const rows = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        adminProofQueueList.className = 'stats-loading';
+        adminProofQueueList.textContent = extractDetail(rows) || 'Could not load proof queue.';
+        return;
+      }
+      renderAdminProofQueue(rows);
+    } catch {
+      adminProofQueueList.className = 'stats-loading';
+      adminProofQueueList.textContent = 'Could not load proof queue.';
+    }
+  }
+
+  async function reviewProofSubmission(proofId, decision) {
+    if (!proofId || !decision) return;
+    const reviewerId = String(getKnownUserId() || '').trim();
+    const res = await apiFetch('/proofs/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId || '' },
+      body: JSON.stringify({
+        proof_id: proofId,
+        decision,
+        reviewer_user_id: reviewerId || null,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(extractDetail(data) || 'Proof review failed.');
+    }
+    return data;
+  }
+
   async function autofillFindFamilyFromRequester() {
     const requesterId = String(findRequesterUserIdInput?.value || getKnownUserId() || '').trim();
     if (!requesterId) return null;
@@ -6678,6 +6810,7 @@
       loadFamilies();
       loadAdminActivityLog();
       loadAdminPendingFamilyRequests();
+      loadAdminProofQueue();
       loadIntelligenceDashboard();
     }
     updateOnboardingNavHighlights();
@@ -7382,6 +7515,7 @@
     const region = String(movement?.region || 'Unknown');
     const targetDate = String(movement?.target_date || '').trim();
     const createdAt = String(movement?.created_at || '').trim();
+    const acceptedProofCount = Number(movement?.accepted_proof_count || 0);
     const joined = Boolean(myMembership) || members.some((m) => String(m?.user_id || '') === userId);
     const status = String((myMembership?.movement_status || 'interested')).toLowerCase();
     const role = String((myMembership?.role || 'member')).toLowerCase();
@@ -7398,6 +7532,7 @@
         <div class="cohort-card-desc" style="font-size:0.84rem; color:var(--muted);">
           Target date: ${escapeHtml(targetDate || 'not set')}<br>
           Members: ${memberCount}<br>
+          Accepted proofs: ${acceptedProofCount}<br>
           Created: ${escapeHtml(createdAt ? new Date(createdAt).toLocaleDateString() : 'unknown')}
         </div>
         <div class="cohort-card-footer">
@@ -7430,12 +7565,16 @@
       const known = String(getKnownUserId() || '').trim();
       const createInput = document.getElementById('movementCreateUserId');
       const myInput = document.getElementById('movementMyUserId');
+      const proofInput = document.getElementById('movementProofUserId');
       if (known && createInput && !String(createInput.value || '').trim()) createInput.value = known;
       if (known && myInput && !String(myInput.value || '').trim()) myInput.value = known;
+      if (known && proofInput && !String(proofInput.value || '').trim()) proofInput.value = known;
 
       document.getElementById('movementCreateBtn')?.addEventListener('click', createMovementGroup);
       document.getElementById('movementLoadMineBtn')?.addEventListener('click', loadUserMovements);
       document.getElementById('movementRefreshAllBtn')?.addEventListener('click', loadMovements);
+      movementProofSubmitBtn?.addEventListener('click', submitMovementProof);
+      movementProofLoadBtn?.addEventListener('click', loadUserProofs);
 
       const allList = document.getElementById('movementAllList');
       const myList = document.getElementById('movementMyList');
@@ -7461,6 +7600,7 @@
 
     await loadMovements();
     await loadUserMovements();
+    await loadUserProofs();
   }
 
   async function loadMovements() {
@@ -7515,6 +7655,117 @@
       listEl.innerHTML = movements.map((movement) => renderMovementCard(movement, userId, movement.my_membership || null)).join('');
     } catch {
       listEl.innerHTML = '<div class="stats-loading">Network error while loading your movements.</div>';
+    }
+  }
+
+  function renderUserProofRows(rows) {
+    if (!movementProofList) return;
+    const items = Array.isArray(rows) ? rows : [];
+    if (!items.length) {
+      movementProofList.className = 'stats-loading';
+      movementProofList.textContent = 'No proof submissions found for this user.';
+      return;
+    }
+    movementProofList.className = 'connection-request-list';
+    movementProofList.innerHTML = items.map((item) => {
+      const status = String(item?.status || 'pending').toLowerCase();
+      const publicNote = String(item?.review_public_note || '').trim();
+      return `
+        <article class="connection-request-card">
+          <div class="connection-request-head">
+            <div>
+              <strong>${escapeHtml(String(item?.proof_type || 'proof'))}</strong><br>
+              <span style="font-size:0.69rem; color:var(--secondary-text);">${escapeHtml(String(item?.proof_id || ''))}</span>
+            </div>
+            <span class="request-status-chip ${adminRequestStatusClass(status)}">${escapeHtml(toDisplayLabel(status))}</span>
+          </div>
+          <div class="connection-request-meta">
+            Movement: ${escapeHtml(String(item?.movement_id || 'unknown'))}<br>
+            Summary: ${escapeHtml(String(item?.public_summary || ''))}<br>
+            ${publicNote ? `Review note: ${escapeHtml(publicNote)}<br>` : ''}
+            Submitted: ${escapeHtml(String(item?.submitted_at || ''))}
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  async function loadUserProofs() {
+    const userId = String(movementProofUserIdInput?.value || getKnownUserId() || '').trim();
+    if (!movementProofList) return;
+    if (!userId) {
+      movementProofList.className = 'stats-loading';
+      movementProofList.textContent = 'Enter your User ID to load your proof submissions.';
+      return;
+    }
+    movementProofList.className = 'stats-loading';
+    movementProofList.textContent = 'Loading your proof submissions...';
+    try {
+      const res = await apiFetch(`/proofs/user/${encodeURIComponent(userId)}`);
+      const rows = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        movementProofList.className = 'stats-loading';
+        movementProofList.textContent = extractDetail(rows) || 'Could not load proof submissions.';
+        return;
+      }
+      movementProofRows = Array.isArray(rows) ? rows : [];
+      renderUserProofRows(movementProofRows);
+    } catch {
+      movementProofList.className = 'stats-loading';
+      movementProofList.textContent = 'Network error while loading proof submissions.';
+    }
+  }
+
+  async function submitMovementProof() {
+    const userId = String(movementProofUserIdInput?.value || getKnownUserId() || '').trim();
+    const movementId = String(movementProofMovementIdInput?.value || '').trim();
+    const proofType = String(movementProofTypeInput?.value || '').trim();
+    const publicSummary = String(movementProofSummaryInput?.value || '').trim();
+    const privateNotes = String(movementProofPrivateNotesInput?.value || '').trim();
+
+    if (!userId || !movementId || !proofType || !publicSummary) {
+      if (movementProofFeedback) {
+        movementProofFeedback.className = 'message error';
+        movementProofFeedback.textContent = 'User ID, movement ID, proof type, and public summary are required.';
+      }
+      return;
+    }
+
+    if (movementProofSubmitBtn) movementProofSubmitBtn.disabled = true;
+    try {
+      const res = await apiFetch('/proofs/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId || '' },
+        body: JSON.stringify({
+          user_id: userId,
+          movement_id: movementId,
+          proof_type: proofType,
+          public_summary: publicSummary,
+          private_notes: privateNotes || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (movementProofFeedback) {
+          movementProofFeedback.className = 'message error';
+          movementProofFeedback.textContent = extractDetail(data) || 'Could not submit proof.';
+        }
+        return;
+      }
+      if (movementProofFeedback) {
+        movementProofFeedback.className = 'message success';
+        movementProofFeedback.textContent = 'Proof submitted for admin review.';
+      }
+      if (movementProofSummaryInput) movementProofSummaryInput.value = '';
+      if (movementProofPrivateNotesInput) movementProofPrivateNotesInput.value = '';
+      await Promise.all([loadUserProofs(), loadMovements(), loadUserMovements(), loadActivityLog(), loadAdminActivityLog()]);
+    } catch {
+      if (movementProofFeedback) {
+        movementProofFeedback.className = 'message error';
+        movementProofFeedback.textContent = 'Network error while submitting proof.';
+      }
+    } finally {
+      if (movementProofSubmitBtn) movementProofSubmitBtn.disabled = false;
     }
   }
 
@@ -8401,6 +8652,9 @@
   refreshPendingRequestsBtn?.addEventListener('click', () => {
     loadAdminPendingFamilyRequests();
   });
+  refreshProofQueueBtn?.addEventListener('click', () => {
+    loadAdminProofQueue();
+  });
 
   adminPendingRequestsList?.addEventListener('click', async (event) => {
     const actionBtn = event.target.closest('[data-admin-request-action]');
@@ -8425,6 +8679,29 @@
     } catch {
       actionBtn.disabled = false;
       alert(`Could not ${action} request. Please try again.`);
+    }
+  });
+  adminProofQueueList?.addEventListener('click', async (event) => {
+    const actionBtn = event.target.closest('[data-proof-action]');
+    if (!actionBtn) return;
+    const decision = String(actionBtn.getAttribute('data-proof-action') || '').trim();
+    const proofId = String(actionBtn.getAttribute('data-proof-id') || '').trim();
+    if (!decision || !proofId) return;
+    actionBtn.disabled = true;
+    try {
+      await reviewProofSubmission(proofId, decision);
+      await Promise.all([
+        loadAdminProofQueue(),
+        loadMovements(),
+        loadUserMovements(),
+        loadUserProofs(),
+        loadActivityLog(),
+        loadAdminActivityLog(),
+        loadStats(),
+      ]);
+    } catch (err) {
+      actionBtn.disabled = false;
+      alert(err.message || 'Could not review proof submission.');
     }
   });
   registerLookupSearchBtn?.addEventListener('click', async () => {

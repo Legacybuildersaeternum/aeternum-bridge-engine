@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from routes import users, admin, messages, cohorts, origin_discovery, activation, guidance, movements
+from routes import users, admin, messages, cohorts, origin_discovery, activation, guidance, movements, proofs
 from services import registry
 
 _ROOT = Path(__file__).resolve().parent
@@ -27,6 +27,7 @@ app.include_router(origin_discovery.router)
 app.include_router(activation.router)
 app.include_router(guidance.router)
 app.include_router(movements.router)
+app.include_router(proofs.router)
 
 app.mount("/static", StaticFiles(directory=str(_ROOT / "static")), name="static")
 

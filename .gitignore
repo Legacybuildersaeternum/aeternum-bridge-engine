@@ -4,3 +4,8 @@ __pycache__/
 *.pyo
 .env
 data/legacy_activity_log.json
+data/registry_backups/
+data/diaspora_registry_backup.json
+data/cohorts.json
+data/guidance_requests.json
+data/messages.json

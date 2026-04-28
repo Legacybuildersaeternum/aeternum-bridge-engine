@@ -2163,16 +2163,22 @@ def refresh_user_trust(
         if str(msg.get("sender_id") or "") == user_id
     )
 
+    from services import proofs as proof_service
+    proof_stats = proof_service.get_user_accepted_proof_stats(user_id)
+
     trust_input = dict(target)
     trust_input["name"] = target.get("full_name")
     trust_input["origin_country"] = target.get("heritage_country") or target.get("country")
     trust_input["connections_count"] = connections_count
     trust_input["cohort_memberships"] = cohort_memberships
     trust_input["messages_sent"] = messages_sent
+    trust_input["accepted_real_world_proofs_count"] = int(proof_stats.get("accepted_total") or 0)
+    trust_input["accepted_document_proofs_count"] = int(proof_stats.get("accepted_document") or 0)
     trust_input["duplicate_resolved"] = bool(target.get("duplicate_resolved") or target.get("merged_into_user_id"))
     trust_input["document_verified"] = (
         bool(target.get("document_verified"))
         or str(target.get("verification_status") or "").lower() == "document_verified"
+        or int(proof_stats.get("accepted_document") or 0) > 0
     )
 
     update_user_trust(trust_input)

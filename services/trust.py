@@ -30,6 +30,16 @@ def calculate_trust_score(user: dict[str, Any]) -> int:
     if bool(user.get("duplicate_resolved")):
         score += 10
 
+    # Real-world proof signals
+    accepted_real_world_proofs = int(user.get("accepted_real_world_proofs_count", 0) or 0)
+    accepted_document_proofs = int(user.get("accepted_document_proofs_count", 0) or 0)
+    if accepted_real_world_proofs > 0:
+        score += 20
+    if accepted_real_world_proofs >= 3:
+        score += 10
+    if accepted_document_proofs > 0:
+        score += 20
+
     # Manual/document verification (future ready)
     if bool(user.get("document_verified")):
         score += 20
