@@ -15,6 +15,8 @@ Safety rules (Phase 41):
 import logging
 from typing import Any, Optional
 
+from services.guides import get_guides_for_region
+
 logger = logging.getLogger(__name__)
 
 
@@ -103,6 +105,7 @@ def find_diaspora_profiles_for_origin(
     origin_region: Optional[str] = None,
     origin_country: Optional[str] = None,
     heritage_group: Optional[str] = None,
+    requester_user: Optional[dict[str, Any]] = None,
     *,
     users: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -177,6 +180,29 @@ def find_diaspora_profiles_for_origin(
             "verification_status": user.get("verification_status", "family_submitted"),
         }
         results.append(result)
+
+    # Phase 42: Include cultural guides only for users who explicitly opted-in.
+    if requester_user and bool(requester_user.get("open_to_cultural_guides")):
+        target_region = origin_region_norm or _resolve_heritage_region(requester_user)
+        for guide in get_guides_for_region(target_region):
+            results.append({
+                "user_id": guide.get("guide_id"),
+                "user_role": "guide",
+                "display_name": guide.get("display_name"),
+                "current_country": None,
+                "current_region": guide.get("region"),
+                "current_city": None,
+                "heritage_region": guide.get("region"),
+                "heritage_country": ", ".join(guide.get("heritage_countries") or []),
+                "heritage_group": guide.get("specialty"),
+                "relocation_interest_level": "guide_support",
+                "open_to_cultural_guides": True,
+                "open_to_relocation_guidance": True,
+                "preferred_contact_scope": "verified_guides_only",
+                "verification_status": "verified_guide",
+                "guide_verified": bool(guide.get("guide_verified")),
+                "guide_description": guide.get("description"),
+            })
 
     logger.info(
         "Origin discovery search: region=%s country=%s group=%s → %d results",

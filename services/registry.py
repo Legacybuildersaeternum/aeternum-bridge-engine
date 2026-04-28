@@ -2550,6 +2550,7 @@ def update_registration(
         "open_to_cultural_guides",
         "open_to_relocation_guidance",
         "preferred_contact_scope",
+        "user_role",
     ]
     for field in editable_fields:
         if field in updates:

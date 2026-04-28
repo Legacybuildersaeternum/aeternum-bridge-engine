@@ -2822,6 +2822,20 @@
       padding-top: 16px;
       border-top: 1px solid rgba(201, 168, 76, 0.2);
     }
+  
+
+    /* Phase 42: Activation Engine */
+    .activation-list { display:grid; gap:10px; margin-top:10px; }
+    .activation-item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid rgba(201,168,76,0.24); border-radius:10px; background:rgba(11,18,36,0.35); }
+    .activation-item strong { font-size:0.92rem; color:var(--gold-lt); }
+    .activation-item .state { font-size:0.82rem; color:var(--muted); }
+    .activation-item.complete { border-color:rgba(60,170,90,0.45); }
+    .activation-item.complete .state { color:#83d89a; }
+    .pill-soft { display:inline-flex; align-items:center; padding:3px 8px; border-radius:999px; background:rgba(201,168,76,0.18); color:var(--gold-lt); font-size:0.74rem; letter-spacing:0.02em; }
+    .mini-card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:10px; }
+    .mini-card { border:1px solid rgba(201,168,76,0.2); border-radius:10px; padding:10px 12px; background:rgba(11,18,36,0.3); }
+    .mini-card h4 { margin:0 0 6px; font-size:0.9rem; color:var(--gold-lt); }
+
   </style>
 </head>
 <body>
@@ -2881,6 +2895,28 @@
           <div class="stat-box"><div class="num" id="homeStat_contact">--</div><div class="lbl">With Contact Info</div></div>
         </div>
         <div id="homeStatsDetails" style="margin-top:12px; font-size:0.83rem; color:var(--muted); line-height:1.7;"></div>
+      </section>
+
+      <section class="feature-card" aria-labelledby="next-step-title">
+        <h2 id="next-step-title" class="feature-title">Your Next Step</h2>
+        <p class="form-helper">Activation checklist based on your live account activity.</p>
+        <div class="field" style="margin-top:10px;">
+          <label for="activationUserId">Your User ID</label>
+          <input id="activationUserId" type="text" placeholder="usr_..." />
+        </div>
+        <div class="inline-action-row" style="margin-top:8px;">
+          <button type="button" id="activationRefreshBtn" class="secondary">Refresh Checklist</button>
+        </div>
+        <div id="activationChecklist" class="activation-list" style="margin-top:10px;"></div>
+        <div id="activationFeedback" class="message" style="margin-top:10px;"></div>
+      </section>
+
+      <section class="feature-card" aria-labelledby="lineage-prompt-title">
+        <h2 id="lineage-prompt-title" class="feature-title">Complete Your Lineage</h2>
+        <p id="lineagePromptCopy" class="form-helper">Add a parent, grandparent, or ancestor to preserve your family history.</p>
+        <div class="inline-action-row">
+          <button type="button" id="lineageAddFamilyBtn" data-page-target="register">Add Family Member</button>
+        </div>
       </section>
     </div>
 
@@ -3824,6 +3860,40 @@
       <h2>I Want To Move With Others</h2>
       <p style="color:var(--muted); margin-bottom:10px;">Use the Cohorts page to join relocation-focused groups and coordinate your movement pathway with trusted peers.</p>
       <button type="button" data-page-target="cohorts">View Relocation Cohorts</button>
+    </div>
+
+    <div class="card">
+      <h2>People Like You</h2>
+      <p class="form-helper">See masked profiles of users with similar origin and relocation pathways.</p>
+      <button type="button" id="loadSimilarUsersBtn">Load People Like You</button>
+      <div id="similarUsersSummary" style="margin-top:10px;"></div>
+      <div id="similarUsersList" class="mini-card-grid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Request Cultural Guidance</h2>
+      <p class="form-helper">Request support from verified cultural guides in your target region.</p>
+      <div class="optional-grid">
+        <div class="field">
+          <label for="guidanceRequesterId">Your User ID</label>
+          <input id="guidanceRequesterId" type="text" placeholder="usr_..." />
+        </div>
+        <div class="field">
+          <label for="guidanceTargetRegion">Target Region</label>
+          <input id="guidanceTargetRegion" type="text" placeholder="e.g. west_africa" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="guidanceMessage">Message</label>
+        <textarea id="guidanceMessage" rows="4" placeholder="Tell guides what support you need..."></textarea>
+      </div>
+      <button type="button" id="guidanceRequestBtn">Request Cultural Guidance</button>
+      <div id="guidanceFeedback" class="message" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card" id="relocationPathwayCard" style="display:none;">
+      <h2>Your Relocation Pathway</h2>
+      <div id="relocationPathwaySteps" class="activation-list"></div>
     </div>
   </section>
 
@@ -6494,6 +6564,8 @@
 
     if (pageName === 'home') {
       loadHomeDashboard();
+      initActivationEngine();
+      loadActivationChecklist();
     }
     if (pageName === 'welcome') {
       refreshOnboardingProfile();
@@ -6789,6 +6861,158 @@
     postSessionEvent(eventType, message);
   }
 
+  /* ── Phase 42: Activation Engine ── */
+  let _activationInitialised = false;
+  const _activationPromptSeen = new Set();
+
+  function initActivationEngine() {
+    if (_activationInitialised) return;
+    _activationInitialised = true;
+
+    const known = getKnownUserId ? getKnownUserId() : '';
+    const activationInput = document.getElementById('activationUserId');
+    if (known && activationInput && !String(activationInput.value || '').trim()) {
+      activationInput.value = known;
+    }
+    document.getElementById('activationRefreshBtn')?.addEventListener('click', loadActivationChecklist);
+    document.getElementById('lineageAddFamilyBtn')?.addEventListener('click', () => {
+      setActivePage('register');
+    });
+  }
+
+  function _activationRow(label, done, actionLabel, actionPage) {
+    const cls = done ? 'activation-item complete' : 'activation-item';
+    const state = done ? 'Complete' : 'Incomplete';
+    const icon = done ? '✓' : '○';
+    const action = done ? '' : `<button type="button" class="secondary" data-page-target="${escapeHtml(actionPage)}">${escapeHtml(actionLabel)}</button>`;
+    return `<div class="${cls}"><div><strong>${icon} ${escapeHtml(label)}</strong><div class="state">${state}</div></div>${action}</div>`;
+  }
+
+  async function loadActivationChecklist() {
+    const userId = String(document.getElementById('activationUserId')?.value || getKnownUserId() || '').trim();
+    const listEl = document.getElementById('activationChecklist');
+    const feedbackEl = document.getElementById('activationFeedback');
+    if (!userId) {
+      if (feedbackEl) { feedbackEl.className = 'message error'; feedbackEl.textContent = 'Enter your User ID to load activation steps.'; }
+      return;
+    }
+    if (listEl) listEl.innerHTML = '<div class="stats-loading">Loading activation checklist…</div>';
+
+    try {
+      const res = await apiFetch(`/activation/status/${encodeURIComponent(userId)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (feedbackEl) { feedbackEl.className = 'message error'; feedbackEl.textContent = extractDetail(data) || 'Could not load activation status.'; }
+        return;
+      }
+
+      if (listEl) {
+        listEl.innerHTML = [
+          _activationRow('Join your first cohort', !!data.has_cohort, 'Open Cohorts', 'cohorts'),
+          _activationRow('Discover your origin', !!data.has_origin_data, 'Open Origin Discovery', 'origin-discovery'),
+          _activationRow('Enable origin discovery', !!data.discovery_enabled, 'Set Discovery Preferences', 'origin-discovery'),
+          _activationRow('Connect with at least 1 person', !!data.has_connections, 'Find Family', 'find-family'),
+          _activationRow('Add a family member (ancestor or living)', !!data.has_family_members, 'Add Family Member', 'register'),
+        ].join('');
+      }
+
+      document.querySelectorAll('#activationChecklist [data-page-target]').forEach((btn) => {
+        btn.addEventListener('click', () => setActivePage(btn.dataset.pageTarget));
+      });
+
+      const familyCount = Number(data.family_member_count || 0);
+      const lineageCopy = document.getElementById('lineagePromptCopy');
+      if (familyCount < 3) {
+        if (lineageCopy) lineageCopy.textContent = 'Add a parent, grandparent, or ancestor to preserve your family history.';
+        if (!_activationPromptSeen.has(userId)) {
+          _activationPromptSeen.add(userId);
+          postSessionEvent('ANCESTOR_PROMPT_SHOWN', `Ancestor prompt shown for ${userId}.`);
+        }
+      } else {
+        if (lineageCopy) lineageCopy.textContent = 'Your lineage is growing. Keep preserving family history.';
+      }
+
+      if (feedbackEl) {
+        const doneCount = [data.has_cohort, data.has_origin_data, data.discovery_enabled, data.has_connections, data.has_family_members].filter(Boolean).length;
+        feedbackEl.className = doneCount === 5 ? 'message success' : 'message';
+        feedbackEl.textContent = `${doneCount}/5 activation steps completed.`;
+      }
+    } catch {
+      if (feedbackEl) { feedbackEl.className = 'message error'; feedbackEl.textContent = 'Network error while loading activation.'; }
+    }
+  }
+
+  async function loadSimilarUsers() {
+    const userId = String(document.getElementById('originPrefsUserId')?.value || getKnownUserId() || '').trim();
+    const summaryEl = document.getElementById('similarUsersSummary');
+    const listEl = document.getElementById('similarUsersList');
+    if (!userId) {
+      if (summaryEl) summaryEl.innerHTML = '<div class="message error">Set your User ID first.</div>';
+      return;
+    }
+    if (listEl) listEl.innerHTML = '<div class="stats-loading">Loading similar users…</div>';
+
+    try {
+      const res = await apiFetch(`/activation/similar/${encodeURIComponent(userId)}?max_results=8`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (summaryEl) summaryEl.innerHTML = `<div class="message error">${escapeHtml(extractDetail(data) || 'Could not load similar users.')}</div>`;
+        return;
+      }
+
+      const count = Number(data.count || 0);
+      const reloc = Number(data.relocation_matches || 0);
+      if (summaryEl) {
+        summaryEl.innerHTML = `<div class="pill-soft">${count} people share your origin</div> <div class="pill-soft" style="margin-left:6px;">${reloc} users are exploring relocation like you</div>`;
+      }
+
+      const profiles = Array.isArray(data.profiles) ? data.profiles : [];
+      if (!profiles.length) {
+        if (listEl) listEl.innerHTML = '<div class="stats-loading">No similar users found yet.</div>';
+      } else if (listEl) {
+        listEl.innerHTML = profiles.map((p) => `
+          <article class="mini-card">
+            <h4>${escapeHtml(String(p.display_name || 'Anonymous'))}</h4>
+            <div style="font-size:0.84rem; color:var(--muted); line-height:1.6;">
+              ${escapeHtml(toDisplayLabel(String(p.heritage_country || p.heritage_region || 'unknown')))}<br>
+              Relocation: ${escapeHtml(toDisplayLabel(String(p.relocation_interest_level || 'unknown')))}
+            </div>
+          </article>
+        `).join('');
+      }
+    } catch {
+      if (summaryEl) summaryEl.innerHTML = '<div class="message error">Network error while loading similar users.</div>';
+    }
+  }
+
+  function renderRelocationPathway() {
+    const card = document.getElementById('relocationPathwayCard');
+    const stepsEl = document.getElementById('relocationPathwaySteps');
+    if (!card || !stepsEl) return;
+
+    const me = getKnownUserRecord ? getKnownUserRecord() : null;
+    const level = String(me?.relocation_interest_level || '').toLowerCase();
+    const activeLevels = new Set(['considering', 'planning', 'active', 'actively_planning', 'already_relocated']);
+    if (!activeLevels.has(level)) {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = '';
+    const steps = [
+      ['Identify your origin', 'origin-discovery'],
+      ['Join relocation cohort', 'cohorts'],
+      ['Connect with others', 'find-family'],
+      ['Request cultural guidance', 'origin-discovery'],
+    ];
+
+    stepsEl.innerHTML = steps.map(([label, page]) => `<div class="activation-item"><strong>${escapeHtml(label)}</strong><button type="button" class="secondary" data-page-target="${escapeHtml(page)}">Open</button></div>`).join('');
+    stepsEl.querySelectorAll('[data-page-target]').forEach((btn) => {
+      btn.addEventListener('click', () => setActivePage(btn.dataset.pageTarget));
+    });
+  }
+  /* ── End Phase 42: Activation Engine ── */
+
   /* ── Phase 40: Cohorts ── */
   let _allCohorts = [];
   let _myCohortIds = new Set();
@@ -6803,6 +7027,10 @@
   function _renderCohortCard(cohort, isMember) {
     const joinedClass = isMember ? ' style="display:none;"' : '';
     const leaveClass = isMember ? '' : ' style="display:none;"';
+    const me = getKnownUserRecord ? getKnownUserRecord() : null;
+    const myRegion = String(me?.heritage_region || me?.origin_region || '').toLowerCase();
+    const cohortRegion = String(cohort.origin_region || '').toLowerCase();
+    const heritageMatch = myRegion && cohortRegion && myRegion === cohortRegion;
     return `
       <div class="cohort-card" data-cohort-id="${escapeHtml(cohort.cohort_id)}">
         <div class="cohort-card-header">
@@ -6810,9 +7038,11 @@
           <div class="cohort-card-badges">
             ${_cohortTypeBadge(cohort.type)}
             ${cohort.origin_region ? `<span class="cohort-type-badge">${escapeHtml(cohort.origin_region)}</span>` : ''}
+            ${heritageMatch ? `<span class="cohort-type-badge" style="border-color:rgba(90,170,120,0.5); color:#9be0b0;">matches your heritage</span>` : ''}
           </div>
         </div>
         <p class="cohort-card-desc">${escapeHtml(cohort.description || '')}</p>
+        <div style="font-size:0.8rem; color:var(--muted); margin-bottom:8px;">People like you are here</div>
         <div class="cohort-card-footer">
           <span class="cohort-member-count">${cohort.member_count ?? 0} member${(cohort.member_count ?? 0) !== 1 ? 's' : ''}</span>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -7092,6 +7322,15 @@
 
     document.getElementById('originSearchBtn')?.addEventListener('click', searchOriginMatches);
     document.getElementById('originPrefsSaveBtn')?.addEventListener('click', saveDiscoveryPreferences);
+    document.getElementById('loadSimilarUsersBtn')?.addEventListener('click', loadSimilarUsers);
+    document.getElementById('guidanceRequestBtn')?.addEventListener('click', requestCulturalGuidance);
+
+    const guidanceId = document.getElementById('guidanceRequesterId');
+    if (knownId && guidanceId && !String(guidanceId.value || '').trim()) {
+      guidanceId.value = knownId;
+    }
+
+    renderRelocationPathway();
   }
 
   async function searchOriginMatches() {
@@ -7111,6 +7350,8 @@
     if (region) params.set('origin_region', region);
     if (country) params.set('origin_country', country);
     if (group) params.set('heritage_group', group);
+    const requesterId = String(document.getElementById('originPrefsUserId')?.value || getKnownUserId() || '').trim();
+    if (requesterId) params.set('requester_user_id', requesterId);
 
     try {
       const res = await apiFetch(`/origin-matches/search?${params.toString()}`);
@@ -7149,13 +7390,13 @@
         <article class="find-match-card" style="margin-bottom:10px;">
           <div class="find-match-head">
             <strong>${escapeHtml(String(row.display_name || 'Anonymous'))}</strong>
-            <span class="find-match-score">Masked profile</span>
+            <span class="find-match-score">${row.user_role === 'guide' ? 'Verified guide' : 'Masked profile'}</span>
           </div>
           <div class="find-match-meta">
             Heritage: ${escapeHtml(String(row.heritage_group || row.heritage_country || row.heritage_region || 'not_provided'))}<br>
             Current: ${escapeHtml(String(row.current_city || row.current_region || '—'))}, ${escapeHtml(String(row.current_country || '—'))}<br>
             Relocation interest: ${escapeHtml(toDisplayLabel(String(row.relocation_interest_level || 'not_provided')))}<br>
-            Open to guides: ${row.open_to_cultural_guides ? 'Yes' : 'No'} · Open to relocation guidance: ${row.open_to_relocation_guidance ? 'Yes' : 'No'}
+            Open to guides: ${row.open_to_cultural_guides ? 'Yes' : 'No'} · Open to relocation guidance: ${row.open_to_relocation_guidance ? 'Yes' : 'No'}${row.guide_verified ? '<br>Guide verified: Yes' : ''}
           </div>
         </article>`;
     }).join('');
@@ -7206,6 +7447,40 @@
       }
     }
   }
+
+  async function requestCulturalGuidance() {
+    const requesterId = String(document.getElementById('guidanceRequesterId')?.value || getKnownUserId() || '').trim();
+    const targetRegion = optionalValue(document.getElementById('guidanceTargetRegion')?.value || '');
+    const message = String(document.getElementById('guidanceMessage')?.value || '').trim();
+    const feedbackEl = document.getElementById('guidanceFeedback');
+
+    if (!requesterId || !targetRegion || !message) {
+      if (feedbackEl) { feedbackEl.className = 'message error'; feedbackEl.textContent = 'Requester ID, target region, and message are required.'; }
+      return;
+    }
+
+    try {
+      const res = await apiFetch('/guidance/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requester_id: requesterId, target_region: targetRegion, message }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (feedbackEl) { feedbackEl.className = 'message error'; feedbackEl.textContent = extractDetail(data) || 'Could not submit guidance request.'; }
+        return;
+      }
+      if (feedbackEl) {
+        feedbackEl.className = 'message success';
+        feedbackEl.textContent = `Guidance request submitted. Request ID: ${data.request_id || 'pending'}`;
+      }
+      const msg = document.getElementById('guidanceMessage');
+      if (msg) msg.value = '';
+    } catch {
+      if (feedbackEl) { feedbackEl.className = 'message error'; feedbackEl.textContent = 'Network error while submitting guidance request.'; }
+    }
+  }
+
   /* ── End Phase 41: Origin Discovery ── */
 
   /* ── Phase 39: Messages ── */
@@ -9347,6 +9622,7 @@
 
   /* ── Home Dashboard ── */
   async function loadHomeDashboard() {
+    initActivationEngine();
     try {
       const res = await apiFetch('/stats');
       const data = await res.json();

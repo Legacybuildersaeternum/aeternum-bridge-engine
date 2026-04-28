@@ -381,6 +381,8 @@ class UserRecord(BaseModel):
     open_to_cultural_guides: bool = False
     open_to_relocation_guidance: bool = False
     preferred_contact_scope: ContactScope = ContactScope.private
+    # ── Phase 42: User Role ──
+    user_role: Optional[str] = None  # e.g. "guide", "member" (default None = normal member)
 
 
 class RelationshipUpdateRequest(BaseModel):
@@ -484,6 +486,8 @@ class RegistrationUpdateRequest(BaseModel):
     open_to_cultural_guides: Optional[bool] = None
     open_to_relocation_guidance: Optional[bool] = None
     preferred_contact_scope: Optional[ContactScope] = None
+    # ── Phase 42: User Role ──
+    user_role: Optional[str] = None
 
     @field_validator("full_name", "family_name")
     @classmethod

@@ -15,6 +15,7 @@ def search_origin_matches(
     origin_region: Optional[str] = Query(default=None, description="Heritage region to match (e.g. west_africa)"),
     origin_country: Optional[str] = Query(default=None, description="Heritage country to match (e.g. Nigeria)"),
     heritage_group: Optional[str] = Query(default=None, description="Heritage group / tribe / community"),
+    requester_user_id: Optional[str] = Query(default=None, description="Optional requester user ID (enables guide simulation)"),
 ) -> list[dict[str, Any]]:
     """
     Search diaspora users who have opted in to origin community discovery.
@@ -24,10 +25,12 @@ def search_origin_matches(
     Display names are masked.
     """
     users = [u.model_dump(mode="json") for u in registry.get_registrations()]
+    requester_user = next((u for u in users if u.get("user_id") == requester_user_id), None) if requester_user_id else None
     return find_diaspora_profiles_for_origin(
         origin_region=origin_region,
         origin_country=origin_country,
         heritage_group=heritage_group,
+        requester_user=requester_user,
         users=users,
     )
 
