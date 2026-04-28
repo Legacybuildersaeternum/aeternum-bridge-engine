@@ -79,6 +79,21 @@ _SEED_COHORTS: list[dict[str, Any]] = [
     },
 ]
 
+_COUNTRY_COHORT_MAP: dict[str, str] = {
+    "nigeria": "cohort_west_africa",
+    "ghana": "cohort_west_africa",
+    "senegal": "cohort_west_africa",
+    "mali": "cohort_west_africa",
+    "kenya": "cohort_east_africa",
+    "ethiopia": "cohort_east_africa",
+    "tanzania": "cohort_east_africa",
+    "uganda": "cohort_east_africa",
+    "jamaica": "cohort_caribbean_roots",
+    "haiti": "cohort_caribbean_roots",
+    "trinidad": "cohort_caribbean_roots",
+    "barbados": "cohort_caribbean_roots",
+}
+
 
 # ---------------------------------------------------------------------------
 # Persistence helpers
@@ -257,6 +272,8 @@ def get_cohort_members(cohort_id: str) -> list[dict[str, Any]]:
 def suggest_cohorts_for_user(
     origin_region: Optional[str],
     return_reconnection_interest: Optional[str],
+    heritage_country: Optional[str] = None,
+    heritage_group: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     """
     Return suggested cohort IDs based on user profile.
@@ -271,6 +288,14 @@ def suggest_cohorts_for_user(
         if hd:
             suggestions.append(hd)
 
+    # Heritage country explicit match
+    if heritage_country:
+        mapped = _COUNTRY_COHORT_MAP.get(heritage_country.strip().lower())
+        if mapped:
+            by_country = next((c for c in all_cohorts if c["cohort_id"] == mapped), None)
+            if by_country and by_country not in suggestions:
+                suggestions.append(by_country)
+
     # Region match
     if origin_region and origin_region.lower() != "unknown":
         for c in all_cohorts:
@@ -284,6 +309,13 @@ def suggest_cohorts_for_user(
         reloc = next((c for c in all_cohorts if c["cohort_id"] == "cohort_global_relocation"), None)
         if reloc and reloc not in suggestions:
             suggestions.append(reloc)
+
+    # Group-based fallback: if user provided a heritage group but no direct match,
+    # ensure they still see discovery cohort for guided support.
+    if heritage_group and not suggestions:
+        hd = next((c for c in all_cohorts if c["cohort_id"] == "cohort_heritage_discovery"), None)
+        if hd:
+            suggestions.append(hd)
 
     return suggestions
 

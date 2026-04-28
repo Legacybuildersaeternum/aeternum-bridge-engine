@@ -2152,7 +2152,7 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
             (payload.travel_timeframe or TravelTimeframe.not_sure_yet).value
         ),
         notes=payload.notes,
-        entry_agreement_accepted=True,
+        entry_agreement_accepted=bool(payload.entry_agreement_accepted),
         entry_agreement_accepted_at=registered_at,
         ecosystem_updates_opt_in=bool(payload.ecosystem_updates_opt_in),
         return_reconnection_interest=payload.return_reconnection_interest,
@@ -2163,54 +2163,89 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
         onboarding_completed=False,
         onboarding_completed_at=None,
         registered_at=registered_at,
+        # ── Phase 41 fields ──
+        is_deceased=payload.is_deceased,
+        living_status=payload.living_status,
+        birth_date=payload.birth_date or payload.date_of_birth,
+        death_date=payload.death_date,
+        ancestor_record=payload.ancestor_record,
+        added_by_user_id=payload.added_by_user_id,
+        memorial_notes=payload.memorial_notes,
+        verification_status=payload.verification_status,
+        current_country=payload.current_country,
+        current_state_region=payload.current_state_region,
+        current_city=payload.current_city,
+        target_country=payload.target_country,
+        target_region=payload.target_region,
+        heritage_region=payload.heritage_region,
+        heritage_country=payload.heritage_country,
+        heritage_group=payload.heritage_group,
+        relocation_interest_level=payload.relocation_interest_level,
+        discoverable_by_origin_communities=payload.discoverable_by_origin_communities,
+        open_to_cultural_guides=payload.open_to_cultural_guides,
+        open_to_relocation_guidance=payload.open_to_relocation_guidance,
+        preferred_contact_scope=payload.preferred_contact_scope,
     )
     users.append(record.model_dump(mode="json"))
     _save(users)
 
-    write_activity_event(
-        event_type="registration_submitted",
-        message=f"New registration submitted for {record.full_name}.",
-        user_id=record.user_id,
-        family_id=record.family_id,
-        family_name=record.family_name,
-        session_id=session_id,
-    )
-    write_activity_event(
-        event_type="entry_agreement_accepted",
-        message=f"Entry agreement accepted for {record.full_name}.",
-        user_id=record.user_id,
-        family_id=record.family_id,
-        family_name=record.family_name,
-        session_id=session_id,
-    )
-    if bool(record.ecosystem_updates_opt_in):
+    if not record.ancestor_record:
         write_activity_event(
-            event_type="ecosystem_updates_opted_in",
-            message=f"Ecosystem updates opt-in recorded for {record.full_name}.",
+            event_type="registration_submitted",
+            message=f"New registration submitted for {record.full_name}.",
             user_id=record.user_id,
             family_id=record.family_id,
             family_name=record.family_name,
             session_id=session_id,
         )
-    write_activity_event(
-        event_type="return_reconnection_interest_recorded",
-        message=(
-            f"Return/reconnection interest recorded for {record.full_name}: "
-            f"{record.return_reconnection_interest}."
-        ),
-        user_id=record.user_id,
-        family_id=record.family_id,
-        family_name=record.family_name,
-        session_id=session_id,
-    )
-    write_activity_event(
-        event_type="onboarding_started",
-        message=f"Onboarding started for {record.full_name}.",
-        user_id=record.user_id,
-        family_id=record.family_id,
-        family_name=record.family_name,
-        session_id=session_id,
-    )
+    if not record.ancestor_record and bool(record.entry_agreement_accepted):
+        write_activity_event(
+            event_type="entry_agreement_accepted",
+            message=f"Entry agreement accepted for {record.full_name}.",
+            user_id=record.user_id,
+            family_id=record.family_id,
+            family_name=record.family_name,
+            session_id=session_id,
+        )
+    if record.ancestor_record:
+        write_activity_event(
+            event_type="ancestor_record_created",
+            message=f"Ancestor record created for {record.full_name} by {record.added_by_user_id or 'unknown'}.",
+            user_id=record.user_id,
+            family_id=record.family_id,
+            family_name=record.family_name,
+            session_id=session_id,
+        )
+    else:
+        if bool(record.ecosystem_updates_opt_in):
+            write_activity_event(
+                event_type="ecosystem_updates_opted_in",
+                message=f"Ecosystem updates opt-in recorded for {record.full_name}.",
+                user_id=record.user_id,
+                family_id=record.family_id,
+                family_name=record.family_name,
+                session_id=session_id,
+            )
+        if record.return_reconnection_interest:
+            write_activity_event(
+                event_type="return_reconnection_interest_recorded",
+                message=(
+                    f"Return/reconnection interest recorded for {record.full_name}: "
+                    f"{record.return_reconnection_interest}."
+                ),
+                user_id=record.user_id,
+                family_id=record.family_id,
+                family_name=record.family_name,
+                session_id=session_id,
+            )
+        write_activity_event(
+            event_type="onboarding_started",
+            message=f"Onboarding started for {record.full_name}.",
+            user_id=record.user_id,
+            family_id=record.family_id,
+            family_name=record.family_name,
+            session_id=session_id,
+        )
     write_activity_event(
         event_type="family_group_updated" if family_exists else "family_group_created",
         message=(
@@ -2233,6 +2268,9 @@ def get_stats() -> StatsResponse:
     users = [u for u in users if _is_tree_active(u)]
 
     total_users = len(users)
+    total_living_users = sum(1 for r in users if not r.get("ancestor_record") and str(r.get("living_status", "living")) == "living")
+    total_ancestor_records = sum(1 for r in users if r.get("ancestor_record"))
+    total_unknown_status_users = sum(1 for r in users if str(r.get("living_status", "living")) == "unknown")
     family_member_counts: dict[str, int] = {}
     for r in users:
         family_id = r.get("family_id")
@@ -2300,6 +2338,9 @@ def get_stats() -> StatsResponse:
         total_users=total_users,
         total_families=total_families,
         total_family_groups=total_family_groups,
+        total_living_users=total_living_users,
+        total_ancestor_records=total_ancestor_records,
+        total_unknown_status_users=total_unknown_status_users,
         largest_family_size=largest_family_size,
         total_interested_in_return=total_interested,
         total_with_contact_info=total_with_contact_info,
@@ -2488,6 +2529,27 @@ def update_registration(
         "onboarding_first_connection_explored",
         "onboarding_completed",
         "onboarding_completed_at",
+        "is_deceased",
+        "living_status",
+        "birth_date",
+        "death_date",
+        "ancestor_record",
+        "added_by_user_id",
+        "memorial_notes",
+        "verification_status",
+        "current_country",
+        "current_state_region",
+        "current_city",
+        "target_country",
+        "target_region",
+        "heritage_region",
+        "heritage_country",
+        "heritage_group",
+        "relocation_interest_level",
+        "discoverable_by_origin_communities",
+        "open_to_cultural_guides",
+        "open_to_relocation_guidance",
+        "preferred_contact_scope",
     ]
     for field in editable_fields:
         if field in updates:

@@ -39,6 +39,8 @@ class CohortMessageRequest(BaseModel):
 class SuggestRequest(BaseModel):
     origin_region: Optional[str] = None
     return_reconnection_interest: Optional[str] = None
+    heritage_country: Optional[str] = None
+    heritage_group: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +86,8 @@ def suggest_cohorts(payload: SuggestRequest) -> list[dict[str, Any]]:
     return cohort_service.suggest_cohorts_for_user(
         origin_region=payload.origin_region,
         return_reconnection_interest=payload.return_reconnection_interest,
+        heritage_country=payload.heritage_country,
+        heritage_group=payload.heritage_group,
     )
 
 

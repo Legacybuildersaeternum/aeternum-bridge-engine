@@ -18,6 +18,27 @@ class OriginRegion(str, Enum):
     unknown = "unknown"
 
 
+class LivingStatus(str, Enum):
+    living = "living"
+    deceased = "deceased"
+    unknown = "unknown"
+
+
+class RelocationInterestLevel(str, Enum):
+    not_interested = "not_interested"
+    learning_only = "learning_only"
+    considering = "considering"
+    actively_planning = "actively_planning"
+    already_relocated = "already_relocated"
+
+
+class ContactScope(str, Enum):
+    connections_only = "connections_only"
+    cohort_members = "cohort_members"
+    verified_guides_only = "verified_guides_only"
+    private = "private"
+
+
 class TravelTimeframe(str, Enum):
     within_1_year = "within_1_year"
     one_to_three_years = "1-3_years"
@@ -85,7 +106,7 @@ class UserRegistration(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
-    date_of_birth: str
+    date_of_birth: Optional[str] = None
     age_range: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     travel_timeframe: Optional[TravelTimeframe] = None
@@ -95,9 +116,33 @@ class UserRegistration(BaseModel):
     linked_to_user_id: Optional[str] = None
     relationship_notes: Optional[str] = None
     notes: Optional[str] = None
-    entry_agreement_accepted: bool
+    entry_agreement_accepted: bool = False
     ecosystem_updates_opt_in: bool = False
-    return_reconnection_interest: ReturnReconnectionInterest
+    return_reconnection_interest: Optional[ReturnReconnectionInterest] = None
+    # ── Phase 41: Ancestor / Deceased Record ──
+    is_deceased: bool = False
+    living_status: LivingStatus = LivingStatus.living
+    birth_date: Optional[str] = None
+    death_date: Optional[str] = None
+    ancestor_record: bool = False
+    added_by_user_id: Optional[str] = None
+    memorial_notes: Optional[str] = None
+    verification_status: str = "family_submitted"
+    # ── Phase 41: Location Intelligence ──
+    current_country: Optional[str] = None
+    current_state_region: Optional[str] = None
+    current_city: Optional[str] = None
+    target_country: Optional[str] = None
+    target_region: Optional[str] = None
+    heritage_region: Optional[str] = None
+    heritage_country: Optional[str] = None
+    heritage_group: Optional[str] = None
+    relocation_interest_level: Optional[RelocationInterestLevel] = None
+    # ── Phase 41: Africa Can Find You ──
+    discoverable_by_origin_communities: bool = False
+    open_to_cultural_guides: bool = False
+    open_to_relocation_guidance: bool = False
+    preferred_contact_scope: ContactScope = ContactScope.private
     entry_agreement_accepted_at: Optional[str] = None
 
     model_config = {
@@ -236,9 +281,29 @@ class UserRegistration(BaseModel):
     @field_validator("entry_agreement_accepted")
     @classmethod
     def entry_agreement_must_be_accepted(cls, v: bool) -> bool:
-        if v is not True:
-            raise ValueError("entry_agreement_accepted must be true")
+        # Ancestor records don't require agreement; enforced via model_validator below
         return v
+
+    @model_validator(mode="after")
+    def enforce_living_user_requirements(self) -> "UserRegistration":
+        if not self.ancestor_record:
+            if not self.entry_agreement_accepted:
+                raise ValueError("entry_agreement_accepted must be true for living user registrations")
+            if not self.date_of_birth and not self.birth_date:
+                raise ValueError("date_of_birth is required for living user registrations")
+            if self.return_reconnection_interest is None:
+                raise ValueError("return_reconnection_interest is required for living user registrations")
+        # Sync is_deceased / living_status with ancestor_record
+        if self.ancestor_record:
+            self.is_deceased = True
+            if self.living_status == LivingStatus.living:
+                self.living_status = LivingStatus.deceased
+        # Sync birth_date <-> date_of_birth for ancestors
+        if self.ancestor_record and self.birth_date and not self.date_of_birth:
+            self.date_of_birth = self.birth_date
+        if self.date_of_birth and not self.birth_date:
+            self.birth_date = self.date_of_birth
+        return self
 
     @field_validator("linked_to_user_ids", mode="before")
     @classmethod
@@ -284,7 +349,7 @@ class UserRecord(BaseModel):
     entry_agreement_accepted: bool
     entry_agreement_accepted_at: str
     ecosystem_updates_opt_in: bool = False
-    return_reconnection_interest: ReturnReconnectionInterest
+    return_reconnection_interest: Optional[ReturnReconnectionInterest] = None
     onboarding_started: bool = False
     onboarding_started_at: Optional[str] = None
     onboarding_family_tree_started: bool = False
@@ -292,6 +357,30 @@ class UserRecord(BaseModel):
     onboarding_completed: bool = False
     onboarding_completed_at: Optional[str] = None
     registered_at: str
+    # ── Phase 41: Ancestor / Deceased Record ──
+    is_deceased: bool = False
+    living_status: LivingStatus = LivingStatus.living
+    birth_date: Optional[str] = None
+    death_date: Optional[str] = None
+    ancestor_record: bool = False
+    added_by_user_id: Optional[str] = None
+    memorial_notes: Optional[str] = None
+    verification_status: str = "family_submitted"
+    # ── Phase 41: Location Intelligence ──
+    current_country: Optional[str] = None
+    current_state_region: Optional[str] = None
+    current_city: Optional[str] = None
+    target_country: Optional[str] = None
+    target_region: Optional[str] = None
+    heritage_region: Optional[str] = None
+    heritage_country: Optional[str] = None
+    heritage_group: Optional[str] = None
+    relocation_interest_level: Optional[RelocationInterestLevel] = None
+    # ── Phase 41: Africa Can Find You ──
+    discoverable_by_origin_communities: bool = False
+    open_to_cultural_guides: bool = False
+    open_to_relocation_guidance: bool = False
+    preferred_contact_scope: ContactScope = ContactScope.private
 
 
 class RelationshipUpdateRequest(BaseModel):
@@ -371,6 +460,30 @@ class RegistrationUpdateRequest(BaseModel):
     onboarding_first_connection_explored: Optional[bool] = None
     onboarding_completed: Optional[bool] = None
     onboarding_completed_at: Optional[str] = None
+    # ── Phase 41: Ancestor / Deceased Record ──
+    is_deceased: Optional[bool] = None
+    living_status: Optional[LivingStatus] = None
+    birth_date: Optional[str] = None
+    death_date: Optional[str] = None
+    ancestor_record: Optional[bool] = None
+    added_by_user_id: Optional[str] = None
+    memorial_notes: Optional[str] = None
+    verification_status: Optional[str] = None
+    # ── Phase 41: Location Intelligence ──
+    current_country: Optional[str] = None
+    current_state_region: Optional[str] = None
+    current_city: Optional[str] = None
+    target_country: Optional[str] = None
+    target_region: Optional[str] = None
+    heritage_region: Optional[str] = None
+    heritage_country: Optional[str] = None
+    heritage_group: Optional[str] = None
+    relocation_interest_level: Optional[RelocationInterestLevel] = None
+    # ── Phase 41: Africa Can Find You ──
+    discoverable_by_origin_communities: Optional[bool] = None
+    open_to_cultural_guides: Optional[bool] = None
+    open_to_relocation_guidance: Optional[bool] = None
+    preferred_contact_scope: Optional[ContactScope] = None
 
     @field_validator("full_name", "family_name")
     @classmethod
@@ -455,6 +568,19 @@ class RegistrationUpdateRequest(BaseModel):
         "linked_to_user_id",
         "relationship_notes",
         "notes",
+        "birth_date",
+        "death_date",
+        "added_by_user_id",
+        "memorial_notes",
+        "verification_status",
+        "current_country",
+        "current_state_region",
+        "current_city",
+        "target_country",
+        "target_region",
+        "heritage_region",
+        "heritage_country",
+        "heritage_group",
         mode="before",
     )
     @classmethod
@@ -508,6 +634,9 @@ class StatsResponse(BaseModel):
     total_users: int
     total_families: int
     total_family_groups: int
+    total_living_users: int
+    total_ancestor_records: int
+    total_unknown_status_users: int
     largest_family_size: int
     total_interested_in_return: int
     total_with_contact_info: int

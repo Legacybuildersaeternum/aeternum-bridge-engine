@@ -2840,6 +2840,7 @@
   <button type="button" class="app-nav-link" data-page-target="find-family">Find Family</button>
   <button type="button" class="app-nav-link" data-page-target="messages">Messages</button>
   <button type="button" class="app-nav-link" data-page-target="cohorts">Cohorts</button>
+  <button type="button" class="app-nav-link" data-page-target="origin-discovery">Origin Discovery</button>
   <button type="button" class="app-nav-link" data-page-target="activity-log">Activity Log</button>
   <button type="button" class="app-nav-link" data-page-target="export-backup">Export &amp; Backup</button>
   <button type="button" class="app-nav-link" data-page-target="admin-dashboard">Admin Dashboard</button>
@@ -2941,6 +2942,35 @@
         <input id="family_name" type="text" placeholder="e.g. Diallo" required />
       </div>
       <div class="field">
+        <label>Living Status</label>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:6px;">
+          <label style="display:flex; align-items:center; gap:6px;"><input type="radio" name="living_status" value="living" checked /> Living</label>
+          <label style="display:flex; align-items:center; gap:6px;"><input type="radio" name="living_status" value="deceased" /> Deceased</label>
+          <label style="display:flex; align-items:center; gap:6px;"><input type="radio" name="living_status" value="unknown" /> Unknown</label>
+        </div>
+      </div>
+      <div class="checkbox-row" style="margin-top:-6px;">
+        <input type="checkbox" id="ancestor_record" />
+        <label for="ancestor_record">Create this profile as an ancestor record</label>
+      </div>
+      <div id="deceasedDetailsBlock" class="optional-section" style="display:none; margin-top:8px;">
+        <h3 style="margin-bottom:8px;">Ancestor / Memorial Details</h3>
+        <div class="optional-grid">
+          <div class="field">
+            <label for="birth_date">Birth Date</label>
+            <input id="birth_date" type="date" />
+          </div>
+          <div class="field">
+            <label for="death_date">Death Date</label>
+            <input id="death_date" type="date" />
+          </div>
+        </div>
+        <div class="field" style="margin-top: 12px; margin-bottom: 0;">
+          <label for="memorial_notes">Memorial Notes</label>
+          <textarea id="memorial_notes" placeholder="Optional remembrance notes for family record and lineage context."></textarea>
+        </div>
+      </div>
+      <div class="field">
         <label for="date_of_birth">Date of Birth</label>
         <input id="date_of_birth" type="date" required />
         <small class="optional-note">Date of birth helps verify real family connections.</small>
@@ -2965,7 +2995,7 @@
         <label for="interested_in_return">Interested in return to region of origin</label>
       </div>
 
-      <section class="optional-section" aria-labelledby="optional-details-title">
+      <section class="optional-section" id="registerContactPlanningSection" aria-labelledby="optional-details-title">
         <h3 id="optional-details-title">Optional Contact + Planning Details</h3>
         <p class="optional-note">Add details now or leave blank and update later as your family planning evolves.</p>
         <div class="optional-grid">
@@ -3017,6 +3047,56 @@
         <div class="field" style="margin-top: 12px; margin-bottom: 0;">
           <label for="notes">Notes</label>
           <textarea id="notes" placeholder="Optional planning notes, interests, or travel context."></textarea>
+        </div>
+      </section>
+
+      <section class="optional-section" aria-labelledby="location-intelligence-title">
+        <h3 id="location-intelligence-title">Location Intelligence</h3>
+        <p class="optional-note">Help Aeternum align your current location, heritage context, and movement pathways.</p>
+        <div class="optional-grid">
+          <div class="field">
+            <label for="current_country">Current Country</label>
+            <input id="current_country" type="text" placeholder="e.g. USA" />
+          </div>
+          <div class="field">
+            <label for="current_state_region">Current State / Region</label>
+            <input id="current_state_region" type="text" placeholder="e.g. Georgia" />
+          </div>
+          <div class="field">
+            <label for="current_city">Current City</label>
+            <input id="current_city" type="text" placeholder="e.g. Atlanta" />
+          </div>
+          <div class="field">
+            <label for="heritage_region">Heritage Region</label>
+            <input id="heritage_region" type="text" placeholder="e.g. west_africa" />
+          </div>
+          <div class="field">
+            <label for="heritage_country">Heritage Country</label>
+            <input id="heritage_country" type="text" placeholder="e.g. Nigeria" />
+          </div>
+          <div class="field">
+            <label for="heritage_group">Heritage Group</label>
+            <input id="heritage_group" type="text" placeholder="e.g. Yoruba" />
+          </div>
+          <div class="field">
+            <label for="target_country">Target Country</label>
+            <input id="target_country" type="text" placeholder="Planned relocation destination" />
+          </div>
+          <div class="field">
+            <label for="target_region">Target Region</label>
+            <input id="target_region" type="text" placeholder="State / province / district" />
+          </div>
+          <div class="field">
+            <label for="relocation_interest_level">Relocation Interest Level</label>
+            <select id="relocation_interest_level">
+              <option value="">— Select level —</option>
+              <option value="not_interested">Not interested</option>
+              <option value="learning_only">Learning only</option>
+              <option value="considering">Considering</option>
+              <option value="actively_planning">Actively planning</option>
+              <option value="already_relocated">Already relocated</option>
+            </select>
+          </div>
         </div>
       </section>
 
@@ -3137,6 +3217,29 @@
         <div id="registerLookupResults" class="stats-loading" style="margin-top:10px;">Search to view possible existing family matches.</div>
       </section>
       <section class="optional-section agreement-section" aria-labelledby="entry-agreement-title">
+        <h3>Let Origin Communities Find Me</h3>
+        <div class="checkbox-row" style="margin-bottom:10px;">
+          <input type="checkbox" id="discoverable_by_origin_communities" />
+          <label for="discoverable_by_origin_communities">Allow origin communities to discover my masked profile</label>
+        </div>
+        <div class="checkbox-row" style="margin-bottom:10px;">
+          <input type="checkbox" id="open_to_cultural_guides" />
+          <label for="open_to_cultural_guides">Open to cultural guide connection</label>
+        </div>
+        <div class="checkbox-row" style="margin-bottom:10px;">
+          <input type="checkbox" id="open_to_relocation_guidance" />
+          <label for="open_to_relocation_guidance">Open to relocation guidance</label>
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label for="preferred_contact_scope">Preferred Contact Scope</label>
+          <select id="preferred_contact_scope">
+            <option value="private" selected>Private</option>
+            <option value="connections_only">Connections only</option>
+            <option value="cohort_members">Cohort members</option>
+            <option value="verified_guides_only">Verified guides only</option>
+          </select>
+        </div>
+
         <h3 id="entry-agreement-title">Aeternum Bridge Entry Agreement</h3>
         <ul class="agreement-copy">
           <li>Aeternum Bridge Engine is a cultural identity and reconnection system designed to help users document lineage, explore heritage, and reconnect with others who may share ancestral, regional, or familial ties.</li>
@@ -3647,6 +3750,80 @@
         <p style="font-size: 0.85em; color: #aaa; margin-top: 1rem;">✓ Read-only exports. No data is modified during download.</p>
         <div id="exportConfirmMsg" class="message success" style="display:none; margin-top:14px;"></div>
       </div>
+    </div>
+  </section>
+
+  <section class="page-section" data-page="origin-discovery">
+    <section class="page-header-card">
+      <span class="page-kicker">Origin Discovery</span>
+      <h2 class="page-title">Africa Can Find You</h2>
+      <p class="page-copy">Discover opt-in diaspora profiles by heritage context, set your own discoverability preferences, and connect through safe masked pathways.</p>
+    </section>
+
+    <div class="card">
+      <h2>I Know My Origin</h2>
+      <div class="optional-grid">
+        <div class="field">
+          <label for="originSearchCountry">Origin Country</label>
+          <input id="originSearchCountry" type="text" placeholder="e.g. Nigeria" />
+        </div>
+        <div class="field">
+          <label for="originSearchRegion">Origin Region</label>
+          <input id="originSearchRegion" type="text" placeholder="e.g. west_africa" />
+        </div>
+        <div class="field">
+          <label for="originSearchGroup">Heritage Group</label>
+          <input id="originSearchGroup" type="text" placeholder="e.g. Yoruba" />
+        </div>
+      </div>
+      <button type="button" id="originSearchBtn">Search Origin Matches</button>
+      <div id="originSearchFeedback" class="message" style="margin-top:10px;"></div>
+      <div id="originSearchResults" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>I Don’t Know My Origin</h2>
+      <p style="color:var(--muted); margin-bottom:10px;">If your ancestral origin is unknown, join guided discovery pathways with others on the same journey.</p>
+      <button type="button" data-page-target="cohorts">Open Heritage Discovery Cohort</button>
+    </div>
+
+    <div class="card">
+      <h2>I Want Origin Communities To Find Me</h2>
+      <div class="optional-grid">
+        <div class="field">
+          <label for="originPrefsUserId">Your User ID</label>
+          <input id="originPrefsUserId" type="text" placeholder="usr_..." />
+        </div>
+      </div>
+      <div class="checkbox-row" style="margin-bottom:10px;">
+        <input type="checkbox" id="originPrefsDiscoverable" />
+        <label for="originPrefsDiscoverable">Discoverable by origin communities</label>
+      </div>
+      <div class="checkbox-row" style="margin-bottom:10px;">
+        <input type="checkbox" id="originPrefsGuides" />
+        <label for="originPrefsGuides">Open to cultural guides</label>
+      </div>
+      <div class="checkbox-row" style="margin-bottom:10px;">
+        <input type="checkbox" id="originPrefsRelocation" />
+        <label for="originPrefsRelocation">Open to relocation guidance</label>
+      </div>
+      <div class="field">
+        <label for="originPrefsScope">Preferred Contact Scope</label>
+        <select id="originPrefsScope">
+          <option value="private" selected>Private</option>
+          <option value="connections_only">Connections only</option>
+          <option value="cohort_members">Cohort members</option>
+          <option value="verified_guides_only">Verified guides only</option>
+        </select>
+      </div>
+      <button type="button" id="originPrefsSaveBtn">Save Discovery Preferences</button>
+      <div id="originPrefsFeedback" class="message" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>I Want To Move With Others</h2>
+      <p style="color:var(--muted); margin-bottom:10px;">Use the Cohorts page to join relocation-focused groups and coordinate your movement pathway with trusted peers.</p>
+      <button type="button" data-page-target="cohorts">View Relocation Cohorts</button>
     </div>
   </section>
 
@@ -4578,6 +4755,9 @@
       ['Total Messages Sent', stats.total_messages_count ?? 0],
       ['Total Cohorts', stats.total_cohorts ?? 0],
       ['Total Cohort Memberships', stats.total_cohort_memberships ?? 0],
+      ['Living Users', stats.total_living_users ?? 0],
+      ['Ancestor Records', stats.total_ancestor_records ?? 0],
+      ['Unknown Status', stats.total_unknown_status_users ?? 0],
       ['Return/Reconnection: Heritage', (stats.return_reconnection_interest_distribution || {}).yes_interested_return_reconnection ?? 0],
       ['Return/Reconnection: Cultural', (stats.return_reconnection_interest_distribution || {}).maybe_learning_more ?? 0],
       ['Return/Reconnection: History Only', (stats.return_reconnection_interest_distribution || {}).no_documenting_family_history ?? 0],
@@ -6347,6 +6527,9 @@
     if (pageName === 'cohorts') {
       initCohortsPage();
     }
+    if (pageName === 'origin-discovery') {
+      initOriginDiscoveryPage();
+    }
     if (pageName === 'activity-log') {
       logPageViewOnce('activity-log', 'activity_log_viewed', 'Activity Log tab opened.');
       loadActivityLog();
@@ -6717,16 +6900,23 @@
         sugEl.innerHTML = '<div class="stats-loading">Loading suggestions…</div>';
         try {
           // Get user origin from registrations cache
-          let origin = null, interest = null;
+          let origin = null, interest = null, heritageCountry = null, heritageGroup = null;
           if (typeof registrationsCache !== 'undefined' && registrationsCache.length) {
             const me = registrationsCache.find(u => u.user_id === userId);
             origin = me?.origin_region || null;
             interest = me?.return_reconnection_interest || null;
+            heritageCountry = me?.heritage_country || null;
+            heritageGroup = me?.heritage_group || null;
           }
           const sugRes = await apiFetch('/cohorts/suggest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ origin_region: origin, return_reconnection_interest: interest }),
+            body: JSON.stringify({
+              origin_region: origin,
+              return_reconnection_interest: interest,
+              heritage_country: heritageCountry,
+              heritage_group: heritageGroup,
+            }),
           });
           const sugData = await sugRes.json().catch(() => ([]));
           const suggestions = Array.isArray(sugData) ? sugData.filter(c => !_myCohortIds.has(c.cohort_id)) : [];
@@ -6886,6 +7076,137 @@
     } catch { if (feedbackEl) { feedbackEl.textContent = 'Network error.'; feedbackEl.className = 'message error'; } }
   }
   /* ── End Phase 40: Cohorts ── */
+
+  /* ── Phase 41: Origin Discovery ── */
+  let _originDiscoveryInitialised = false;
+
+  function initOriginDiscoveryPage() {
+    if (_originDiscoveryInitialised) return;
+    _originDiscoveryInitialised = true;
+
+    const knownId = getKnownUserId ? getKnownUserId() : '';
+    const prefsUserId = document.getElementById('originPrefsUserId');
+    if (knownId && prefsUserId && !String(prefsUserId.value || '').trim()) {
+      prefsUserId.value = knownId;
+    }
+
+    document.getElementById('originSearchBtn')?.addEventListener('click', searchOriginMatches);
+    document.getElementById('originPrefsSaveBtn')?.addEventListener('click', saveDiscoveryPreferences);
+  }
+
+  async function searchOriginMatches() {
+    const region = optionalValue(document.getElementById('originSearchRegion')?.value || '');
+    const country = optionalValue(document.getElementById('originSearchCountry')?.value || '');
+    const group = optionalValue(document.getElementById('originSearchGroup')?.value || '');
+    const feedbackEl = document.getElementById('originSearchFeedback');
+    const resultsEl = document.getElementById('originSearchResults');
+
+    if (resultsEl) resultsEl.innerHTML = '<div class="stats-loading">Searching origin matches…</div>';
+    if (feedbackEl) {
+      feedbackEl.className = 'message';
+      feedbackEl.textContent = '';
+    }
+
+    const params = new URLSearchParams();
+    if (region) params.set('origin_region', region);
+    if (country) params.set('origin_country', country);
+    if (group) params.set('heritage_group', group);
+
+    try {
+      const res = await apiFetch(`/origin-matches/search?${params.toString()}`);
+      const data = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        if (resultsEl) resultsEl.innerHTML = '<div class="stats-loading">Could not load matches.</div>';
+        if (feedbackEl) {
+          feedbackEl.className = 'message error';
+          feedbackEl.textContent = extractDetail(data) || 'Search failed.';
+        }
+        return;
+      }
+      renderOriginMatchResults(Array.isArray(data) ? data : []);
+      if (feedbackEl) {
+        feedbackEl.className = 'message success';
+        feedbackEl.textContent = `Found ${Array.isArray(data) ? data.length : 0} origin match(es).`;
+      }
+    } catch {
+      if (resultsEl) resultsEl.innerHTML = '<div class="stats-loading">Network error.</div>';
+      if (feedbackEl) {
+        feedbackEl.className = 'message error';
+        feedbackEl.textContent = 'Network error while searching origin matches.';
+      }
+    }
+  }
+
+  function renderOriginMatchResults(results) {
+    const resultsEl = document.getElementById('originSearchResults');
+    if (!resultsEl) return;
+    if (!Array.isArray(results) || !results.length) {
+      resultsEl.innerHTML = '<div class="stats-loading">No opt-in origin matches found for the selected filters.</div>';
+      return;
+    }
+    resultsEl.innerHTML = results.map((row) => {
+      return `
+        <article class="find-match-card" style="margin-bottom:10px;">
+          <div class="find-match-head">
+            <strong>${escapeHtml(String(row.display_name || 'Anonymous'))}</strong>
+            <span class="find-match-score">Masked profile</span>
+          </div>
+          <div class="find-match-meta">
+            Heritage: ${escapeHtml(String(row.heritage_group || row.heritage_country || row.heritage_region || 'not_provided'))}<br>
+            Current: ${escapeHtml(String(row.current_city || row.current_region || '—'))}, ${escapeHtml(String(row.current_country || '—'))}<br>
+            Relocation interest: ${escapeHtml(toDisplayLabel(String(row.relocation_interest_level || 'not_provided')))}<br>
+            Open to guides: ${row.open_to_cultural_guides ? 'Yes' : 'No'} · Open to relocation guidance: ${row.open_to_relocation_guidance ? 'Yes' : 'No'}
+          </div>
+        </article>`;
+    }).join('');
+  }
+
+  async function saveDiscoveryPreferences() {
+    const userId = String(document.getElementById('originPrefsUserId')?.value || '').trim();
+    const feedbackEl = document.getElementById('originPrefsFeedback');
+    if (!userId) {
+      if (feedbackEl) {
+        feedbackEl.className = 'message error';
+        feedbackEl.textContent = 'User ID is required.';
+      }
+      return;
+    }
+
+    const payload = {
+      user_id: userId,
+      discoverable_by_origin_communities: Boolean(document.getElementById('originPrefsDiscoverable')?.checked),
+      open_to_cultural_guides: Boolean(document.getElementById('originPrefsGuides')?.checked),
+      open_to_relocation_guidance: Boolean(document.getElementById('originPrefsRelocation')?.checked),
+      preferred_contact_scope: String(document.getElementById('originPrefsScope')?.value || 'private'),
+    };
+
+    try {
+      const res = await apiFetch('/origin-matches/update-discoverability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (feedbackEl) {
+          feedbackEl.className = 'message error';
+          feedbackEl.textContent = extractDetail(data) || 'Could not save discovery preferences.';
+        }
+        return;
+      }
+      if (feedbackEl) {
+        feedbackEl.className = 'message success';
+        feedbackEl.textContent = 'Discovery preferences saved.';
+      }
+      await Promise.all([loadRegistrations(), loadStats()]);
+    } catch {
+      if (feedbackEl) {
+        feedbackEl.className = 'message error';
+        feedbackEl.textContent = 'Network error while saving preferences.';
+      }
+    }
+  }
+  /* ── End Phase 41: Origin Discovery ── */
 
   /* ── Phase 39: Messages ── */
   let _msgConnectedUsers = [];
@@ -7535,6 +7856,35 @@
     };
     openConnectionConfirmModal(matchRowWithGuess, 'register_lookup', requesterUserId, actionBtn);
   });
+
+  function applyLivingStatusUI() {
+    const livingStatus = String(document.querySelector('input[name="living_status"]:checked')?.value || 'living');
+    const ancestorInput = document.getElementById('ancestor_record');
+    const ancestorRecord = Boolean(ancestorInput?.checked) || livingStatus === 'deceased';
+    const deceasedBlock = document.getElementById('deceasedDetailsBlock');
+    const contactSection = document.getElementById('registerContactPlanningSection');
+    const dobInput = document.getElementById('date_of_birth');
+
+    if (deceasedBlock) {
+      deceasedBlock.style.display = (livingStatus === 'deceased' || ancestorRecord) ? '' : 'none';
+    }
+    if (contactSection) {
+      contactSection.style.display = (livingStatus === 'deceased' || ancestorRecord) ? 'none' : '';
+    }
+    if (dobInput) {
+      dobInput.required = !(livingStatus === 'deceased' || ancestorRecord);
+    }
+    if (ancestorInput && livingStatus === 'deceased') {
+      ancestorInput.checked = true;
+    }
+  }
+
+  document.querySelectorAll('input[name="living_status"]').forEach((input) => {
+    input.addEventListener('change', applyLivingStatusUI);
+  });
+  document.getElementById('ancestor_record')?.addEventListener('change', applyLivingStatusUI);
+  applyLivingStatusUI();
+
   form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
 
   // Export button handlers
@@ -7560,7 +7910,12 @@
 
     const full_name        = document.getElementById('full_name').value.trim();
     const family_name      = document.getElementById('family_name').value.trim();
+    const living_status    = String(document.querySelector('input[name="living_status"]:checked')?.value || 'living').trim();
+    const ancestor_record  = document.getElementById('ancestor_record').checked || living_status === 'deceased';
     const date_of_birth    = document.getElementById('date_of_birth').value;
+    const birth_date       = optionalValue(document.getElementById('birth_date')?.value || '');
+    const death_date       = optionalValue(document.getElementById('death_date')?.value || '');
+    const memorial_notes   = optionalValue(document.getElementById('memorial_notes')?.value || '');
     const family_size      = parseInt(document.getElementById('family_size').value, 10);
     const origin_region    = document.getElementById('origin_region').value;
     const interested_in_return = document.getElementById('interested_in_return').checked;
@@ -7577,12 +7932,25 @@
     const linked_to_user_ids = collectCheckedValues('linked_to_user_ids');
     const relationship_notes = optionalValue(document.getElementById('relationship_notes').value);
     const notes = optionalValue(document.getElementById('notes').value);
+    const current_country = optionalValue(document.getElementById('current_country')?.value || '');
+    const current_state_region = optionalValue(document.getElementById('current_state_region')?.value || '');
+    const current_city = optionalValue(document.getElementById('current_city')?.value || '');
+    const target_country = optionalValue(document.getElementById('target_country')?.value || '');
+    const target_region = optionalValue(document.getElementById('target_region')?.value || '');
+    const heritage_region = optionalValue(document.getElementById('heritage_region')?.value || '');
+    const heritage_country = optionalValue(document.getElementById('heritage_country')?.value || '');
+    const heritage_group = optionalValue(document.getElementById('heritage_group')?.value || '');
+    const relocation_interest_level = optionalValue(document.getElementById('relocation_interest_level')?.value || '');
+    const discoverable_by_origin_communities = document.getElementById('discoverable_by_origin_communities')?.checked || false;
+    const open_to_cultural_guides = document.getElementById('open_to_cultural_guides')?.checked || false;
+    const open_to_relocation_guidance = document.getElementById('open_to_relocation_guidance')?.checked || false;
+    const preferred_contact_scope = optionalValue(document.getElementById('preferred_contact_scope')?.value || 'private') || 'private';
     const entry_agreement_accepted = document.getElementById('entry_agreement_accepted').checked;
     const ecosystem_updates_opt_in = document.getElementById('ecosystem_updates_opt_in').checked;
     const return_reconnection_interest = optionalValue(document.getElementById('return_reconnection_interest').value);
 
     // Basic client-side validation
-    if (!date_of_birth) {
+    if (!ancestor_record && living_status !== 'deceased' && !date_of_birth && !birth_date) {
       showError('Date of birth helps verify real family connections.');
       return;
     }
@@ -7597,12 +7965,12 @@
       return;
     }
 
-    if (!entry_agreement_accepted) {
+    if (!ancestor_record && !entry_agreement_accepted) {
       showError('You must accept the Aeternum Bridge Entry Agreement before registration.');
       return;
     }
 
-    if (!return_reconnection_interest) {
+    if (!ancestor_record && !return_reconnection_interest) {
       showError('Please select your Return / Reconnection Interest before registration.');
       return;
     }
@@ -7615,6 +7983,9 @@
         origin_region,
         interested_in_return,
         date_of_birth,
+        birth_date,
+        death_date,
+        memorial_notes,
         email,
         phone_number,
         phone: phone_number,
@@ -7629,9 +8000,25 @@
         linked_to_user_ids,
         relationship_notes,
         notes,
-        entry_agreement_accepted,
+        entry_agreement_accepted: ancestor_record ? false : entry_agreement_accepted,
         ecosystem_updates_opt_in,
-        return_reconnection_interest,
+        return_reconnection_interest: ancestor_record ? null : return_reconnection_interest,
+        living_status,
+        is_deceased: living_status === 'deceased' || ancestor_record,
+        ancestor_record,
+        current_country,
+        current_state_region,
+        current_city,
+        target_country,
+        target_region,
+        heritage_region,
+        heritage_country,
+        heritage_group,
+        relocation_interest_level,
+        discoverable_by_origin_communities,
+        open_to_cultural_guides,
+        open_to_relocation_guidance,
+        preferred_contact_scope,
       };
 
       const res = await apiFetch('/register_user', {
@@ -7674,7 +8061,7 @@
 
       if (registerLookupFirstNameInput) registerLookupFirstNameInput.value = registeredFirstName;
       if (registerLookupLastNameInput) registerLookupLastNameInput.value = registeredLastName;
-      if (registerLookupDobInput) registerLookupDobInput.value = String(date_of_birth || '').trim();
+      if (registerLookupDobInput) registerLookupDobInput.value = String(date_of_birth || birth_date || '').trim();
       if (registerLookupCountryInput) registerLookupCountryInput.value = String(country || '').trim();
       if (registerLookupStateRegionInput) registerLookupStateRegionInput.value = String(state || '').trim();
 
@@ -8193,10 +8580,17 @@
     const connectedNames = (Array.isArray(member.linked_to_full_names) && member.linked_to_full_names.length)
       ? member.linked_to_full_names.join(', ')
       : (member.linked_to_full_name || 'None');
+    const isAncestor = Boolean(member.ancestor_record);
+    const isDeceased = Boolean(member.is_deceased) || String(member.living_status || '').toLowerCase() === 'deceased';
+    const statusBadges = [
+      isAncestor ? '<span class="tree-node-subtag" style="margin-right:6px;">Ancestor Record</span>' : '',
+      isDeceased ? '<span class="tree-node-subtag">Deceased</span>' : '',
+    ].filter(Boolean).join('');
 
     return `
       <div class="tree-node">
         <div class="tree-node-name">${escapeHtml(member.full_name || 'Unnamed member')}</div>
+        ${statusBadges ? `<div style="margin-bottom:6px;">${statusBadges}</div>` : ''}
         <div class="tree-node-meta">
           <strong>Role:</strong> ${toDisplayLabel(member.relationship_role || 'not_provided')}<br>
           <strong>Household:</strong> ${toDisplayLabel(member.household_position || 'not_provided')}<br>

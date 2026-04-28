@@ -263,6 +263,11 @@ def get_connected_users(
             other_id = req_user
         if other_id and other_id in users_by_id:
             other = users_by_id[other_id]
+            # Phase 41: Ancestor/deceased records cannot participate in messaging.
+            if other.get("ancestor_record") or other.get("is_deceased"):
+                continue
+            if str(other.get("living_status", "living")).lower() == "deceased":
+                continue
             connected.append({
                 "user_id": other_id,
                 "full_name": str(other.get("full_name") or ""),
