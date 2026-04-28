@@ -2859,6 +2859,7 @@
   <button type="button" class="app-nav-link" data-page-target="find-family">Find Family</button>
   <button type="button" class="app-nav-link" data-page-target="messages">Messages</button>
   <button type="button" class="app-nav-link" data-page-target="cohorts">Cohorts</button>
+  <button type="button" class="app-nav-link" data-page-target="movement">Movement</button>
   <button type="button" class="app-nav-link" data-page-target="origin-discovery">Origin Discovery</button>
   <button type="button" class="app-nav-link" data-page-target="activity-log">Activity Log</button>
   <button type="button" class="app-nav-link" data-page-target="export-backup">Export &amp; Backup</button>
@@ -3757,6 +3758,58 @@
       <div class="field"><label for="newCohortDesc">Description</label><textarea id="newCohortDesc" rows="3" maxlength="600" style="width:100%; resize:vertical; padding:8px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text);"></textarea></div>
       <button type="button" id="cohortsCreateBtn">Create Cohort</button>
       <div id="cohortsCreateFeedback" class="message" style="margin-top:8px;"></div>
+    </div>
+  </section>
+
+  <section class="page-section" data-page="movement">
+    <section class="page-header-card">
+      <span class="page-kicker">Movement</span>
+      <h2 class="page-title">Real World Movement Groups</h2>
+      <p class="page-copy">Create or join relocation movement groups, coordinate roles, and track movement readiness from interest to relocation.</p>
+    </section>
+
+    <div class="two-col-layout">
+      <div class="card" id="movementCreateCard">
+        <h2>Create Movement Group</h2>
+        <div class="field">
+          <label for="movementCreateUserId">Your User ID</label>
+          <input type="text" id="movementCreateUserId" placeholder="usr_..." />
+        </div>
+        <div class="field">
+          <label for="movementCreateTitle">Title</label>
+          <input type="text" id="movementCreateTitle" placeholder="e.g. Return to Ghana Circle" maxlength="120" />
+        </div>
+        <div class="field">
+          <label for="movementCreateRegion">Region</label>
+          <input type="text" id="movementCreateRegion" placeholder="e.g. west_africa" maxlength="80" />
+        </div>
+        <div class="field">
+          <label for="movementCreateCountry">Country</label>
+          <input type="text" id="movementCreateCountry" placeholder="e.g. Ghana" maxlength="80" />
+        </div>
+        <div class="field">
+          <label for="movementCreateTargetDate">Target Date</label>
+          <input type="date" id="movementCreateTargetDate" />
+        </div>
+        <button type="button" id="movementCreateBtn">Create Movement Group</button>
+        <div id="movementCreateFeedback" class="message" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="card" id="movementMyCard">
+        <h2>My Movements</h2>
+        <div class="field">
+          <label for="movementMyUserId">Your User ID</label>
+          <input type="text" id="movementMyUserId" placeholder="usr_..." />
+        </div>
+        <button type="button" id="movementLoadMineBtn">Load My Movements</button>
+        <div id="movementMyList" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <div class="card" id="movementAllCard">
+      <h2>All Movement Groups</h2>
+      <button type="button" id="movementRefreshAllBtn" style="margin-bottom:12px;">Refresh List</button>
+      <div id="movementAllList"><div class="stats-loading">Loading movement groups...</div></div>
     </div>
   </section>
 
@@ -6604,6 +6657,9 @@
     if (pageName === 'cohorts') {
       initCohortsPage();
     }
+    if (pageName === 'movement') {
+      initMovementsPage();
+    }
     if (pageName === 'origin-discovery') {
       initOriginDiscoveryPage();
     }
@@ -7312,6 +7368,264 @@
     } catch { if (feedbackEl) { feedbackEl.textContent = 'Network error.'; feedbackEl.className = 'message error'; } }
   }
   /* ── End Phase 40: Cohorts ── */
+
+  /* ── Phase 44: Movement Engine ── */
+  let _movementsInitialised = false;
+  let _allMovements = [];
+
+  function renderMovementCard(movement, userId, myMembership = null) {
+    const members = Array.isArray(movement?.members) ? movement.members : [];
+    const memberCount = Number(movement?.member_count || members.length || 0);
+    const movementId = String(movement?.movement_id || '');
+    const title = String(movement?.title || 'Untitled movement');
+    const country = String(movement?.country || 'Unknown');
+    const region = String(movement?.region || 'Unknown');
+    const targetDate = String(movement?.target_date || '').trim();
+    const createdAt = String(movement?.created_at || '').trim();
+    const joined = Boolean(myMembership) || members.some((m) => String(m?.user_id || '') === userId);
+    const status = String((myMembership?.movement_status || 'interested')).toLowerCase();
+    const role = String((myMembership?.role || 'member')).toLowerCase();
+
+    return `
+      <article class="cohort-card" style="margin-bottom:10px;" data-movement-id="${escapeHtml(movementId)}">
+        <div class="cohort-card-header">
+          <span class="cohort-card-name">${escapeHtml(title)}</span>
+          <div class="cohort-card-badges">
+            <span class="cohort-type-badge">${escapeHtml(country)}</span>
+            <span class="cohort-type-badge">${escapeHtml(region)}</span>
+          </div>
+        </div>
+        <div class="cohort-card-desc" style="font-size:0.84rem; color:var(--muted);">
+          Target date: ${escapeHtml(targetDate || 'not set')}<br>
+          Members: ${memberCount}<br>
+          Created: ${escapeHtml(createdAt ? new Date(createdAt).toLocaleDateString() : 'unknown')}
+        </div>
+        <div class="cohort-card-footer">
+          <span class="cohort-member-count">${joined ? `Your role: ${escapeHtml(role)}` : 'Not joined yet'}</span>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="secondary movement-view-btn" data-movement-id="${escapeHtml(movementId)}">View</button>
+            <button type="button" class="movement-join-btn" data-movement-id="${escapeHtml(movementId)}" ${joined ? 'style="display:none;"' : ''}>Join</button>
+          </div>
+        </div>
+        ${joined ? `
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px;">
+            <label style="font-size:0.8rem; color:var(--muted);">Status</label>
+            <select class="movement-status-select" data-movement-id="${escapeHtml(movementId)}" style="max-width:180px;">
+              <option value="interested" ${status === 'interested' ? 'selected' : ''}>interested</option>
+              <option value="planning" ${status === 'planning' ? 'selected' : ''}>planning</option>
+              <option value="committed" ${status === 'committed' ? 'selected' : ''}>committed</option>
+              <option value="relocated" ${status === 'relocated' ? 'selected' : ''}>relocated</option>
+            </select>
+            <button type="button" class="secondary movement-role-btn" data-movement-id="${escapeHtml(movementId)}" data-role="coordinator">Assign Me Coordinator</button>
+          </div>
+        ` : ''}
+      </article>
+    `;
+  }
+
+  async function initMovementsPage() {
+    if (!_movementsInitialised) {
+      _movementsInitialised = true;
+
+      const known = String(getKnownUserId() || '').trim();
+      const createInput = document.getElementById('movementCreateUserId');
+      const myInput = document.getElementById('movementMyUserId');
+      if (known && createInput && !String(createInput.value || '').trim()) createInput.value = known;
+      if (known && myInput && !String(myInput.value || '').trim()) myInput.value = known;
+
+      document.getElementById('movementCreateBtn')?.addEventListener('click', createMovementGroup);
+      document.getElementById('movementLoadMineBtn')?.addEventListener('click', loadUserMovements);
+      document.getElementById('movementRefreshAllBtn')?.addEventListener('click', loadMovements);
+
+      const allList = document.getElementById('movementAllList');
+      const myList = document.getElementById('movementMyList');
+      [allList, myList].forEach((container) => {
+        container?.addEventListener('click', async (evt) => {
+          const joinBtn = evt.target.closest('.movement-join-btn');
+          const roleBtn = evt.target.closest('.movement-role-btn');
+          if (joinBtn) {
+            await joinMovementGroup(String(joinBtn.dataset.movementId || ''));
+          }
+          if (roleBtn) {
+            await assignMovementRole(String(roleBtn.dataset.movementId || ''), String(roleBtn.dataset.role || 'member'));
+          }
+        });
+        container?.addEventListener('change', async (evt) => {
+          const select = evt.target.closest('.movement-status-select');
+          if (select) {
+            await updateMovementStatus(String(select.dataset.movementId || ''), String(select.value || ''));
+          }
+        });
+      });
+    }
+
+    await loadMovements();
+    await loadUserMovements();
+  }
+
+  async function loadMovements() {
+    const listEl = document.getElementById('movementAllList');
+    const userId = String(document.getElementById('movementMyUserId')?.value || getKnownUserId() || '').trim();
+    if (listEl) listEl.innerHTML = '<div class="stats-loading">Loading movement groups...</div>';
+    try {
+      const res = await apiFetch('/movements/list');
+      const data = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        if (listEl) listEl.innerHTML = `<div class="stats-loading">${escapeHtml(data?.detail || 'Could not load movement groups.')}</div>`;
+        return;
+      }
+      _allMovements = Array.isArray(data) ? data : [];
+      if (!_allMovements.length) {
+        if (listEl) listEl.innerHTML = '<div class="stats-loading">No movement groups yet. Create the first one.</div>';
+        return;
+      }
+      if (listEl) {
+        listEl.innerHTML = _allMovements.map((movement) => {
+          const members = Array.isArray(movement?.members) ? movement.members : [];
+          const myMembership = members.find((m) => String(m?.user_id || '') === userId) || null;
+          return renderMovementCard(movement, userId, myMembership);
+        }).join('');
+      }
+    } catch {
+      if (listEl) listEl.innerHTML = '<div class="stats-loading">Network error while loading movement groups.</div>';
+    }
+  }
+
+  async function loadUserMovements() {
+    const userId = String(document.getElementById('movementMyUserId')?.value || getKnownUserId() || '').trim();
+    const listEl = document.getElementById('movementMyList');
+    if (!listEl) return;
+    if (!userId) {
+      listEl.innerHTML = '<div class="stats-loading">Enter your User ID to load your movements.</div>';
+      return;
+    }
+    listEl.innerHTML = '<div class="stats-loading">Loading your movements...</div>';
+    try {
+      const res = await apiFetch(`/movements/user/${encodeURIComponent(userId)}`);
+      const data = await res.json().catch(() => ([]));
+      if (!res.ok) {
+        listEl.innerHTML = `<div class="stats-loading">${escapeHtml(data?.detail || 'Could not load your movements.')}</div>`;
+        return;
+      }
+      const movements = Array.isArray(data) ? data : [];
+      if (!movements.length) {
+        listEl.innerHTML = '<div class="stats-loading">You have not joined any movement groups yet.</div>';
+        return;
+      }
+      listEl.innerHTML = movements.map((movement) => renderMovementCard(movement, userId, movement.my_membership || null)).join('');
+    } catch {
+      listEl.innerHTML = '<div class="stats-loading">Network error while loading your movements.</div>';
+    }
+  }
+
+  async function createMovementGroup() {
+    const userId = String(document.getElementById('movementCreateUserId')?.value || '').trim();
+    const title = String(document.getElementById('movementCreateTitle')?.value || '').trim();
+    const region = String(document.getElementById('movementCreateRegion')?.value || '').trim();
+    const country = String(document.getElementById('movementCreateCountry')?.value || '').trim();
+    const targetDate = String(document.getElementById('movementCreateTargetDate')?.value || '').trim();
+    const feedback = document.getElementById('movementCreateFeedback');
+
+    if (!userId || !title || !region || !country || !targetDate) {
+      if (feedback) { feedback.className = 'message error'; feedback.textContent = 'All fields are required to create a movement group.'; }
+      return;
+    }
+
+    try {
+      const res = await apiFetch('/movements/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId || '' },
+        body: JSON.stringify({ user_id: userId, title, region, country, target_date: targetDate }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (feedback) { feedback.className = 'message error'; feedback.textContent = extractDetail(data) || 'Could not create movement group.'; }
+        return;
+      }
+      if (feedback) { feedback.className = 'message success'; feedback.textContent = `Movement created: ${title}`; }
+      document.getElementById('movementCreateTitle').value = '';
+      document.getElementById('movementCreateRegion').value = '';
+      document.getElementById('movementCreateCountry').value = '';
+      document.getElementById('movementCreateTargetDate').value = '';
+      await Promise.all([loadMovements(), loadUserMovements(), loadActivityLog(), loadAdminActivityLog()]);
+    } catch {
+      if (feedback) { feedback.className = 'message error'; feedback.textContent = 'Network error while creating movement group.'; }
+    }
+  }
+
+  async function joinMovementGroup(movementId) {
+    const userId = String(document.getElementById('movementMyUserId')?.value || getKnownUserId() || '').trim();
+    const feedback = document.getElementById('movementCreateFeedback');
+    if (!userId) {
+      if (feedback) { feedback.className = 'message error'; feedback.textContent = 'Enter your User ID in My Movements first.'; }
+      return;
+    }
+    try {
+      const res = await apiFetch('/movements/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId || '' },
+        body: JSON.stringify({ user_id: userId, movement_id: movementId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (feedback) { feedback.className = 'message error'; feedback.textContent = extractDetail(data) || 'Could not join movement group.'; }
+        return;
+      }
+      const warning = String(data?.warning || '').trim();
+      if (feedback) {
+        feedback.className = warning ? 'message warning' : 'message success';
+        feedback.textContent = warning || 'Joined movement group successfully.';
+      }
+      await Promise.all([loadMovements(), loadUserMovements(), loadActivityLog(), loadAdminActivityLog()]);
+    } catch {
+      if (feedback) { feedback.className = 'message error'; feedback.textContent = 'Network error while joining movement group.'; }
+    }
+  }
+
+  async function updateMovementStatus(movementId, status) {
+    const userId = String(document.getElementById('movementMyUserId')?.value || getKnownUserId() || '').trim();
+    const feedback = document.getElementById('movementCreateFeedback');
+    if (!userId || !movementId || !status) return;
+    try {
+      const res = await apiFetch('/movements/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId || '' },
+        body: JSON.stringify({ user_id: userId, movement_id: movementId, status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (feedback) { feedback.className = 'message error'; feedback.textContent = extractDetail(data) || 'Could not update movement status.'; }
+        return;
+      }
+      if (feedback) { feedback.className = 'message success'; feedback.textContent = `Movement status updated to ${status}.`; }
+      await Promise.all([loadMovements(), loadUserMovements(), loadActivityLog(), loadAdminActivityLog()]);
+    } catch {
+      if (feedback) { feedback.className = 'message error'; feedback.textContent = 'Network error while updating movement status.'; }
+    }
+  }
+
+  async function assignMovementRole(movementId, role) {
+    const userId = String(document.getElementById('movementMyUserId')?.value || getKnownUserId() || '').trim();
+    const feedback = document.getElementById('movementCreateFeedback');
+    if (!userId || !movementId || !role) return;
+    try {
+      const res = await apiFetch('/movements/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId || '' },
+        body: JSON.stringify({ user_id: userId, movement_id: movementId, role }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (feedback) { feedback.className = 'message error'; feedback.textContent = extractDetail(data) || 'Could not assign movement role.'; }
+        return;
+      }
+      if (feedback) { feedback.className = 'message success'; feedback.textContent = `Role updated to ${role}.`; }
+      await Promise.all([loadMovements(), loadUserMovements(), loadActivityLog(), loadAdminActivityLog()]);
+    } catch {
+      if (feedback) { feedback.className = 'message error'; feedback.textContent = 'Network error while assigning movement role.'; }
+    }
+  }
+  /* ── End Phase 44: Movement Engine ── */
 
   /* ── Phase 41: Origin Discovery ── */
   let _originDiscoveryInitialised = false;
