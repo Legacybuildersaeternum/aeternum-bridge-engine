@@ -273,5 +273,7 @@ def get_connected_users(
                 "full_name": str(other.get("full_name") or ""),
                 "family_name": str(other.get("family_name") or ""),
                 "connection_id": str(req.get("request_id") or ""),
+                "trust_score": int(other.get("trust_score") or 0),
+                "verification_level": str(other.get("verification_level") or "UNVERIFIED"),
             })
     return connected

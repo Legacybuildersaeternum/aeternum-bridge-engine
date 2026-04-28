@@ -197,6 +197,8 @@ def get_similar_users(
             "relocation_interest_level": user.get("relocation_interest_level"),
             "current_country": user.get("current_country") or user.get("country"),
             "current_city": user.get("current_city") or user.get("city"),
+            "trust_score": int(user.get("trust_score") or 0),
+            "verification_level": str(user.get("verification_level") or "UNVERIFIED"),
             "match_reason": (
                 "shared_origin" if (matched_region or matched_country)
                 else "shared_relocation_intent"

@@ -3,6 +3,7 @@ from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel
 from typing import Any, Optional
 from services import registry, messages as message_service
+from services.connections import check_connection_safety
 
 router = APIRouter(tags=["Messages"], prefix="/messages")
 
@@ -33,6 +34,15 @@ def send_message(
     """Send a message between two connected users."""
     users = [u.model_dump(mode="json") for u in registry.get_registrations()]
     connection_requests = registry._load_connection_requests()
+    sender = next((u for u in users if str(u.get("user_id") or "") == payload.sender_id), None)
+    receiver = next((u for u in users if str(u.get("user_id") or "") == payload.receiver_id), None)
+    if not sender or not receiver:
+        raise HTTPException(status_code=400, detail="Sender or receiver not found.")
+
+    safety = check_connection_safety(sender, receiver)
+    if not bool(safety.get("allowed", True)):
+        raise HTTPException(status_code=403, detail=str(safety.get("warning") or "Message not allowed."))
+
     try:
         msg = message_service.send_message(
             sender_id=payload.sender_id,
@@ -56,7 +66,13 @@ def send_message(
         },
     )
 
-    return {"success": True, "message_id": msg["message_id"]}
+    registry.refresh_user_trust(payload.sender_id, reason="message_sent", session_id=x_session_id)
+
+    return {
+        "success": True,
+        "message_id": msg["message_id"],
+        "warning": safety.get("warning"),
+    }
 
 
 @router.get("/conversation")

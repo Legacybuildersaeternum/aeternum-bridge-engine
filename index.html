@@ -2835,6 +2835,11 @@
     .mini-card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:10px; }
     .mini-card { border:1px solid rgba(201,168,76,0.2); border-radius:10px; padding:10px 12px; background:rgba(11,18,36,0.3); }
     .mini-card h4 { margin:0 0 6px; font-size:0.9rem; color:var(--gold-lt); }
+    .trust-pill { display:inline-flex; align-items:center; gap:6px; font-size:0.74rem; border-radius:999px; padding:4px 9px; border:1px solid transparent; }
+    .trust-unverified { color:#f08282; border-color:rgba(240,130,130,0.45); background:rgba(240,130,130,0.14); }
+    .trust-self-verified { color:#f0c977; border-color:rgba(240,201,119,0.45); background:rgba(240,201,119,0.14); }
+    .trust-community-verified { color:#7cb7ff; border-color:rgba(124,183,255,0.45); background:rgba(124,183,255,0.14); }
+    .trust-document-verified { color:#7fd49b; border-color:rgba(127,212,155,0.45); background:rgba(127,212,155,0.14); }
 
   </style>
 </head>
@@ -6973,6 +6978,7 @@
         listEl.innerHTML = profiles.map((p) => `
           <article class="mini-card">
             <h4>${escapeHtml(String(p.display_name || 'Anonymous'))}</h4>
+            <div style="margin-bottom:6px;">${trustBadgeHtml(p.trust_score || 0, p.verification_level || 'UNVERIFIED')}</div>
             <div style="font-size:0.84rem; color:var(--muted); line-height:1.6;">
               ${escapeHtml(toDisplayLabel(String(p.heritage_country || p.heritage_region || 'unknown')))}<br>
               Relocation: ${escapeHtml(toDisplayLabel(String(p.relocation_interest_level || 'unknown')))}
@@ -7392,6 +7398,7 @@
             <strong>${escapeHtml(String(row.display_name || 'Anonymous'))}</strong>
             <span class="find-match-score">${row.user_role === 'guide' ? 'Verified guide' : 'Masked profile'}</span>
           </div>
+          <div style="margin:6px 0 8px;">${trustBadgeHtml(row.trust_score || 0, row.verification_level || (row.user_role === 'guide' ? 'DOCUMENT_VERIFIED' : 'UNVERIFIED'))}</div>
           <div class="find-match-meta">
             Heritage: ${escapeHtml(String(row.heritage_group || row.heritage_country || row.heritage_region || 'not_provided'))}<br>
             Current: ${escapeHtml(String(row.current_city || row.current_region || '—'))}, ${escapeHtml(String(row.current_country || '—'))}<br>
@@ -7539,7 +7546,7 @@
       if (sel) {
         sel.innerHTML = _msgConnectedUsers.length
           ? '<option value="">— Select a connected user —</option>' +
-            _msgConnectedUsers.map(u => `<option value="${escapeHtml(u.user_id)}">${escapeHtml(u.full_name || u.user_id)}</option>`).join('')
+            _msgConnectedUsers.map(u => `<option value="${escapeHtml(u.user_id)}">${escapeHtml(u.full_name || u.user_id)} (Trust: ${Number(u.trust_score || 0)} | ${escapeHtml(toVerificationDisplay(u.verification_level || 'UNVERIFIED'))})</option>`).join('')
           : '<option value="">— No accepted connections found —</option>';
       }
       if (statusEl) {
@@ -7567,7 +7574,13 @@
         return;
       }
       const selectedUser = _msgConnectedUsers.find(u => u.user_id === _msgSelectedUserId);
-      if (header) header.textContent = selectedUser ? `Conversation with ${selectedUser.full_name || _msgSelectedUserId}` : `Conversation`;
+      if (header) {
+        if (selectedUser) {
+          header.innerHTML = `Conversation with ${escapeHtml(selectedUser.full_name || _msgSelectedUserId)} ${trustBadgeHtml(selectedUser.trust_score || 0, selectedUser.verification_level || 'UNVERIFIED')}`;
+        } else {
+          header.textContent = 'Conversation';
+        }
+      }
       if (!Array.isArray(messages) || !messages.length) {
         if (threadList) threadList.innerHTML = '<div class="stats-loading">No messages yet. Start the conversation!</div>';
         return;
@@ -7625,7 +7638,11 @@
         return;
       }
       if (textInput) { textInput.value = ''; const count = document.getElementById('msgCharCount'); if (count) count.textContent = '0 / 2000'; }
-      if (feedbackEl) { feedbackEl.textContent = 'Message sent!'; feedbackEl.className = 'message success'; }
+      if (feedbackEl) {
+        const warning = String(data?.warning || '').trim();
+        feedbackEl.textContent = warning ? `Message sent. ${warning}` : 'Message sent!';
+        feedbackEl.className = warning ? 'message warning' : 'message success';
+      }
       await loadMessageConversation();
     } catch {
       if (feedbackEl) { feedbackEl.textContent = 'Network error sending message.'; feedbackEl.className = 'message error'; }
@@ -8519,6 +8536,31 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function toVerificationDisplay(level) {
+    const normalized = String(level || 'UNVERIFIED').toUpperCase();
+    const labels = {
+      UNVERIFIED: 'Unverified',
+      SELF_VERIFIED: 'Self Verified',
+      COMMUNITY_VERIFIED: 'Community Verified',
+      DOCUMENT_VERIFIED: 'Document Verified',
+    };
+    return labels[normalized] || toDisplayLabel(normalized.toLowerCase());
+  }
+
+  function trustClassName(level) {
+    const normalized = String(level || 'UNVERIFIED').toUpperCase();
+    if (normalized === 'DOCUMENT_VERIFIED') return 'trust-document-verified';
+    if (normalized === 'COMMUNITY_VERIFIED') return 'trust-community-verified';
+    if (normalized === 'SELF_VERIFIED') return 'trust-self-verified';
+    return 'trust-unverified';
+  }
+
+  function trustBadgeHtml(score, level) {
+    const trustScore = Number(score || 0);
+    const normalized = String(level || 'UNVERIFIED').toUpperCase();
+    return `<span class="trust-pill ${trustClassName(normalized)}">Trust: ${trustScore} | ${escapeHtml(toVerificationDisplay(normalized))}</span>`;
   }
 
   function selectOptionsHtml(options, selected, placeholder) {

@@ -36,6 +36,7 @@ from models.user import (
     UserRegistration,
     UserStage,
 )
+from services.trust import build_trust_profile
 
 logger = logging.getLogger(__name__)
 
@@ -1324,6 +1325,8 @@ def admin_accept_connection_request(
         family_name=str(users_by_id.get(requester_id, {}).get("family_name") or "") or None,
         session_id=session_id,
     )
+    refresh_user_trust(requester_id, reason="connection_accepted", session_id=session_id)
+    refresh_user_trust(receiver_id, reason="connection_accepted", session_id=session_id)
 
     return PendingFamilyConnectionRequestRecord(
         request_id=str(target_req.get("request_id") or ""),
@@ -1563,6 +1566,9 @@ def complete_connection_request(
         family_name=str(requester.get("family_name") or "") or None,
         session_id=session_id,
     )
+
+    refresh_user_trust(requester_id, reason="connection_completed", session_id=session_id)
+    refresh_user_trust(receiver_id, reason="connection_completed", session_id=session_id)
 
     updated_users_by_id = {str(user.get("user_id") or ""): user for user in updated_users}
     return _to_connection_request_record(completed_payload, updated_users_by_id)
@@ -2037,6 +2043,8 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
         "onboarding_first_connection_explored",
         "onboarding_completed",
         "onboarding_completed_at",
+        "trust_score",
+        "verification_level",
     ]:
         normalized.setdefault(key, None)
 
@@ -2091,6 +2099,8 @@ def _normalize_user(record: dict[str, Any]) -> dict[str, Any]:
         if normalized.get("onboarding_completed_at")
         else None
     )
+    normalized["trust_score"] = int(normalized.get("trust_score") or 0)
+    normalized["verification_level"] = str(normalized.get("verification_level") or "UNVERIFIED")
     if not normalized.get("state"):
         normalized["state"] = "Not provided"
     if not normalized.get("country"):
@@ -2105,6 +2115,99 @@ def _generate_family_id(family_name: str) -> str:
     """Deterministic family_id derived from family_name so all members share it."""
     normalized = family_name.strip().lower()
     return "fam_" + hashlib.sha256(normalized.encode()).hexdigest()[:12]
+
+
+def update_user_trust(user: dict[str, Any]) -> None:
+    trust_data = build_trust_profile(user)
+    user["trust_score"] = int(trust_data["trust_score"])
+    user["verification_level"] = str(trust_data["verification_level"])
+
+
+def refresh_user_trust(
+    user_id: str,
+    *,
+    reason: str,
+    session_id: Optional[str] = None,
+) -> Optional[dict[str, Any]]:
+    users = [_normalize_user(u) for u in _load()]
+    user_index = next((idx for idx, user in enumerate(users) if str(user.get("user_id") or "") == user_id), -1)
+    if user_index == -1:
+        return None
+
+    target = dict(users[user_index])
+    old_score = int(target.get("trust_score") or 0)
+    old_level = str(target.get("verification_level") or "UNVERIFIED")
+
+    connection_requests = [_normalize_connection_request(item) for item in _load_connection_requests()]
+    accepted_statuses = {"accepted", "connection_completed"}
+    connections_count = sum(
+        1
+        for req in connection_requests
+        if str(req.get("status") or "") in accepted_statuses
+        and user_id in {str(req.get("requester_user_id") or ""), str(req.get("target_user_id") or "")}
+    )
+
+    from services import cohorts as cohort_service
+    cohort_store = cohort_service._load_store()
+    cohort_memberships = sum(
+        1
+        for m in (cohort_store.get("memberships") or [])
+        if str(m.get("user_id") or "") == user_id and str(m.get("status") or "") != "left"
+    )
+
+    from services import messages as message_service
+    message_store = message_service._load_store()
+    messages_sent = sum(
+        1
+        for msg in (message_store.get("messages") or [])
+        if str(msg.get("sender_id") or "") == user_id
+    )
+
+    trust_input = dict(target)
+    trust_input["name"] = target.get("full_name")
+    trust_input["origin_country"] = target.get("heritage_country") or target.get("country")
+    trust_input["connections_count"] = connections_count
+    trust_input["cohort_memberships"] = cohort_memberships
+    trust_input["messages_sent"] = messages_sent
+    trust_input["duplicate_resolved"] = bool(target.get("duplicate_resolved") or target.get("merged_into_user_id"))
+    trust_input["document_verified"] = (
+        bool(target.get("document_verified"))
+        or str(target.get("verification_status") or "").lower() == "document_verified"
+    )
+
+    update_user_trust(trust_input)
+    target["trust_score"] = int(trust_input.get("trust_score") or 0)
+    target["verification_level"] = str(trust_input.get("verification_level") or "UNVERIFIED")
+
+    changed = (target["trust_score"] != old_score) or (target["verification_level"] != old_level)
+    if changed:
+        users[user_index] = _normalize_user(target)
+        _save_with_updates(users, reason=f"trust_refresh:{reason}")
+        write_activity_event(
+            event_type="TRUST_LEVEL_UPDATED",
+            message=(
+                f"Trust updated for {user_id}: "
+                f"{old_score}/{old_level} -> {target['trust_score']}/{target['verification_level']}"
+            ),
+            user_id=user_id,
+            family_id=str(target.get("family_id") or "") or None,
+            family_name=str(target.get("family_name") or "") or None,
+            session_id=session_id,
+            extra={
+                "old_trust_score": old_score,
+                "new_trust_score": target["trust_score"],
+                "old_verification_level": old_level,
+                "new_verification_level": target["verification_level"],
+                "reason": reason,
+            },
+        )
+
+    return {
+        "user_id": user_id,
+        "trust_score": target["trust_score"],
+        "verification_level": target["verification_level"],
+        "changed": changed,
+    }
 
 
 def register_user(payload: UserRegistration, session_id: Optional[str] = None) -> UserRecord:
@@ -2188,6 +2291,7 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
     )
     users.append(record.model_dump(mode="json"))
     _save(users)
+    refresh_user_trust(record.user_id, reason="registration", session_id=session_id)
 
     if not record.ancestor_record:
         write_activity_event(
@@ -2661,6 +2765,14 @@ def update_registration(
             family_id=updated_record.family_id,
             family_name=updated_record.family_name,
             session_id=session_id,
+        )
+    trust_result = refresh_user_trust(updated_record.user_id, reason="registration_updated", session_id=session_id)
+    if trust_result:
+        updated_record = updated_record.model_copy(
+            update={
+                "trust_score": trust_result["trust_score"],
+                "verification_level": trust_result["verification_level"],
+            }
         )
     return updated_record
 
@@ -3186,6 +3298,9 @@ def merge_duplicate_profile(
         family_name=family_name,
         session_id=session_id,
     )
+
+    refresh_user_trust(primary_user_id, reason="duplicate_merged", session_id=session_id)
+    refresh_user_trust(duplicate_user_id, reason="duplicate_merged", session_id=session_id)
 
     return DuplicateActionResponse(
         success=True,

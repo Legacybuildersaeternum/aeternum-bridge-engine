@@ -113,6 +113,7 @@ def join_cohort(
         session_id=x_session_id,
         extra={"cohort_id": payload.cohort_id},
     )
+    registry.refresh_user_trust(payload.user_id, reason="cohort_joined", session_id=x_session_id)
     return {"success": True, "membership": membership}
 
 

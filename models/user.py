@@ -383,6 +383,9 @@ class UserRecord(BaseModel):
     preferred_contact_scope: ContactScope = ContactScope.private
     # ── Phase 42: User Role ──
     user_role: Optional[str] = None  # e.g. "guide", "member" (default None = normal member)
+    # ── Phase 43: Trust + Verification ──
+    trust_score: int = 0
+    verification_level: str = "UNVERIFIED"
 
 
 class RelationshipUpdateRequest(BaseModel):

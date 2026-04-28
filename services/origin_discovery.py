@@ -178,6 +178,8 @@ def find_diaspora_profiles_for_origin(
             "open_to_relocation_guidance": bool(user.get("open_to_relocation_guidance")),
             "preferred_contact_scope": user.get("preferred_contact_scope", "private"),
             "verification_status": user.get("verification_status", "family_submitted"),
+            "trust_score": int(user.get("trust_score") or 0),
+            "verification_level": str(user.get("verification_level") or "UNVERIFIED"),
         }
         results.append(result)
 
@@ -202,6 +204,8 @@ def find_diaspora_profiles_for_origin(
                 "verification_status": "verified_guide",
                 "guide_verified": bool(guide.get("guide_verified")),
                 "guide_description": guide.get("description"),
+                "trust_score": 90,
+                "verification_level": "DOCUMENT_VERIFIED",
             })
 
     logger.info(
