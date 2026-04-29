@@ -362,6 +362,50 @@
       cursor: pointer;
     }
 
+    .living-status-options {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .living-status-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border: 1px solid rgba(201, 168, 76, 0.24);
+      border-radius: var(--radius);
+      background: rgba(11, 26, 43, 0.72);
+    }
+
+    .living-status-option input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--gold);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .living-status-option label {
+      margin: 0;
+      cursor: pointer;
+      color: var(--white);
+      font-size: 0.9rem;
+      text-transform: none;
+      letter-spacing: 0;
+      width: 100%;
+    }
+
+    .ancestor-toggle-row {
+      align-items: flex-start;
+    }
+
+    .ancestor-toggle-row label {
+      line-height: 1.45;
+    }
+
     .agreement-section {
       border-color: rgba(201, 168, 76, 0.36);
       background: rgba(17, 33, 52, 0.9);
@@ -2841,6 +2885,16 @@
     .trust-community-verified { color:#7cb7ff; border-color:rgba(124,183,255,0.45); background:rgba(124,183,255,0.14); }
     .trust-document-verified { color:#7fd49b; border-color:rgba(127,212,155,0.45); background:rgba(127,212,155,0.14); }
 
+    @media (max-width: 640px) {
+      .living-status-options {
+        grid-template-columns: 1fr;
+      }
+
+      .living-status-option {
+        padding: 10px 12px;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -3027,13 +3081,22 @@
       </div>
       <div class="field">
         <label>Living Status</label>
-        <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:6px;">
-          <label style="display:flex; align-items:center; gap:6px;"><input type="radio" name="living_status" value="living" checked /> Living</label>
-          <label style="display:flex; align-items:center; gap:6px;"><input type="radio" name="living_status" value="deceased" /> Deceased</label>
-          <label style="display:flex; align-items:center; gap:6px;"><input type="radio" name="living_status" value="unknown" /> Unknown</label>
+        <div class="living-status-options" role="radiogroup" aria-label="Living Status">
+          <div class="living-status-option">
+            <input type="radio" id="living_status_living" name="living_status" value="living" checked />
+            <label for="living_status_living">Living</label>
+          </div>
+          <div class="living-status-option">
+            <input type="radio" id="living_status_deceased" name="living_status" value="deceased" />
+            <label for="living_status_deceased">Deceased</label>
+          </div>
+          <div class="living-status-option">
+            <input type="radio" id="living_status_unknown" name="living_status" value="unknown" />
+            <label for="living_status_unknown">Unknown</label>
+          </div>
         </div>
       </div>
-      <div class="checkbox-row" style="margin-top:-6px;">
+      <div class="checkbox-row ancestor-toggle-row" style="margin-top:-6px;">
         <input type="checkbox" id="ancestor_record" />
         <label for="ancestor_record">Create this profile as an ancestor record</label>
       </div>
@@ -3101,7 +3164,34 @@
           </div>
           <div class="field">
             <label for="country">Country</label>
-            <input id="country" type="text" placeholder="Country" />
+            <select id="country">
+              <option value="">— Select country —</option>
+              <option value="Nigeria">Nigeria</option>
+              <option value="Ghana">Ghana</option>
+              <option value="Senegal">Senegal</option>
+              <option value="Gambia">Gambia</option>
+              <option value="Sierra Leone">Sierra Leone</option>
+              <option value="Liberia">Liberia</option>
+              <option value="Mali">Mali</option>
+              <option value="Benin">Benin</option>
+              <option value="Togo">Togo</option>
+              <option value="Cameroon">Cameroon</option>
+              <option value="Congo">Congo</option>
+              <option value="Angola">Angola</option>
+              <option value="Kenya">Kenya</option>
+              <option value="Ethiopia">Ethiopia</option>
+              <option value="South Africa">South Africa</option>
+              <option value="Jamaica">Jamaica</option>
+              <option value="Haiti">Haiti</option>
+              <option value="Trinidad and Tobago">Trinidad and Tobago</option>
+              <option value="Barbados">Barbados</option>
+              <option value="Guyana">Guyana</option>
+              <option value="United States">United States</option>
+              <option value="United Kingdom">United Kingdom</option>
+              <option value="Canada">Canada</option>
+              <option value="Unknown">Unknown</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
           <div class="field">
             <label for="age_range">Age Range</label>
@@ -3152,7 +3242,20 @@
           </div>
           <div class="field">
             <label for="heritage_region">Heritage Region</label>
-            <input id="heritage_region" type="text" placeholder="e.g. west_africa" />
+            <select id="heritage_region">
+              <option value="">— Select region —</option>
+              <option value="west_africa">West Africa</option>
+              <option value="central_africa">Central Africa</option>
+              <option value="east_africa">East Africa</option>
+              <option value="southern_africa">Southern Africa</option>
+              <option value="north_africa">North Africa</option>
+              <option value="caribbean">Caribbean</option>
+              <option value="north_america">North America</option>
+              <option value="south_america">South America</option>
+              <option value="europe">Europe</option>
+              <option value="unknown">Unknown</option>
+              <option value="other">Other</option>
+            </select>
           </div>
           <div class="field">
             <label for="heritage_country">Heritage Country</label>
@@ -3160,11 +3263,57 @@
           </div>
           <div class="field">
             <label for="heritage_group">Heritage Group</label>
-            <input id="heritage_group" type="text" placeholder="e.g. Yoruba" />
+            <select id="heritage_group">
+              <option value="">— Select group —</option>
+              <option value="Yoruba">Yoruba</option>
+              <option value="Igbo">Igbo</option>
+              <option value="Hausa">Hausa</option>
+              <option value="Akan">Akan</option>
+              <option value="Mandinka">Mandinka</option>
+              <option value="Wolof">Wolof</option>
+              <option value="Fulani">Fulani</option>
+              <option value="Ashanti">Ashanti</option>
+              <option value="Fon">Fon</option>
+              <option value="Kongo">Kongo</option>
+              <option value="Ewe">Ewe</option>
+              <option value="Gullah Geechee">Gullah Geechee</option>
+              <option value="Afro-Caribbean">Afro-Caribbean</option>
+              <option value="African American">African American</option>
+              <option value="Afro-Latino">Afro-Latino</option>
+              <option value="Unknown">Unknown</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
           <div class="field">
             <label for="target_country">Target Country</label>
-            <input id="target_country" type="text" placeholder="Planned relocation destination" />
+            <select id="target_country">
+              <option value="">— Select target country —</option>
+              <option value="Nigeria">Nigeria</option>
+              <option value="Ghana">Ghana</option>
+              <option value="Senegal">Senegal</option>
+              <option value="Gambia">Gambia</option>
+              <option value="Sierra Leone">Sierra Leone</option>
+              <option value="Liberia">Liberia</option>
+              <option value="Mali">Mali</option>
+              <option value="Benin">Benin</option>
+              <option value="Togo">Togo</option>
+              <option value="Cameroon">Cameroon</option>
+              <option value="Congo">Congo</option>
+              <option value="Angola">Angola</option>
+              <option value="Kenya">Kenya</option>
+              <option value="Ethiopia">Ethiopia</option>
+              <option value="South Africa">South Africa</option>
+              <option value="Jamaica">Jamaica</option>
+              <option value="Haiti">Haiti</option>
+              <option value="Trinidad and Tobago">Trinidad and Tobago</option>
+              <option value="Barbados">Barbados</option>
+              <option value="Guyana">Guyana</option>
+              <option value="United States">United States</option>
+              <option value="United Kingdom">United Kingdom</option>
+              <option value="Canada">Canada</option>
+              <option value="Unknown">Unknown</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
           <div class="field">
             <label for="target_region">Target Region</label>
@@ -9262,10 +9411,17 @@
     openConnectionConfirmModal(matchRowWithGuess, 'register_lookup', requesterUserId, actionBtn);
   });
 
-  function applyLivingStatusUI() {
+  function applyLivingStatusUI({ fromStatusChange = false } = {}) {
     const livingStatus = String(document.querySelector('input[name="living_status"]:checked')?.value || 'living');
     const ancestorInput = document.getElementById('ancestor_record');
-    const ancestorRecord = Boolean(ancestorInput?.checked) || livingStatus === 'deceased';
+    if (ancestorInput && fromStatusChange) {
+      if (livingStatus === 'deceased') {
+        ancestorInput.checked = true;
+      } else if (livingStatus === 'living') {
+        ancestorInput.checked = false;
+      }
+    }
+    const ancestorRecord = Boolean(ancestorInput?.checked);
     const deceasedBlock = document.getElementById('deceasedDetailsBlock');
     const contactSection = document.getElementById('registerContactPlanningSection');
     const dobInput = document.getElementById('date_of_birth');
@@ -9279,15 +9435,12 @@
     if (dobInput) {
       dobInput.required = !(livingStatus === 'deceased' || ancestorRecord);
     }
-    if (ancestorInput && livingStatus === 'deceased') {
-      ancestorInput.checked = true;
-    }
   }
 
   document.querySelectorAll('input[name="living_status"]').forEach((input) => {
-    input.addEventListener('change', applyLivingStatusUI);
+    input.addEventListener('change', () => applyLivingStatusUI({ fromStatusChange: true }));
   });
-  document.getElementById('ancestor_record')?.addEventListener('change', applyLivingStatusUI);
+  document.getElementById('ancestor_record')?.addEventListener('change', () => applyLivingStatusUI({ fromStatusChange: false }));
   applyLivingStatusUI();
 
   form.addEventListener('input', trackRegistrationStartedOnce, { passive: true });
@@ -9323,7 +9476,7 @@
     const full_name        = document.getElementById('full_name').value.trim();
     const family_name      = document.getElementById('family_name').value.trim();
     const living_status    = String(document.querySelector('input[name="living_status"]:checked')?.value || 'living').trim();
-    const ancestor_record  = document.getElementById('ancestor_record').checked || living_status === 'deceased';
+    const ancestor_record  = document.getElementById('ancestor_record').checked;
     const date_of_birth    = document.getElementById('date_of_birth').value;
     const birth_date       = optionalValue(document.getElementById('birth_date')?.value || '');
     const death_date       = optionalValue(document.getElementById('death_date')?.value || '');
