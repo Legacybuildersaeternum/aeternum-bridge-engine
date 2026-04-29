@@ -2216,7 +2216,7 @@ def refresh_user_trust(
     }
 
 
-def register_user(payload: UserRegistration, session_id: Optional[str] = None) -> UserRecord:
+def register_user(payload: UserRegistration, session_id: Optional[str] = None, owner_account_id: Optional[str] = None) -> UserRecord:
     users = _load()
     family_id = _generate_family_id(payload.family_name)
     family_exists = any(user.get("family_id") == family_id for user in users)
@@ -2294,6 +2294,8 @@ def register_user(payload: UserRegistration, session_id: Optional[str] = None) -
         open_to_cultural_guides=payload.open_to_cultural_guides,
         open_to_relocation_guidance=payload.open_to_relocation_guidance,
         preferred_contact_scope=payload.preferred_contact_scope,
+        # ── Phase 48: Ownership ──
+        owner_account_id=owner_account_id or None,
     )
     users.append(record.model_dump(mode="json"))
     _save(users)
@@ -2473,10 +2475,13 @@ def get_stats() -> StatsResponse:
     )
 
 
-def get_registrations() -> list[UserRecord]:
+def get_registrations(owner_account_id: Optional[str] = None) -> list[UserRecord]:
     users = [_normalize_user(u) for u in _load()]
     for user in users:
         user["profile_status"] = _effective_profile_status(user)
+    if owner_account_id:
+        # Show only records owned by this account; legacy records (no owner) are excluded.
+        users = [u for u in users if u.get("owner_account_id") == owner_account_id]
     users.sort(key=lambda r: r.get("registered_at", ""), reverse=True)
     return [UserRecord.model_validate(u) for u in users]
 
@@ -2783,9 +2788,13 @@ def update_registration(
     return updated_record
 
 
-def get_families() -> list[FamilyGroupResponse]:
+def get_families(owner_account_id: Optional[str] = None) -> list[FamilyGroupResponse]:
     users = [_normalize_user(u) for u in _load()]
     users = [u for u in users if _is_tree_active(u)]
+    if owner_account_id:
+        # Filter: only families where at least one member belongs to the requesting account.
+        owned_family_ids = {u.get("family_id") for u in users if u.get("owner_account_id") == owner_account_id}
+        users = [u for u in users if u.get("family_id") in owned_family_ids]
     grouped: dict[str, dict[str, Any]] = {}
 
     for r in users:

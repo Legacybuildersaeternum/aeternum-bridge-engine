@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from routes import users, admin, messages, cohorts, origin_discovery, activation, guidance, movements, proofs, simulation
+from routes import users, admin, auth, messages, cohorts, origin_discovery, activation, guidance, movements, proofs, simulation
 from services import registry
 
 _ROOT = Path(__file__).resolve().parent
@@ -21,6 +21,7 @@ app = FastAPI(
 
 app.include_router(users.router)
 app.include_router(admin.router)
+app.include_router(auth.router)
 app.include_router(messages.router)
 app.include_router(cohorts.router)
 app.include_router(origin_discovery.router)

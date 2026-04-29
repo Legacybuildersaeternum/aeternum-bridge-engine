@@ -1,9 +1,10 @@
-from typing import Optional
+from typing import Any, Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from models.user import UserRegistration, RegistrationResponse
 from services import registry
+from services.security import is_admin_passcode, get_session_account
 
 router = APIRouter(tags=["Users"])
 
@@ -96,9 +97,19 @@ def track_session_activity(
 def register_user(
     payload: UserRegistration,
     x_session_id: Optional[str] = Header(default=None),
+    x_session_token: Optional[str] = Header(default=None, alias="X-Session-Token"),
+    x_admin_passcode: Optional[str] = Header(default=None, alias="X-Admin-Passcode"),
 ) -> RegistrationResponse:
     """Register a new diaspora member and assign them to a family group."""
-    record = registry.register_user(payload, session_id=x_session_id)
+    # Require login unless admin passcode is present.
+    account = get_session_account(x_session_token or "")
+    if account is None and not is_admin_passcode(x_admin_passcode):
+        raise HTTPException(
+            status_code=401,
+            detail="Please create an account or log in before registering a family representative.",
+        )
+    owner_account_id = account["account_id"] if account else None
+    record = registry.register_user(payload, session_id=x_session_id, owner_account_id=owner_account_id)
     return RegistrationResponse(
         user_id=record.user_id,
         family_id=record.family_id,

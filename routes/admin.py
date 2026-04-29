@@ -26,7 +26,7 @@ from models.user import (
     UserRecord,
 )
 from services import registry
-from services.security import is_admin_passcode, require_admin_passcode
+from services.security import is_admin_passcode, require_admin_passcode, require_session_or_admin
 
 router = APIRouter(tags=["Admin"])
 
@@ -88,15 +88,21 @@ def get_registry_safety(_admin: None = Depends(require_admin_passcode)) -> dict[
 
 
 @router.get("/registrations", response_model=list[UserRecord])
-def get_registrations(_admin: None = Depends(require_admin_passcode)) -> list[UserRecord]:
-    """Return all saved registrations for admin review."""
-    return registry.get_registrations()
+def get_registrations(
+    account: Optional[Any] = Depends(require_session_or_admin),
+) -> list[UserRecord]:
+    """Return registrations. Admin sees all; logged-in user sees only their own."""
+    owner_id = account["account_id"] if account else None
+    return registry.get_registrations(owner_account_id=owner_id)
 
 
 @router.get("/families", response_model=list[FamilyGroupResponse])
-def get_families(_admin: None = Depends(require_admin_passcode)) -> list[FamilyGroupResponse]:
-    """Return grouped family data with member relationship graph details."""
-    return registry.get_families()
+def get_families(
+    account: Optional[Any] = Depends(require_session_or_admin),
+) -> list[FamilyGroupResponse]:
+    """Return family groups. Admin sees all; logged-in user sees only their own."""
+    owner_id = account["account_id"] if account else None
+    return registry.get_families(owner_account_id=owner_id)
 
 
 @router.get("/family-tree/{family_id}")
@@ -104,9 +110,15 @@ def get_family_tree(
     family_id: str,
     x_session_id: Optional[str] = Header(default=None),
     x_user_id: Optional[str] = Header(default=None),
-    _admin: None = Depends(require_admin_passcode),
+    account: Optional[Any] = Depends(require_session_or_admin),
 ) -> dict[str, Any]:
     """Return hierarchical family tree data for a specific family."""
+    if account is not None:
+        allowed_family_ids = {
+            item.family_id for item in registry.get_families(owner_account_id=account["account_id"])
+        }
+        if family_id not in allowed_family_ids:
+            raise HTTPException(status_code=403, detail="You do not have access to this family tree.")
     try:
         return registry.get_family_tree(
             family_id,

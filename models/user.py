@@ -144,6 +144,8 @@ class UserRegistration(BaseModel):
     open_to_relocation_guidance: bool = False
     preferred_contact_scope: ContactScope = ContactScope.private
     entry_agreement_accepted_at: Optional[str] = None
+    # ── Phase 48: Account ownership ──
+    owner_account_id: Optional[str] = None  # set server-side from session token
 
     model_config = {
         "json_schema_extra": {
@@ -389,6 +391,8 @@ class UserRecord(BaseModel):
     # ── Phase 45.5: Simulation flags ──
     test_user: bool = False
     simulation_created: bool = False
+    # ── Phase 48: Account ownership ──
+    owner_account_id: Optional[str] = None
 
 
 class RelationshipUpdateRequest(BaseModel):

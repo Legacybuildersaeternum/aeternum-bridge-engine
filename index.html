@@ -2864,7 +2864,30 @@
   <button type="button" class="app-nav-link" data-page-target="activity-log">Activity Log</button>
   <button type="button" class="app-nav-link" data-page-target="export-backup">Export &amp; Backup</button>
   <button type="button" class="app-nav-link" data-page-target="admin-dashboard">Admin Dashboard</button>
-  <div style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+  <div style="margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+    <div id="accountStatusText" style="font-size:0.72rem; color:var(--muted); letter-spacing:0.04em;">Not logged in</div>
+    <button type="button" id="accountCreateBtn" class="secondary" style="width:auto; margin-top:0; padding:8px 10px; font-size:0.62rem;">Create Account</button>
+    <button type="button" id="accountLoginBtn" class="secondary" style="width:auto; margin-top:0; padding:8px 10px; font-size:0.62rem;">Login</button>
+    <button type="button" id="accountLogoutBtn" class="secondary" style="display:none; width:auto; margin-top:0; padding:8px 10px; font-size:0.62rem;">Logout</button>
+    <div id="accountPanel" style="display:none; align-items:flex-end; gap:8px; flex-wrap:wrap; padding:10px 12px; border:1px solid rgba(201,168,76,0.24); border-radius:10px; background:rgba(17,33,52,0.92);">
+      <div style="display:grid; gap:4px; min-width:180px;">
+        <label for="accountEmailInput" style="font-size:0.68rem; color:var(--secondary-text); text-transform:uppercase; letter-spacing:0.08em;">Email</label>
+        <input id="accountEmailInput" type="email" placeholder="name@example.com" style="background:var(--navy); color:var(--white); border:1px solid rgba(201,168,76,0.2); border-radius:8px; padding:8px 10px;" />
+      </div>
+      <div style="display:grid; gap:4px; min-width:160px;">
+        <label for="accountPasswordInput" style="font-size:0.68rem; color:var(--secondary-text); text-transform:uppercase; letter-spacing:0.08em;">Password</label>
+        <input id="accountPasswordInput" type="password" placeholder="Password" style="background:var(--navy); color:var(--white); border:1px solid rgba(201,168,76,0.2); border-radius:8px; padding:8px 10px;" />
+      </div>
+      <div id="accountConfirmWrap" style="display:none; gap:4px; min-width:160px;">
+        <label for="accountConfirmPasswordInput" style="font-size:0.68rem; color:var(--secondary-text); text-transform:uppercase; letter-spacing:0.08em;">Confirm</label>
+        <input id="accountConfirmPasswordInput" type="password" placeholder="Confirm password" style="background:var(--navy); color:var(--white); border:1px solid rgba(201,168,76,0.2); border-radius:8px; padding:8px 10px;" />
+      </div>
+      <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+        <button type="button" id="accountSubmitBtn" style="width:auto; margin-top:0; padding:9px 11px; font-size:0.62rem;">Continue</button>
+        <button type="button" id="accountCancelBtn" class="secondary" style="width:auto; margin-top:0; padding:9px 11px; font-size:0.62rem;">Cancel</button>
+      </div>
+      <div id="accountPanelMessage" style="min-width:220px; color:var(--muted); font-size:0.74rem; line-height:1.4;"></div>
+    </div>
     <label for="langSelect" style="font-size:0.75rem; color:var(--muted);">Language</label>
     <select id="langSelect" style="
       background:#0e0e0e;
@@ -4324,9 +4347,12 @@
   const pageNavButtons = Array.from(document.querySelectorAll('[data-page-target]'));
   const APP_MODE = 'public';
   const ADMIN_PASSCODE_STORAGE_KEY = 'aeternum_admin_passcode';
+  const ACCOUNT_SESSION_STORAGE_KEY = 'aeternum_session_token';
   const PUBLIC_ALLOWED_PAGES = new Set(['home', 'register', 'origin-discovery']);
+  const ACCOUNT_ALLOWED_PAGES = new Set(['home', 'register', 'welcome', 'family-tree', 'find-family', 'messages', 'cohorts', 'movement', 'origin-discovery']);
   const PRIVATE_PANEL_IDS = ['activityLogAdminPanel', 'pendingRequestsAdminPanel', 'proofQueueAdminPanel', 'simulationAdminPanel', 'registrationsPanel', 'familyGroupsPanel'];
   const PRIVATE_PAGE_NOTICE = 'Private family trees are only visible to authorized family members.';
+  const LOGIN_REQUIRED_NOTICE = 'Please create an account or log in before registering a family representative.';
   const registrationsPanel = document.getElementById('registrationsPanel');
   const familyGroupsPanel = document.getElementById('familyGroupsPanel');
   const visualFamilyTreePanel = document.getElementById('visualFamilyTreePanel');
@@ -4386,6 +4412,18 @@
   const connConfirmError = document.getElementById('connConfirmError');
   const connConfirmSendBtn = document.getElementById('connConfirmSendBtn');
   const connConfirmCancelBtn = document.getElementById('connConfirmCancelBtn');
+  const accountStatusText = document.getElementById('accountStatusText');
+  const accountCreateBtn = document.getElementById('accountCreateBtn');
+  const accountLoginBtn = document.getElementById('accountLoginBtn');
+  const accountLogoutBtn = document.getElementById('accountLogoutBtn');
+  const accountPanel = document.getElementById('accountPanel');
+  const accountEmailInput = document.getElementById('accountEmailInput');
+  const accountPasswordInput = document.getElementById('accountPasswordInput');
+  const accountConfirmWrap = document.getElementById('accountConfirmWrap');
+  const accountConfirmPasswordInput = document.getElementById('accountConfirmPasswordInput');
+  const accountSubmitBtn = document.getElementById('accountSubmitBtn');
+  const accountCancelBtn = document.getElementById('accountCancelBtn');
+  const accountPanelMessage = document.getElementById('accountPanelMessage');
   const adminLoginBtn = document.getElementById('adminLoginBtn');
   const adminLoginPanel = document.getElementById('adminLoginPanel');
   const adminPasscodeInput = document.getElementById('adminPasscodeInput');
@@ -4393,6 +4431,8 @@
   const adminCancelBtn = document.getElementById('adminCancelBtn');
 
   let adminMode = false;
+  let accountSession = null;
+  let accountPanelMode = 'login';
 
   function getStoredAdminPasscode() {
     return String(window.localStorage.getItem(ADMIN_PASSCODE_STORAGE_KEY) || '').trim();
@@ -4407,12 +4447,210 @@
     window.localStorage.setItem(ADMIN_PASSCODE_STORAGE_KEY, normalized);
   }
 
+  function getStoredAccountSession() {
+    try {
+      const raw = window.localStorage.getItem(ACCOUNT_SESSION_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      const token = String(parsed.token || '').trim();
+      const accountId = String(parsed.account_id || '').trim();
+      const email = String(parsed.email || '').trim();
+      if (!token || !accountId || !email) return null;
+      return { token, account_id: accountId, email };
+    } catch {
+      return null;
+    }
+  }
+
+  function persistAccountSession(session) {
+    if (!session || !session.token) {
+      window.localStorage.removeItem(ACCOUNT_SESSION_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(ACCOUNT_SESSION_STORAGE_KEY, JSON.stringify({
+      token: String(session.token || '').trim(),
+      account_id: String(session.account_id || '').trim(),
+      email: String(session.email || '').trim(),
+    }));
+  }
+
+  function hasAccountSession() {
+    return Boolean(accountSession?.token);
+  }
+
+  function setAccountPanelMessage(message, tone = 'default') {
+    if (!accountPanelMessage) return;
+    accountPanelMessage.textContent = message || '';
+    accountPanelMessage.style.color = tone === 'error'
+      ? 'var(--error)'
+      : tone === 'success'
+        ? 'var(--success)'
+        : 'var(--muted)';
+  }
+
+  function updateAccountUi() {
+    const loggedIn = hasAccountSession();
+    if (accountStatusText) {
+      accountStatusText.textContent = loggedIn
+        ? `Logged in as: ${accountSession.email}`
+        : 'Not logged in';
+    }
+    if (accountCreateBtn) accountCreateBtn.style.display = loggedIn ? 'none' : 'inline-flex';
+    if (accountLoginBtn) accountLoginBtn.style.display = loggedIn ? 'none' : 'inline-flex';
+    if (accountLogoutBtn) accountLogoutBtn.style.display = loggedIn ? 'inline-flex' : 'none';
+    if (accountPanel && loggedIn) {
+      accountPanel.style.display = 'none';
+    }
+  }
+
+  function openAccountPanel(mode) {
+    accountPanelMode = mode === 'register' ? 'register' : 'login';
+    if (accountPanel) {
+      accountPanel.style.display = 'flex';
+    }
+    if (accountConfirmWrap) {
+      accountConfirmWrap.style.display = accountPanelMode === 'register' ? 'grid' : 'none';
+    }
+    if (accountSubmitBtn) {
+      accountSubmitBtn.textContent = accountPanelMode === 'register' ? 'Create Account' : 'Login';
+    }
+    setAccountPanelMessage(
+      accountPanelMode === 'register'
+        ? 'Create an account to own and protect your family records.'
+        : 'Log in to access the family records owned by your account.'
+    );
+    if (accountPasswordInput) accountPasswordInput.value = '';
+    if (accountConfirmPasswordInput) accountConfirmPasswordInput.value = '';
+    accountEmailInput?.focus();
+  }
+
+  function closeAccountPanel() {
+    if (accountPanel) {
+      accountPanel.style.display = 'none';
+    }
+    if (accountPasswordInput) accountPasswordInput.value = '';
+    if (accountConfirmPasswordInput) accountConfirmPasswordInput.value = '';
+    setAccountPanelMessage('');
+  }
+
+  async function applyAccountSession(session, { restorePage = true } = {}) {
+    accountSession = session ? {
+      token: String(session.token || '').trim(),
+      account_id: String(session.account_id || '').trim(),
+      email: String(session.email || '').trim(),
+    } : null;
+    persistAccountSession(accountSession);
+    updateAccountUi();
+    applyPublicPrivacyRestrictions();
+    if (restorePage) {
+      await Promise.allSettled([loadRegistrations(), loadFamilies()]);
+      if (!isPageAllowed(String(document.querySelector('.page-section.is-active')?.dataset?.page || 'home'))) {
+        setActivePage('home');
+      }
+    }
+  }
+
+  async function restoreAccountSession() {
+    const stored = getStoredAccountSession();
+    if (!stored) {
+      accountSession = null;
+      persistAccountSession(null);
+      updateAccountUi();
+      return;
+    }
+    try {
+      const response = await fetch('/auth/me', {
+        headers: { 'X-Session-Token': stored.token },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        accountSession = null;
+        persistAccountSession(null);
+        updateAccountUi();
+        return;
+      }
+      await applyAccountSession({
+        token: stored.token,
+        account_id: String(payload.account_id || stored.account_id || '').trim(),
+        email: String(payload.email || stored.email || '').trim(),
+      }, { restorePage: false });
+    } catch {
+      accountSession = null;
+      persistAccountSession(null);
+      updateAccountUi();
+    }
+  }
+
+  async function handleAccountSubmit() {
+    const email = String(accountEmailInput?.value || '').trim().toLowerCase();
+    const password = String(accountPasswordInput?.value || '').trim();
+    const confirmPassword = String(accountConfirmPasswordInput?.value || '').trim();
+
+    if (!email || !password) {
+      setAccountPanelMessage('Email and password are required.', 'error');
+      return;
+    }
+    if (accountPanelMode === 'register' && password !== confirmPassword) {
+      setAccountPanelMessage('Passwords do not match.', 'error');
+      return;
+    }
+
+    if (accountSubmitBtn) accountSubmitBtn.disabled = true;
+    setAccountPanelMessage('Please wait…');
+
+    try {
+      const endpoint = accountPanelMode === 'register' ? '/auth/register' : '/auth/login';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = String(payload?.detail || 'Login failed. Please try again.');
+        setAccountPanelMessage(detail, 'error');
+        return;
+      }
+      const token = String(payload?.token || payload?.access_token || '').trim();
+      const accountId = String(payload?.account_id || '').trim();
+      if (!token) {
+        setAccountPanelMessage('Authentication succeeded but no token was returned.', 'error');
+        return;
+      }
+      await applyAccountSession({ token, account_id: accountId, email });
+      closeAccountPanel();
+    } catch {
+      setAccountPanelMessage('Network error. Please try again.', 'error');
+    } finally {
+      if (accountSubmitBtn) accountSubmitBtn.disabled = false;
+    }
+  }
+
+  async function handleAccountLogout() {
+    try {
+      if (accountSession?.token) {
+        await fetch('/auth/logout', {
+          method: 'POST',
+          headers: { 'X-Session-Token': accountSession.token },
+        }).catch(() => {});
+      }
+    } finally {
+      await applyAccountSession(null);
+    }
+  }
+
   function isPublicAllowedPage(pageName) {
     return PUBLIC_ALLOWED_PAGES.has(String(pageName || '').trim());
   }
 
+  function isAccountAllowedPage(pageName) {
+    return ACCOUNT_ALLOWED_PAGES.has(String(pageName || '').trim());
+  }
+
   function isPageAllowed(pageName) {
-    return adminMode || isPublicAllowedPage(pageName);
+    const normalized = String(pageName || '').trim();
+    return adminMode || (hasAccountSession() && isAccountAllowedPage(normalized)) || isPublicAllowedPage(normalized);
   }
 
   function updateAdminLoginButtonLabel() {
@@ -8463,6 +8701,9 @@
     if (adminMode && storedAdminPasscode) {
       headers['X-Admin-Passcode'] = storedAdminPasscode;
     }
+    if (accountSession?.token) {
+      headers['X-Session-Token'] = accountSession.token;
+    }
     const requestOptions = {
       ...options,
       headers,
@@ -9071,6 +9312,13 @@
     e.preventDefault();
     successMsg.classList.remove('show');
     errorMsg.classList.remove('show');
+
+    if (!hasAccountSession()) {
+      errorMsg.textContent = LOGIN_REQUIRED_NOTICE;
+      errorMsg.classList.add('show');
+      openAccountPanel('register');
+      return;
+    }
 
     const full_name        = document.getElementById('full_name').value.trim();
     const family_name      = document.getElementById('family_name').value.trim();
@@ -11081,6 +11329,24 @@
   restoreActivityFilterState();
   renderSystemStatusBadges();
   updateOnboardingNavHighlights();
+  restoreAccountSession();
+  accountCreateBtn?.addEventListener('click', () => openAccountPanel('register'));
+  accountLoginBtn?.addEventListener('click', () => openAccountPanel('login'));
+  accountLogoutBtn?.addEventListener('click', handleAccountLogout);
+  accountSubmitBtn?.addEventListener('click', handleAccountSubmit);
+  accountCancelBtn?.addEventListener('click', closeAccountPanel);
+  accountPasswordInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleAccountSubmit();
+    }
+  });
+  accountConfirmPasswordInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleAccountSubmit();
+    }
+  });
 
   // Hydrate all key backend-backed sections on page open.
   bootstrapHydration();
