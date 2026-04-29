@@ -2864,6 +2864,23 @@
   <button type="button" class="app-nav-link" data-page-target="activity-log">Activity Log</button>
   <button type="button" class="app-nav-link" data-page-target="export-backup">Export &amp; Backup</button>
   <button type="button" class="app-nav-link" data-page-target="admin-dashboard">Admin Dashboard</button>
+  <div style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+    <label for="langSelect" style="font-size:0.75rem; color:var(--muted);">Language</label>
+    <select id="langSelect" style="
+      background:#0e0e0e;
+      color:#c9a84c;
+      border:1px solid rgba(201,168,76,0.3);
+      padding:4px 6px;
+      border-radius:4px;
+      font-size:0.75rem;
+    ">
+      <option value="en">English</option>
+      <option value="yo">Yoruba (Coming Soon)</option>
+      <option value="fr">French (Coming Soon)</option>
+      <option value="es">Spanish (Coming Soon)</option>
+      <option value="pt">Portuguese (Coming Soon)</option>
+    </select>
+  </div>
 </nav>
 
 <main class="page-stack">
@@ -4133,6 +4150,15 @@
   </section>
 </main>
 
+<div style="
+  font-size:0.75rem;
+  color:var(--muted);
+  margin-top:12px;
+  text-align:center;
+">
+  Multilingual support is rolling out. English is currently the primary language.
+</div>
+
 <footer>
   Legacy Builders Aeternum&trade; — Powered by Aeternum Nexus
 </footer>
@@ -4394,6 +4420,7 @@
   const movementProofList = document.getElementById('movementProofList');
   const adminProofQueueList = document.getElementById('adminProofQueueList');
   const refreshProofQueueBtn = document.getElementById('refreshProofQueueBtn');
+  const langSelect = document.getElementById('langSelect');
   const simCreateUsersBtn = document.getElementById('simCreateUsersBtn');
   const simCohortJoinsBtn = document.getElementById('simCohortJoinsBtn');
   const simMovementJoinsBtn = document.getElementById('simMovementJoinsBtn');
@@ -8740,6 +8767,13 @@
   simSystemCheckBtn?.addEventListener('click', async () => {
     simSystemCheckBtn.disabled = true;
     try { await runSimulationAction('/simulation/system-check', 'GET'); } catch (e) { _showSimResult({ error: e.message }); } finally { simSystemCheckBtn.disabled = false; }
+  });
+
+  langSelect?.addEventListener('change', function() {
+    const selected = this.value;
+    if (selected !== 'en') {
+      alert('Language support coming soon. English is currently active.');
+    }
   });
 
   adminPendingRequestsList?.addEventListener('click', async (event) => {
