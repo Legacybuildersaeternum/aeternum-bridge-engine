@@ -386,6 +386,9 @@ class UserRecord(BaseModel):
     # ── Phase 43: Trust + Verification ──
     trust_score: int = 0
     verification_level: str = "UNVERIFIED"
+    # ── Phase 45.5: Simulation flags ──
+    test_user: bool = False
+    simulation_created: bool = False
 
 
 class RelationshipUpdateRequest(BaseModel):

@@ -4064,6 +4064,24 @@
             <div id="adminProofQueueList" class="stats-loading">Loading proof submissions...</div>
           </div>
         </details>
+        <details class="admin-collapsible" id="simulationAdminPanel">
+          <summary>Controlled System Activation</summary>
+          <div class="activity-log-wrap" style="max-height:600px; opacity:1; padding:10px 14px 14px;">
+            <p class="stats-loading" style="color:var(--muted); margin-bottom:12px;">
+              ⚠ Simulation creates test records only. Do not use this for production users.
+            </p>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+              <button id="simCreateUsersBtn" type="button">Create Test User Set</button>
+              <button id="simCohortJoinsBtn" type="button" class="secondary">Simulate Cohort Joins</button>
+              <button id="simMovementJoinsBtn" type="button" class="secondary">Simulate Movement Joins</button>
+              <button id="simSubmitProofBtn" type="button" class="secondary">Submit Sample Proof</button>
+              <button id="simReviewProofBtn" type="button" class="secondary">Review Sample Proof</button>
+              <button id="simRefreshTrustBtn" type="button" class="secondary">Refresh Trust Scores</button>
+              <button id="simSystemCheckBtn" type="button" class="secondary">Run Full System Check</button>
+            </div>
+            <pre id="simResultOutput" style="background:var(--card-bg,#1a1a1a); border:1px solid var(--border,#333); border-radius:6px; padding:10px; font-size:0.78rem; overflow:auto; max-height:300px; white-space:pre-wrap; color:var(--text,#eee);">Results will appear here after each action.</pre>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -4376,6 +4394,14 @@
   const movementProofList = document.getElementById('movementProofList');
   const adminProofQueueList = document.getElementById('adminProofQueueList');
   const refreshProofQueueBtn = document.getElementById('refreshProofQueueBtn');
+  const simCreateUsersBtn = document.getElementById('simCreateUsersBtn');
+  const simCohortJoinsBtn = document.getElementById('simCohortJoinsBtn');
+  const simMovementJoinsBtn = document.getElementById('simMovementJoinsBtn');
+  const simSubmitProofBtn = document.getElementById('simSubmitProofBtn');
+  const simReviewProofBtn = document.getElementById('simReviewProofBtn');
+  const simRefreshTrustBtn = document.getElementById('simRefreshTrustBtn');
+  const simSystemCheckBtn = document.getElementById('simSystemCheckBtn');
+  const simResultOutput = document.getElementById('simResultOutput');
   const onboardingGuidance = document.getElementById('onboardingGuidance');
   const onboardingQuickStartChecklist = document.getElementById('onboardingQuickStartChecklist');
   const onboardingStateHint = document.getElementById('onboardingStateHint');
@@ -6682,6 +6708,36 @@
     return data;
   }
 
+  // ── Phase 45.5: Simulation helpers ──
+
+  function _showSimResult(data) {
+    if (!simResultOutput) return;
+    simResultOutput.textContent = JSON.stringify(data, null, 2);
+  }
+
+  async function runSimulationAction(endpoint, method) {
+    const opts = method === 'GET' ? {} : {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId || '' },
+      body: JSON.stringify({}),
+    };
+    if (method === 'GET') {
+      opts.method = 'GET';
+      opts.headers = { 'X-Session-Id': sessionId || '' };
+    }
+    const res = await apiFetch(endpoint, opts);
+    const data = await res.json().catch(() => ({}));
+    _showSimResult(data);
+    if (res.ok) {
+      await Promise.all([
+        loadStats(),
+        loadAdminActivityLog(),
+        loadAdminProofQueue(),
+      ]);
+    }
+    return { ok: res.ok, data };
+  }
+
   async function autofillFindFamilyFromRequester() {
     const requesterId = String(findRequesterUserIdInput?.value || getKnownUserId() || '').trim();
     if (!requesterId) return null;
@@ -8654,6 +8710,36 @@
   });
   refreshProofQueueBtn?.addEventListener('click', () => {
     loadAdminProofQueue();
+  });
+
+  // ── Phase 45.5: Simulation button listeners ──
+  simCreateUsersBtn?.addEventListener('click', async () => {
+    simCreateUsersBtn.disabled = true;
+    try { await runSimulationAction('/simulation/create-test-users', 'POST'); } catch (e) { _showSimResult({ error: e.message }); } finally { simCreateUsersBtn.disabled = false; }
+  });
+  simCohortJoinsBtn?.addEventListener('click', async () => {
+    simCohortJoinsBtn.disabled = true;
+    try { await runSimulationAction('/simulation/cohort-joins', 'POST'); } catch (e) { _showSimResult({ error: e.message }); } finally { simCohortJoinsBtn.disabled = false; }
+  });
+  simMovementJoinsBtn?.addEventListener('click', async () => {
+    simMovementJoinsBtn.disabled = true;
+    try { await runSimulationAction('/simulation/movement-joins', 'POST'); } catch (e) { _showSimResult({ error: e.message }); } finally { simMovementJoinsBtn.disabled = false; }
+  });
+  simSubmitProofBtn?.addEventListener('click', async () => {
+    simSubmitProofBtn.disabled = true;
+    try { await runSimulationAction('/simulation/submit-proof', 'POST'); } catch (e) { _showSimResult({ error: e.message }); } finally { simSubmitProofBtn.disabled = false; }
+  });
+  simReviewProofBtn?.addEventListener('click', async () => {
+    simReviewProofBtn.disabled = true;
+    try { await runSimulationAction('/simulation/review-proof', 'POST'); } catch (e) { _showSimResult({ error: e.message }); } finally { simReviewProofBtn.disabled = false; }
+  });
+  simRefreshTrustBtn?.addEventListener('click', async () => {
+    simRefreshTrustBtn.disabled = true;
+    try { await runSimulationAction('/simulation/refresh-trust', 'POST'); } catch (e) { _showSimResult({ error: e.message }); } finally { simRefreshTrustBtn.disabled = false; }
+  });
+  simSystemCheckBtn?.addEventListener('click', async () => {
+    simSystemCheckBtn.disabled = true;
+    try { await runSimulationAction('/simulation/system-check', 'GET'); } catch (e) { _showSimResult({ error: e.message }); } finally { simSystemCheckBtn.disabled = false; }
   });
 
   adminPendingRequestsList?.addEventListener('click', async (event) => {
