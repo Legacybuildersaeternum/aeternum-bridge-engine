@@ -7,13 +7,14 @@ GET /activation/similar/{user_id}   — "people like you" matching
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from services import registry
 from services.activation import get_user_activation_status, get_similar_users
+from services.security import require_admin_passcode
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["Activation"], prefix="/activation")
+router = APIRouter(tags=["Activation"], prefix="/activation", dependencies=[Depends(require_admin_passcode)])
 
 
 def _load_all_data() -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:

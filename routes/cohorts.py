@@ -1,12 +1,13 @@
 """Phase 40 — Cohort Engine API routes (tribe, region, and movement-based grouping)."""
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel
 from typing import Any, Optional
 
 from services import registry
 from services import cohorts as cohort_service
+from services.security import require_admin_passcode
 
-router = APIRouter(tags=["Cohorts"], prefix="/cohorts")
+router = APIRouter(tags=["Cohorts"], prefix="/cohorts", dependencies=[Depends(require_admin_passcode)])
 
 
 # ---------------------------------------------------------------------------

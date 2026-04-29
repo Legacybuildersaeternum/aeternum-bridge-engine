@@ -4163,6 +4163,12 @@
 
 <footer>
   Legacy Builders Aeternum&trade; — Powered by Aeternum Nexus
+  <button id="adminLoginBtn" type="button" class="secondary" style="margin-left:12px; padding:4px 10px; font-size:0.72rem;">Admin Login</button>
+  <span id="adminLoginPanel" style="display:none; margin-left:8px;">
+    <input id="adminPasscodeInput" type="password" placeholder="Admin passcode" style="padding:4px 6px; font-size:0.72rem; width:170px;" />
+    <button id="adminUnlockBtn" type="button" class="secondary" style="padding:4px 8px; font-size:0.72rem;">Unlock</button>
+    <button id="adminCancelBtn" type="button" class="secondary" style="padding:4px 8px; font-size:0.72rem;">Cancel</button>
+  </span>
 </footer>
 
 <div class="admin-modal" id="registrationEditModal" aria-hidden="true">
@@ -4316,10 +4322,11 @@
   const registrySafetyContent = document.getElementById('registrySafetyContent');
   const pageSections = Array.from(document.querySelectorAll('.page-section'));
   const pageNavButtons = Array.from(document.querySelectorAll('[data-page-target]'));
-  const APP_MODE = 'tester';
-  const IS_TESTER_MODE = APP_MODE === 'tester';
-  const TESTER_RESTRICTED_PAGES = new Set(['activity-log', 'export-backup', 'admin-dashboard']);
-  const TESTER_HIDDEN_PANEL_IDS = ['activityLogAdminPanel', 'pendingRequestsAdminPanel', 'proofQueueAdminPanel', 'simulationAdminPanel'];
+  const APP_MODE = 'public';
+  const ADMIN_PASSCODE_STORAGE_KEY = 'aeternum_admin_passcode';
+  const PUBLIC_ALLOWED_PAGES = new Set(['home', 'register', 'origin-discovery']);
+  const PRIVATE_PANEL_IDS = ['activityLogAdminPanel', 'pendingRequestsAdminPanel', 'proofQueueAdminPanel', 'simulationAdminPanel', 'registrationsPanel', 'familyGroupsPanel'];
+  const PRIVATE_PAGE_NOTICE = 'Private family trees are only visible to authorized family members.';
   const registrationsPanel = document.getElementById('registrationsPanel');
   const familyGroupsPanel = document.getElementById('familyGroupsPanel');
   const visualFamilyTreePanel = document.getElementById('visualFamilyTreePanel');
@@ -4379,35 +4386,138 @@
   const connConfirmError = document.getElementById('connConfirmError');
   const connConfirmSendBtn = document.getElementById('connConfirmSendBtn');
   const connConfirmCancelBtn = document.getElementById('connConfirmCancelBtn');
+  const adminLoginBtn = document.getElementById('adminLoginBtn');
+  const adminLoginPanel = document.getElementById('adminLoginPanel');
+  const adminPasscodeInput = document.getElementById('adminPasscodeInput');
+  const adminUnlockBtn = document.getElementById('adminUnlockBtn');
+  const adminCancelBtn = document.getElementById('adminCancelBtn');
 
-  function isTesterRestrictedPage(pageName) {
-    return IS_TESTER_MODE && TESTER_RESTRICTED_PAGES.has(String(pageName || '').trim());
+  let adminMode = false;
+
+  function getStoredAdminPasscode() {
+    return String(window.localStorage.getItem(ADMIN_PASSCODE_STORAGE_KEY) || '').trim();
   }
 
-  function applyTesterModeRestrictions() {
-    if (!IS_TESTER_MODE) return;
+  function setStoredAdminPasscode(passcode) {
+    const normalized = String(passcode || '').trim();
+    if (!normalized) {
+      window.localStorage.removeItem(ADMIN_PASSCODE_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(ADMIN_PASSCODE_STORAGE_KEY, normalized);
+  }
+
+  function isPublicAllowedPage(pageName) {
+    return PUBLIC_ALLOWED_PAGES.has(String(pageName || '').trim());
+  }
+
+  function isPageAllowed(pageName) {
+    return adminMode || isPublicAllowedPage(pageName);
+  }
+
+  function updateAdminLoginButtonLabel() {
+    if (!adminLoginBtn) return;
+    adminLoginBtn.textContent = adminMode ? 'Admin Logout' : 'Admin Login';
+  }
+
+  function toggleAdminLoginPanel(show) {
+    if (!adminLoginPanel) return;
+    adminLoginPanel.style.display = show ? 'inline-flex' : 'none';
+    if (show) {
+      adminPasscodeInput?.focus();
+    }
+  }
+
+  function showPrivatePageNotice() {
+    if (errorMsg) {
+      errorMsg.textContent = PRIVATE_PAGE_NOTICE;
+      errorMsg.classList.add('show');
+      return;
+    }
+    window.alert(PRIVATE_PAGE_NOTICE);
+  }
+
+  function applyPublicPrivacyRestrictions() {
+    if (APP_MODE !== 'public') return;
 
     pageNavButtons.forEach((button) => {
       const targetPage = String(button.dataset.pageTarget || '').trim();
-      if (!TESTER_RESTRICTED_PAGES.has(targetPage)) return;
-      button.hidden = true;
-      button.style.display = 'none';
-      button.setAttribute('aria-hidden', 'true');
+      if (!targetPage) return;
+      const hide = !isPageAllowed(targetPage);
+      button.hidden = hide;
+      button.style.display = hide ? 'none' : '';
+      if (hide) {
+        button.setAttribute('aria-hidden', 'true');
+      } else {
+        button.removeAttribute('aria-hidden');
+      }
     });
 
     pageSections.forEach((section) => {
       const pageName = String(section.dataset.page || '').trim();
-      if (!TESTER_RESTRICTED_PAGES.has(pageName)) return;
-      section.hidden = true;
-      section.classList.remove('is-active');
+      if (!pageName) return;
+      const hide = !isPageAllowed(pageName);
+      section.hidden = hide;
+      if (hide) {
+        section.classList.remove('is-active');
+      }
     });
 
-    TESTER_HIDDEN_PANEL_IDS.forEach((panelId) => {
+    PRIVATE_PANEL_IDS.forEach((panelId) => {
       const panel = document.getElementById(panelId);
       if (!panel) return;
-      panel.hidden = true;
-      panel.style.display = 'none';
+      const hide = !adminMode;
+      panel.hidden = hide;
+      panel.style.display = hide ? 'none' : '';
     });
+
+    document.querySelectorAll('.tree-duplicate-review-panel').forEach((panel) => {
+      panel.hidden = !adminMode;
+      panel.style.display = adminMode ? '' : 'none';
+    });
+
+    updateAdminLoginButtonLabel();
+  }
+
+  async function handleAdminLoginClick() {
+    if (adminMode) {
+      adminMode = false;
+      setStoredAdminPasscode('');
+      if (adminPasscodeInput) adminPasscodeInput.value = '';
+      toggleAdminLoginPanel(false);
+      applyPublicPrivacyRestrictions();
+      setActivePage('home');
+      return;
+    }
+
+    toggleAdminLoginPanel(true);
+  }
+
+  async function submitAdminLogin() {
+    const entered = String(adminPasscodeInput?.value || '').trim();
+    if (!entered) return;
+
+    try {
+      const response = await fetch('/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passcode: entered }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        window.alert(payload?.detail || 'Admin login failed.');
+        return;
+      }
+      setStoredAdminPasscode(entered);
+      if (adminPasscodeInput) adminPasscodeInput.value = '';
+      adminMode = true;
+      toggleAdminLoginPanel(false);
+      applyPublicPrivacyRestrictions();
+      await bootstrapHydration(2);
+      setActivePage('admin-dashboard');
+    } catch {
+      window.alert('Admin login failed. Please try again.');
+    }
   }
 
   // Modal state — holds pending request data until user confirms
@@ -6864,7 +6974,13 @@
   }
 
   function setActivePage(pageName) {
-    const resolvedPageName = isTesterRestrictedPage(pageName) ? 'home' : pageName;
+    let resolvedPageName = String(pageName || 'home').trim() || 'home';
+    if (!isPageAllowed(resolvedPageName)) {
+      if (resolvedPageName === 'family-tree') {
+        showPrivatePageNotice();
+      }
+      resolvedPageName = 'home';
+    }
     pageSections.forEach((section) => {
       section.classList.toggle('is-active', !section.hidden && section.dataset.page === resolvedPageName);
     });
@@ -6874,8 +6990,10 @@
 
     if (resolvedPageName === 'home') {
       loadHomeDashboard();
-      initActivationEngine();
-      loadActivationChecklist();
+      if (adminMode) {
+        initActivationEngine();
+        loadActivationChecklist();
+      }
     }
     if (resolvedPageName === 'welcome') {
       refreshOnboardingProfile();
@@ -7011,9 +7129,9 @@
 
     if (checklist.completed) {
       onboardingGuidance.innerHTML = '<div>Onboarding complete. Continue expanding lineage depth and reconnection pathways.</div>';
-      onboardingStateHint.textContent = IS_TESTER_MODE
-        ? 'Onboarding complete. Continue with Family Tree, Find Family, Messages, Cohorts, Movement, and Origin Discovery.'
-        : 'Onboarding complete. You can navigate freely across Family Tree, Find Family, and Activity Log.';
+      onboardingStateHint.textContent = adminMode
+        ? 'Onboarding complete. Admin mode can access private family surfaces.'
+        : 'Onboarding complete. Public mode keeps private family surfaces hidden.';
       return;
     }
 
@@ -8341,6 +8459,10 @@
 
   async function apiFetch(url, options = {}) {
     const headers = buildTrackedHeaders(options.headers || {});
+    const storedAdminPasscode = getStoredAdminPasscode();
+    if (adminMode && storedAdminPasscode) {
+      headers['X-Admin-Passcode'] = storedAdminPasscode;
+    }
     const requestOptions = {
       ...options,
       headers,
@@ -9107,22 +9229,27 @@
       if (registerLookupCountryInput) registerLookupCountryInput.value = String(country || '').trim();
       if (registerLookupStateRegionInput) registerLookupStateRegionInput.value = String(state || '').trim();
 
-      if (registerLookupFeedback) {
-        registerLookupFeedback.textContent = 'Registration complete. Running automatic family intelligence check...';
-        registerLookupFeedback.classList.add('is-success');
+      if (adminMode) {
+        if (registerLookupFeedback) {
+          registerLookupFeedback.textContent = 'Registration complete. Running automatic family intelligence check...';
+          registerLookupFeedback.classList.add('is-success');
+        }
+        await runRegisterFamilyLookup();
+        await autoRunFindFamilySearch('registration-success');
+        await Promise.all([
+          loadStats(),
+          loadRegistrations(),
+          loadFamilies(),
+          loadActivityLog(),
+          loadAdminActivityLog(),
+        ]);
+        await refreshOnboardingProfile();
+        setActivePage('welcome');
+        maybeCompleteOnboarding();
+      } else {
+        await loadHomeDashboard();
+        setActivePage('home');
       }
-      await runRegisterFamilyLookup();
-      await autoRunFindFamilySearch('registration-success');
-      await Promise.all([
-        loadStats(),
-        loadRegistrations(),
-        loadFamilies(),
-        loadActivityLog(),
-        loadAdminActivityLog(),
-      ]);
-      await refreshOnboardingProfile();
-      setActivePage('welcome');
-      maybeCompleteOnboarding();
     } catch (err) {
       showError('Network error — is the server running?');
     }
@@ -10783,17 +10910,15 @@
         if (!probe.ok) {
           throw new Error(`Stats probe failed: ${probe.status}`);
         }
-        const hydrationTasks = [
-          loadHomeDashboard(),
-          loadStats(),
-          loadRegistrations(),
-          loadFamilies(),
-        ];
-        if (!IS_TESTER_MODE) {
+        const hydrationTasks = [loadHomeDashboard(), loadStats()];
+        if (adminMode) {
+          hydrationTasks.push(loadRegistrations(), loadFamilies());
           hydrationTasks.push(loadActivityLog(), loadAdminActivityLog(), loadIntelligenceDashboard());
         }
         await Promise.allSettled(hydrationTasks);
-        await refreshOnboardingProfile();
+        if (adminMode) {
+          await refreshOnboardingProfile();
+        }
         return;
       } catch {
         if (attempt === maxAttempts) {
@@ -10939,7 +11064,20 @@
 
   ensureSessionStartedEvent();
   sendSessionHeartbeat();
-  applyTesterModeRestrictions();
+  adminMode = Boolean(getStoredAdminPasscode());
+  applyPublicPrivacyRestrictions();
+  adminLoginBtn?.addEventListener('click', handleAdminLoginClick);
+  adminUnlockBtn?.addEventListener('click', submitAdminLogin);
+  adminCancelBtn?.addEventListener('click', () => {
+    if (adminPasscodeInput) adminPasscodeInput.value = '';
+    toggleAdminLoginPanel(false);
+  });
+  adminPasscodeInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      submitAdminLogin();
+    }
+  });
   restoreActivityFilterState();
   renderSystemStatusBadges();
   updateOnboardingNavHighlights();
@@ -10947,10 +11085,11 @@
   // Hydrate all key backend-backed sections on page open.
   bootstrapHydration();
   setInterval(() => {
+    loadHomeDashboard();
     loadStats();
-    loadRegistrations();
-    loadFamilies();
-    if (!IS_TESTER_MODE) {
+    if (adminMode) {
+      loadRegistrations();
+      loadFamilies();
       loadActivityLog();
       loadAdminActivityLog();
       loadIntelligenceDashboard();

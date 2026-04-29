@@ -16,14 +16,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
 from services import registry
 from services.guides import get_guide_by_id, get_guides_for_region, list_all_guides
+from services.security import require_admin_passcode
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["Guidance"], prefix="/guidance")
+router = APIRouter(tags=["Guidance"], prefix="/guidance", dependencies=[Depends(require_admin_passcode)])
 
 _GUIDANCE_FILE = Path(__file__).resolve().parents[1] / "data" / "guidance_requests.json"
 _GUIDANCE_LOCK = threading.RLock()

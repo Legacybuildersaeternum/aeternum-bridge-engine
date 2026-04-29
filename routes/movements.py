@@ -2,14 +2,15 @@
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from services import movements as movement_service
 from services import proofs as proof_service
 from services import registry
+from services.security import require_admin_passcode
 
-router = APIRouter(tags=["Movements"], prefix="/movements")
+router = APIRouter(tags=["Movements"], prefix="/movements", dependencies=[Depends(require_admin_passcode)])
 
 
 class CreateMovementRequest(BaseModel):

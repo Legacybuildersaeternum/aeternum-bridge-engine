@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Depends, Header
 
 from services import simulation as sim_service
+from services.security import require_admin_passcode
 
-router = APIRouter(tags=["Simulation"], prefix="/simulation")
+router = APIRouter(tags=["Simulation"], prefix="/simulation", dependencies=[Depends(require_admin_passcode)])
 
 
 @router.post("/create-test-users")

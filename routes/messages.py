@@ -1,11 +1,12 @@
 """Phase 39 — Messages API routes (connection-locked, identity-bound)."""
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel
 from typing import Any, Optional
 from services import registry, messages as message_service
 from services.connections import check_connection_safety
+from services.security import require_admin_passcode
 
-router = APIRouter(tags=["Messages"], prefix="/messages")
+router = APIRouter(tags=["Messages"], prefix="/messages", dependencies=[Depends(require_admin_passcode)])
 
 
 # ---------------------------------------------------------------------------

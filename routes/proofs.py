@@ -2,13 +2,14 @@
 
 from typing import Any, Optional
 
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from services import proofs as proof_service
 from services import registry
+from services.security import require_admin_passcode
 
-router = APIRouter(tags=["Proofs"], prefix="/proofs")
+router = APIRouter(tags=["Proofs"], prefix="/proofs", dependencies=[Depends(require_admin_passcode)])
 
 
 class SubmitProofRequest(BaseModel):

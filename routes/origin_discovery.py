@@ -1,13 +1,14 @@
 """Phase 41 — Origin Discovery API routes (Africa Can Find You)."""
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Any, Optional
 
 from models.user import RegistrationUpdateRequest
 from services import registry
 from services.origin_discovery import find_diaspora_profiles_for_origin
+from services.security import require_admin_passcode
 
-router = APIRouter(tags=["Origin Discovery"], prefix="/origin-matches")
+router = APIRouter(tags=["Origin Discovery"], prefix="/origin-matches", dependencies=[Depends(require_admin_passcode)])
 
 
 @router.get("/search")

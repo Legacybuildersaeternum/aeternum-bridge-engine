@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from datetime import datetime, timezone
 from typing import Any, Optional
+from pydantic import BaseModel
 from models.user import (
     BackupResponse,
     ConnectionRequestCreateRequest,
@@ -25,30 +26,75 @@ from models.user import (
     UserRecord,
 )
 from services import registry
+from services.security import is_admin_passcode, require_admin_passcode
 
 router = APIRouter(tags=["Admin"])
 
 
+class AdminLoginRequest(BaseModel):
+    passcode: str
+
+
+def _build_public_stats(stats: StatsResponse) -> StatsResponse:
+    return StatsResponse(
+        total_users=stats.total_users,
+        total_families=stats.total_families,
+        total_family_groups=stats.total_family_groups,
+        total_living_users=0,
+        total_ancestor_records=0,
+        total_unknown_status_users=0,
+        largest_family_size=0,
+        total_interested_in_return=0,
+        total_with_contact_info=0,
+        entry_agreement_accepted_count=0,
+        ecosystem_updates_opt_in_count=0,
+        return_reconnection_interest_distribution={},
+        onboarding_completed_count=0,
+        onboarding_started_not_completed_count=0,
+        total_messages_count=0,
+        total_cohorts=0,
+        total_cohort_memberships=0,
+        region_distribution=stats.region_distribution,
+        travel_timeframe_distribution={},
+        state_distribution={},
+        country_distribution={},
+        role_distribution={},
+        household_position_distribution={},
+        region_travel_timeframe_combinations={},
+        region_interest_combinations={},
+    )
+
+
+@router.post("/admin/login")
+def admin_login(payload: AdminLoginRequest) -> dict[str, Any]:
+    if not is_admin_passcode(payload.passcode):
+        raise HTTPException(status_code=403, detail="Invalid admin passcode.")
+    return {"success": True, "admin_mode": True}
+
+
 @router.get("/stats", response_model=StatsResponse)
-def get_stats() -> StatsResponse:
+def get_stats(x_admin_passcode: Optional[str] = Header(default=None, alias="X-Admin-Passcode")) -> StatsResponse:
     """Return aggregate statistics for the diaspora registry."""
-    return registry.get_stats()
+    stats = registry.get_stats()
+    if is_admin_passcode(x_admin_passcode):
+        return stats
+    return _build_public_stats(stats)
 
 
 @router.get("/registry-safety")
-def get_registry_safety() -> dict[str, Any]:
+def get_registry_safety(_admin: None = Depends(require_admin_passcode)) -> dict[str, Any]:
     """Return live registry safety and backup metadata for admin visibility."""
     return registry.get_registry_safety_status()
 
 
 @router.get("/registrations", response_model=list[UserRecord])
-def get_registrations() -> list[UserRecord]:
+def get_registrations(_admin: None = Depends(require_admin_passcode)) -> list[UserRecord]:
     """Return all saved registrations for admin review."""
     return registry.get_registrations()
 
 
 @router.get("/families", response_model=list[FamilyGroupResponse])
-def get_families() -> list[FamilyGroupResponse]:
+def get_families(_admin: None = Depends(require_admin_passcode)) -> list[FamilyGroupResponse]:
     """Return grouped family data with member relationship graph details."""
     return registry.get_families()
 
@@ -58,6 +104,7 @@ def get_family_tree(
     family_id: str,
     x_session_id: Optional[str] = Header(default=None),
     x_user_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> dict[str, Any]:
     """Return hierarchical family tree data for a specific family."""
     try:
@@ -76,6 +123,7 @@ def get_activity_log(
     session_id: Optional[str] = Query(default=None),
     user_id: Optional[str] = Query(default=None),
     event_type: Optional[str] = Query(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> list[dict[str, Any]]:
     """Return legacy activity log entries with optional session/user/event_type filters."""
     return registry.get_activity_log(limit=limit, session_id=session_id, user_id=user_id, event_type=event_type)
@@ -84,19 +132,23 @@ def get_activity_log(
 @router.get("/relationship-suggestions", response_model=list[RelationshipSuggestionResponse])
 def get_relationship_suggestions(
     family_id: Optional[str] = Query(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> list[RelationshipSuggestionResponse]:
     """Return confidence-scored candidate relationships for currently unlinked or incomplete profiles."""
     return registry.get_relationship_suggestions(family_id=family_id)
 
 
 @router.get("/duplicate-profiles", response_model=list[DuplicateFamilyGroupResponse])
-def get_duplicate_profiles() -> list[DuplicateFamilyGroupResponse]:
+def get_duplicate_profiles(_admin: None = Depends(require_admin_passcode)) -> list[DuplicateFamilyGroupResponse]:
     """Return duplicate profile candidates grouped by family."""
     return registry.get_duplicate_profiles()
 
 
 @router.get("/duplicate-profiles/{family_id}", response_model=DuplicateFamilyGroupResponse)
-def get_duplicate_profiles_by_family(family_id: str) -> DuplicateFamilyGroupResponse:
+def get_duplicate_profiles_by_family(
+    family_id: str,
+    _admin: None = Depends(require_admin_passcode),
+) -> DuplicateFamilyGroupResponse:
     """Return duplicate profile candidates for one family."""
     groups = registry.get_duplicate_profiles(family_id=family_id)
     if groups:
@@ -116,6 +168,7 @@ def get_duplicate_profiles_by_family(family_id: str) -> DuplicateFamilyGroupResp
 def search_find_family(
     payload: FindFamilySearchRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> list[FindFamilyMatchResult]:
     """Search possible family matches using safe identity hints without auto-linking."""
     try:
@@ -128,6 +181,7 @@ def search_find_family(
 def create_connection_request(
     payload: ConnectionRequestCreateRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> ConnectionRequestRecord:
     """Create a safe reconnection request (no auto-merge, no auto-link)."""
     try:
@@ -142,6 +196,7 @@ def create_connection_request(
 def create_family_connection_request(
     payload: FamilyConnectionRequestPayload,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> FamilyConnectionRequestResponse:
     """Create a pending outside-verification family connection request."""
     try:
@@ -159,7 +214,9 @@ def create_family_connection_request(
 
 
 @router.get("/family-connection/requests/pending", response_model=list[PendingFamilyConnectionRequestRecord])
-def get_pending_family_connection_requests() -> list[PendingFamilyConnectionRequestRecord]:
+def get_pending_family_connection_requests(
+    _admin: None = Depends(require_admin_passcode),
+) -> list[PendingFamilyConnectionRequestRecord]:
     """List pending family connection requests that require outside verification."""
     return registry.get_pending_family_connection_requests()
 
@@ -168,6 +225,7 @@ def get_pending_family_connection_requests() -> list[PendingFamilyConnectionRequ
 def create_connection_request_v2(
     payload: FamilyConnectionRequestPayload,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> FamilyConnectionRequestResponse:
     """Create a safe outside-verification family connection request."""
     try:
@@ -185,7 +243,9 @@ def create_connection_request_v2(
 
 
 @router.get("/connection-requests", response_model=list[PendingFamilyConnectionRequestRecord])
-def get_all_connection_requests() -> list[PendingFamilyConnectionRequestRecord]:
+def get_all_connection_requests(
+    _admin: None = Depends(require_admin_passcode),
+) -> list[PendingFamilyConnectionRequestRecord]:
     """List all connection requests for admin review, regardless of status."""
     return registry.get_all_connection_requests()
 
@@ -194,6 +254,7 @@ def get_all_connection_requests() -> list[PendingFamilyConnectionRequestRecord]:
 def admin_accept_connection_request(
     request_id: str,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> PendingFamilyConnectionRequestRecord:
     """Admin accepts a connection request and immediately links both users."""
     try:
@@ -208,6 +269,7 @@ def admin_accept_connection_request(
 def admin_reject_connection_request(
     request_id: str,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> PendingFamilyConnectionRequestRecord:
     """Admin rejects a connection request. Users are not linked."""
     try:
@@ -221,6 +283,7 @@ def admin_reject_connection_request(
 @router.get("/connection-requests/incoming", response_model=list[ConnectionRequestRecord])
 def get_incoming_connection_requests(
     user_id: str = Query(...),
+    _admin: None = Depends(require_admin_passcode),
 ) -> list[ConnectionRequestRecord]:
     """List incoming connection requests for a specific user."""
     return registry.get_connection_requests_for_user(user_id, direction="incoming")
@@ -229,6 +292,7 @@ def get_incoming_connection_requests(
 @router.get("/connection-requests/outgoing", response_model=list[ConnectionRequestRecord])
 def get_outgoing_connection_requests(
     user_id: str = Query(...),
+    _admin: None = Depends(require_admin_passcode),
 ) -> list[ConnectionRequestRecord]:
     """List outgoing connection requests for a specific user."""
     return registry.get_connection_requests_for_user(user_id, direction="outgoing")
@@ -239,6 +303,7 @@ def accept_incoming_connection_request(
     request_id: str,
     payload: ConnectionRequestDecisionRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> ConnectionRequestRecord:
     """Receiver accepts and starts external verification (still no link/merge)."""
     try:
@@ -254,6 +319,7 @@ def decline_incoming_connection_request(
     request_id: str,
     payload: ConnectionRequestDecisionRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> ConnectionRequestRecord:
     """Receiver declines request."""
     try:
@@ -269,6 +335,7 @@ def confirm_connection_request(
     request_id: str,
     payload: ConnectionRequestDecisionRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> ConnectionRequestRecord:
     """Record external-contact verification confirmation for either requester or receiver."""
     try:
@@ -284,6 +351,7 @@ def complete_connection_request(
     request_id: str,
     payload: ConnectionRequestDecisionRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> ConnectionRequestRecord:
     """Finalize connection after both parties confirmed external verification."""
     try:
@@ -298,6 +366,7 @@ def complete_connection_request(
 def merge_duplicate_profiles(
     payload: DuplicateMergeRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> DuplicateActionResponse:
     """Safely merge duplicate profile into a primary profile without deleting records."""
     try:
@@ -316,6 +385,7 @@ def merge_duplicate_profiles(
 def ignore_duplicate_profile(
     payload: DuplicateIgnoreRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> DuplicateActionResponse:
     """Mark duplicate candidate as reviewed/ignored without merging records."""
     try:
@@ -334,6 +404,7 @@ def ignore_duplicate_profile(
 def review_later_duplicate_profile(
     payload: DuplicateReviewLaterRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> DuplicateActionResponse:
     """Mark duplicate candidate as review-later for deferred assessment without merging records."""
     try:
@@ -353,6 +424,7 @@ def patch_registration(
     user_id: str,
     payload: RegistrationUpdateRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> UserRecord:
     """Update any editable registration fields for an existing user."""
     try:
@@ -369,6 +441,7 @@ def patch_registration_relationship(
     user_id: str,
     payload: RelationshipUpdateRequest,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> UserRecord:
     """Update relationship mapping fields for an existing registration."""
     try:
@@ -384,6 +457,7 @@ def patch_registration_relationship(
 def delete_registration(
     user_id: str,
     x_session_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> dict[str, str]:
     """Delete a registration and clear relationships that referenced the deleted user."""
     try:
@@ -397,6 +471,7 @@ def delete_registration(
 def export_registrations(
     x_session_id: Optional[str] = Header(default=None),
     x_user_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> list[UserRecord]:
     """Export all registrations as JSON for backup and records."""
     data = registry.get_registrations()
@@ -413,6 +488,7 @@ def export_registrations(
 def export_registrations_csv(
     x_session_id: Optional[str] = Header(default=None),
     x_user_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> str:
     """Export all registrations as CSV for spreadsheet import."""
     data = registry.export_registrations_csv()
@@ -429,6 +505,7 @@ def export_registrations_csv(
 def export_families(
     x_session_id: Optional[str] = Header(default=None),
     x_user_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> list[FamilyGroupResponse]:
     """Export all family groups as JSON for backup."""
     data = registry.get_families()
@@ -445,6 +522,7 @@ def export_families(
 def export_stats(
     x_session_id: Optional[str] = Header(default=None),
     x_user_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> StatsResponse:
     """Export aggregate statistics as JSON for records."""
     data = registry.get_stats()
@@ -461,6 +539,7 @@ def export_stats(
 def export_full_backup(
     x_session_id: Optional[str] = Header(default=None),
     x_user_id: Optional[str] = Header(default=None),
+    _admin: None = Depends(require_admin_passcode),
 ) -> BackupResponse:
     """Export complete diaspora registry backup with timestamp and all data."""
     stats = registry.get_stats()
