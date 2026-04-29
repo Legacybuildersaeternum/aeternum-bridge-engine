@@ -109,6 +109,16 @@ def register_user(
             detail="Please create an account or log in before registering a family representative.",
         )
     owner_account_id = account["account_id"] if account else None
+    if owner_account_id:
+        existing = registry.get_registration_by_owner_account(owner_account_id)
+        if existing is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This account already has a registered family representative "
+                    f"({existing.user_id})."
+                ),
+            )
     record = registry.register_user(payload, session_id=x_session_id, owner_account_id=owner_account_id)
     return RegistrationResponse(
         user_id=record.user_id,

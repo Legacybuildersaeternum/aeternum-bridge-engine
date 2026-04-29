@@ -7,6 +7,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from services import auth as auth_service
+from services import registry as registry_service
 
 router = APIRouter(tags=["Auth"], prefix="/auth")
 
@@ -65,7 +66,11 @@ def auth_me(
     session = auth_service.get_account_by_token(x_session_token or "")
     if not session:
         raise HTTPException(status_code=401, detail="Not authenticated.")
+    registration = registry_service.get_registration_by_owner_account(session["account_id"])
     return {
         "account_id": session["account_id"],
         "email": session["email"],
+        "has_registration": bool(registration),
+        "registration_user_id": registration.user_id if registration else None,
+        "registration_family_id": registration.family_id if registration else None,
     }

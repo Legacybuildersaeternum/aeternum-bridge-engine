@@ -377,6 +377,8 @@
       border: 1px solid rgba(201, 168, 76, 0.24);
       border-radius: var(--radius);
       background: rgba(11, 26, 43, 0.72);
+      cursor: pointer;
+      touch-action: manipulation;
     }
 
     .living-status-option input[type="radio"] {
@@ -388,7 +390,7 @@
       flex-shrink: 0;
     }
 
-    .living-status-option label {
+    .living-status-option .option-label {
       margin: 0;
       cursor: pointer;
       color: var(--white);
@@ -3082,18 +3084,18 @@
       <div class="field">
         <label>Living Status</label>
         <div class="living-status-options" role="radiogroup" aria-label="Living Status">
-          <div class="living-status-option">
+          <label class="living-status-option" for="living_status_living">
             <input type="radio" id="living_status_living" name="living_status" value="living" checked />
-            <label for="living_status_living">Living</label>
-          </div>
-          <div class="living-status-option">
+            <span class="option-label">Living</span>
+          </label>
+          <label class="living-status-option" for="living_status_deceased">
             <input type="radio" id="living_status_deceased" name="living_status" value="deceased" />
-            <label for="living_status_deceased">Deceased</label>
-          </div>
-          <div class="living-status-option">
+            <span class="option-label">Deceased</span>
+          </label>
+          <label class="living-status-option" for="living_status_unknown">
             <input type="radio" id="living_status_unknown" name="living_status" value="unknown" />
-            <label for="living_status_unknown">Unknown</label>
-          </div>
+            <span class="option-label">Unknown</span>
+          </label>
         </div>
       </div>
       <div class="checkbox-row ancestor-toggle-row" style="margin-top:-6px;">
@@ -3160,7 +3162,23 @@
           </div>
           <div class="field">
             <label for="state">State / Province</label>
-            <input id="state" type="text" placeholder="State or Province" />
+            <select id="state">
+              <option value="">— Select state / province —</option>
+              <option value="AL">AL</option>
+              <option value="CA">CA</option>
+              <option value="FL">FL</option>
+              <option value="GA">GA</option>
+              <option value="IL">IL</option>
+              <option value="MD">MD</option>
+              <option value="NC">NC</option>
+              <option value="NJ">NJ</option>
+              <option value="NY">NY</option>
+              <option value="PA">PA</option>
+              <option value="TX">TX</option>
+              <option value="VA">VA</option>
+              <option value="Other">Other</option>
+              <option value="Unknown">Unknown</option>
+            </select>
           </div>
           <div class="field">
             <label for="country">Country</label>
@@ -3230,11 +3248,39 @@
         <div class="optional-grid">
           <div class="field">
             <label for="current_country">Current Country</label>
-            <input id="current_country" type="text" placeholder="e.g. USA" />
+            <select id="current_country">
+              <option value="">— Select current country —</option>
+              <option value="United States">United States</option>
+              <option value="Canada">Canada</option>
+              <option value="United Kingdom">United Kingdom</option>
+              <option value="Nigeria">Nigeria</option>
+              <option value="Ghana">Ghana</option>
+              <option value="Kenya">Kenya</option>
+              <option value="Jamaica">Jamaica</option>
+              <option value="Haiti">Haiti</option>
+              <option value="Unknown">Unknown</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
           <div class="field">
             <label for="current_state_region">Current State / Region</label>
-            <input id="current_state_region" type="text" placeholder="e.g. Georgia" />
+            <select id="current_state_region">
+              <option value="">— Select state / region —</option>
+              <option value="AL">AL</option>
+              <option value="CA">CA</option>
+              <option value="FL">FL</option>
+              <option value="GA">GA</option>
+              <option value="IL">IL</option>
+              <option value="MD">MD</option>
+              <option value="NC">NC</option>
+              <option value="NJ">NJ</option>
+              <option value="NY">NY</option>
+              <option value="PA">PA</option>
+              <option value="TX">TX</option>
+              <option value="VA">VA</option>
+              <option value="Other">Other</option>
+              <option value="Unknown">Unknown</option>
+            </select>
           </div>
           <div class="field">
             <label for="current_city">Current City</label>
@@ -3259,7 +3305,28 @@
           </div>
           <div class="field">
             <label for="heritage_country">Heritage Country</label>
-            <input id="heritage_country" type="text" placeholder="e.g. Nigeria" />
+            <select id="heritage_country">
+              <option value="">— Select heritage country —</option>
+              <option value="Nigeria">Nigeria</option>
+              <option value="Ghana">Ghana</option>
+              <option value="Senegal">Senegal</option>
+              <option value="Gambia">Gambia</option>
+              <option value="Sierra Leone">Sierra Leone</option>
+              <option value="Liberia">Liberia</option>
+              <option value="Mali">Mali</option>
+              <option value="Benin">Benin</option>
+              <option value="Togo">Togo</option>
+              <option value="Cameroon">Cameroon</option>
+              <option value="Congo">Congo</option>
+              <option value="Angola">Angola</option>
+              <option value="Kenya">Kenya</option>
+              <option value="Ethiopia">Ethiopia</option>
+              <option value="South Africa">South Africa</option>
+              <option value="Jamaica">Jamaica</option>
+              <option value="Haiti">Haiti</option>
+              <option value="Unknown">Unknown</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
           <div class="field">
             <label for="heritage_group">Heritage Group</label>
@@ -3317,7 +3384,20 @@
           </div>
           <div class="field">
             <label for="target_region">Target Region</label>
-            <input id="target_region" type="text" placeholder="State / province / district" />
+            <select id="target_region">
+              <option value="">— Select target region —</option>
+              <option value="west_africa">West Africa</option>
+              <option value="central_africa">Central Africa</option>
+              <option value="east_africa">East Africa</option>
+              <option value="southern_africa">Southern Africa</option>
+              <option value="north_africa">North Africa</option>
+              <option value="caribbean">Caribbean</option>
+              <option value="north_america">North America</option>
+              <option value="south_america">South America</option>
+              <option value="europe">Europe</option>
+              <option value="unknown">Unknown</option>
+              <option value="other">Other</option>
+            </select>
           </div>
           <div class="field">
             <label for="relocation_interest_level">Relocation Interest Level</label>
@@ -4582,6 +4662,7 @@
   let adminMode = false;
   let accountSession = null;
   let accountPanelMode = 'login';
+  let accountOwnedRegistration = null;
 
   function getStoredAdminPasscode() {
     return String(window.localStorage.getItem(ADMIN_PASSCODE_STORAGE_KEY) || '').trim();
@@ -4653,6 +4734,28 @@
     }
   }
 
+  function getOwnedRegistrationFromCache() {
+    if (!hasAccountSession()) return null;
+    const list = Array.isArray(registrationsCache) ? registrationsCache : [];
+    return list[0] || null;
+  }
+
+  function syncOwnedRegistrationState() {
+    accountOwnedRegistration = getOwnedRegistrationFromCache();
+    if (accountOwnedRegistration?.user_id) {
+      setKnownUserId(accountOwnedRegistration.user_id);
+    }
+  }
+
+  function showAlreadyRegisteredNotice() {
+    if (!accountOwnedRegistration?.user_id) return;
+    const familyLabel = String(accountOwnedRegistration.family_name || 'your family').trim();
+    showError(
+      `This account is already registered as ${accountOwnedRegistration.user_id} in ${familyLabel}. ` +
+      'One profile per account is enforced.'
+    );
+  }
+
   function openAccountPanel(mode) {
     accountPanelMode = mode === 'register' ? 'register' : 'login';
     if (accountPanel) {
@@ -4694,6 +4797,7 @@
     applyPublicPrivacyRestrictions();
     if (restorePage) {
       await Promise.allSettled([loadRegistrations(), loadFamilies()]);
+      syncOwnedRegistrationState();
       if (!isPageAllowed(String(document.querySelector('.page-section.is-active')?.dataset?.page || 'home'))) {
         setActivePage('home');
       }
@@ -4724,9 +4828,12 @@
         account_id: String(payload.account_id || stored.account_id || '').trim(),
         email: String(payload.email || stored.email || '').trim(),
       }, { restorePage: false });
+      if (payload?.registration_user_id) {
+        setKnownUserId(String(payload.registration_user_id || '').trim());
+      }
     } catch {
-      accountSession = null;
-      persistAccountSession(null);
+      // Keep local session token on transient network errors; /auth/me 401 still clears above.
+      accountSession = stored;
       updateAccountUi();
     }
   }
@@ -4768,6 +4875,14 @@
         return;
       }
       await applyAccountSession({ token, account_id: accountId, email });
+      syncOwnedRegistrationState();
+      if (accountOwnedRegistration?.user_id) {
+        setAccountPanelMessage(
+          `Welcome back. This account is already registered as ${accountOwnedRegistration.user_id}.`,
+          'success'
+        );
+        setActivePage('home');
+      }
       closeAccountPanel();
     } catch {
       setAccountPanelMessage('Network error. Please try again.', 'error');
@@ -9415,11 +9530,7 @@
     const livingStatus = String(document.querySelector('input[name="living_status"]:checked')?.value || 'living');
     const ancestorInput = document.getElementById('ancestor_record');
     if (ancestorInput && fromStatusChange) {
-      if (livingStatus === 'deceased') {
-        ancestorInput.checked = true;
-      } else if (livingStatus === 'living') {
-        ancestorInput.checked = false;
-      }
+      // Intentionally no auto-toggle: users must control ancestor checkbox directly.
     }
     const ancestorRecord = Boolean(ancestorInput?.checked);
     const deceasedBlock = document.getElementById('deceasedDetailsBlock');
@@ -9470,6 +9581,12 @@
       errorMsg.textContent = LOGIN_REQUIRED_NOTICE;
       errorMsg.classList.add('show');
       openAccountPanel('register');
+      return;
+    }
+
+    if (!adminMode && accountOwnedRegistration?.user_id) {
+      showAlreadyRegisteredNotice();
+      setActivePage('home');
       return;
     }
 
@@ -9597,6 +9714,10 @@
       if (!res.ok) {
         const detail = extractDetail(data);
         showError(detail);
+        if (res.status === 409) {
+          await loadRegistrations();
+          syncOwnedRegistrationState();
+        }
         return;
       }
 
@@ -9610,6 +9731,7 @@
         `<div class="id-block">Family ID: <span>${data.family_id}</span></div>`;
       successMsg.classList.add('show');
       form.reset();
+      applyLivingStatusUI({ fromStatusChange: false });
       const fullNameParts = String(full_name || '').trim().split(/\s+/).filter(Boolean);
       const registeredFirstName = fullNameParts[0] || '';
       const registeredLastName = String(family_name || '').trim() || (fullNameParts.length > 1 ? fullNameParts[fullNameParts.length - 1] : '');
@@ -9648,6 +9770,8 @@
         setActivePage('welcome');
         maybeCompleteOnboarding();
       } else {
+        await loadRegistrations();
+        syncOwnedRegistrationState();
         await loadHomeDashboard();
         setActivePage('home');
       }
@@ -11127,6 +11251,7 @@
         return bTs - aTs;
       });
       registrationsCache = list;
+      syncOwnedRegistrationState();
       updateConnectedToOptions();
 
       if (!list.length) {
@@ -11482,7 +11607,7 @@
   restoreActivityFilterState();
   renderSystemStatusBadges();
   updateOnboardingNavHighlights();
-  restoreAccountSession();
+  const initialRestorePromise = restoreAccountSession();
   accountCreateBtn?.addEventListener('click', () => openAccountPanel('register'));
   accountLoginBtn?.addEventListener('click', () => openAccountPanel('login'));
   accountLogoutBtn?.addEventListener('click', handleAccountLogout);
@@ -11502,7 +11627,7 @@
   });
 
   // Hydrate all key backend-backed sections on page open.
-  bootstrapHydration();
+  initialRestorePromise.finally(() => bootstrapHydration());
   setInterval(() => {
     loadHomeDashboard();
     loadStats();

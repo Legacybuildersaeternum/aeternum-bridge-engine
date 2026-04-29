@@ -2486,6 +2486,15 @@ def get_registrations(owner_account_id: Optional[str] = None) -> list[UserRecord
     return [UserRecord.model_validate(u) for u in users]
 
 
+def get_registration_by_owner_account(owner_account_id: str) -> Optional[UserRecord]:
+    """Return the most recent registration owned by an account, if present."""
+    owner_id = str(owner_account_id or "").strip()
+    if not owner_id:
+        return None
+    rows = get_registrations(owner_account_id=owner_id)
+    return rows[0] if rows else None
+
+
 def update_registration_relationship(
     user_id: str,
     payload: RelationshipUpdateRequest,

@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 _DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 _USERS_FILE = _DATA_DIR / "users.json"
 _SESSIONS_FILE = _DATA_DIR / "sessions.json"
+_USERS_BACKUP_FILE = _DATA_DIR / "users.backup.json"
+_SESSIONS_BACKUP_FILE = _DATA_DIR / "sessions.backup.json"
 _USERS_LOCK = threading.RLock()
 _SESSIONS_LOCK = threading.RLock()
 
@@ -37,42 +39,80 @@ def _ensure_data_dir() -> None:
     _DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _atomic_json_write(path: Path, payload: list[dict[str, Any]]) -> None:
+    """Write JSON atomically to reduce partial-write corruption risk."""
+    _ensure_data_dir()
+    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+    with tmp_path.open("w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, ensure_ascii=False)
+        fh.flush()
+        os.fsync(fh.fileno())
+    tmp_path.replace(path)
+
+
+def _load_json_list(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8") as fh:
+        data = json.load(fh)
+        return data if isinstance(data, list) else []
+
+
 def _load_users() -> list[dict[str, Any]]:
     _ensure_data_dir()
-    if not _USERS_FILE.exists():
-        return []
     try:
-        with _USERS_FILE.open("r", encoding="utf-8") as fh:
-            data = json.load(fh)
-            return data if isinstance(data, list) else []
+        users = _load_json_list(_USERS_FILE)
+        if users:
+            return users
+        backup_users = _load_json_list(_USERS_BACKUP_FILE)
+        if backup_users and not _USERS_FILE.exists():
+            # Recover missing primary users file from backup snapshot.
+            _atomic_json_write(_USERS_FILE, backup_users)
+            return backup_users
+        return backup_users
     except Exception:
-        logger.exception("Failed to load users.json")
-        return []
+        logger.exception("Failed to load users.json, attempting backup recovery")
+        try:
+            backup_users = _load_json_list(_USERS_BACKUP_FILE)
+            if backup_users:
+                _atomic_json_write(_USERS_FILE, backup_users)
+            return backup_users
+        except Exception:
+            logger.exception("Failed to recover users from backup")
+            return []
 
 
 def _save_users(users: list[dict[str, Any]]) -> None:
-    _ensure_data_dir()
-    with _USERS_FILE.open("w", encoding="utf-8") as fh:
-        json.dump(users, fh, indent=2, ensure_ascii=False)
+    _atomic_json_write(_USERS_FILE, users)
+    _atomic_json_write(_USERS_BACKUP_FILE, users)
 
 
 def _load_sessions() -> list[dict[str, Any]]:
     _ensure_data_dir()
-    if not _SESSIONS_FILE.exists():
-        return []
     try:
-        with _SESSIONS_FILE.open("r", encoding="utf-8") as fh:
-            data = json.load(fh)
-            return data if isinstance(data, list) else []
+        sessions = _load_json_list(_SESSIONS_FILE)
+        if sessions:
+            return sessions
+        backup_sessions = _load_json_list(_SESSIONS_BACKUP_FILE)
+        if backup_sessions and not _SESSIONS_FILE.exists():
+            _atomic_json_write(_SESSIONS_FILE, backup_sessions)
+            return backup_sessions
+        return backup_sessions
     except Exception:
-        logger.exception("Failed to load sessions.json")
-        return []
+        logger.exception("Failed to load sessions.json, attempting backup recovery")
+        try:
+            backup_sessions = _load_json_list(_SESSIONS_BACKUP_FILE)
+            if backup_sessions:
+                _atomic_json_write(_SESSIONS_FILE, backup_sessions)
+            return backup_sessions
+        except Exception:
+            logger.exception("Failed to recover sessions from backup")
+            return []
 
 
 def _save_sessions(sessions: list[dict[str, Any]]) -> None:
-    _ensure_data_dir()
-    with _SESSIONS_FILE.open("w", encoding="utf-8") as fh:
-        json.dump(sessions, fh, indent=2, ensure_ascii=False)
+    _atomic_json_write(_SESSIONS_FILE, sessions)
+    _atomic_json_write(_SESSIONS_BACKUP_FILE, sessions)
 
 
 def _now_iso() -> str:
