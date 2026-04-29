@@ -4316,6 +4316,10 @@
   const registrySafetyContent = document.getElementById('registrySafetyContent');
   const pageSections = Array.from(document.querySelectorAll('.page-section'));
   const pageNavButtons = Array.from(document.querySelectorAll('[data-page-target]'));
+  const APP_MODE = 'tester';
+  const IS_TESTER_MODE = APP_MODE === 'tester';
+  const TESTER_RESTRICTED_PAGES = new Set(['activity-log', 'export-backup', 'admin-dashboard']);
+  const TESTER_HIDDEN_PANEL_IDS = ['activityLogAdminPanel', 'pendingRequestsAdminPanel', 'proofQueueAdminPanel', 'simulationAdminPanel'];
   const registrationsPanel = document.getElementById('registrationsPanel');
   const familyGroupsPanel = document.getElementById('familyGroupsPanel');
   const visualFamilyTreePanel = document.getElementById('visualFamilyTreePanel');
@@ -4375,6 +4379,36 @@
   const connConfirmError = document.getElementById('connConfirmError');
   const connConfirmSendBtn = document.getElementById('connConfirmSendBtn');
   const connConfirmCancelBtn = document.getElementById('connConfirmCancelBtn');
+
+  function isTesterRestrictedPage(pageName) {
+    return IS_TESTER_MODE && TESTER_RESTRICTED_PAGES.has(String(pageName || '').trim());
+  }
+
+  function applyTesterModeRestrictions() {
+    if (!IS_TESTER_MODE) return;
+
+    pageNavButtons.forEach((button) => {
+      const targetPage = String(button.dataset.pageTarget || '').trim();
+      if (!TESTER_RESTRICTED_PAGES.has(targetPage)) return;
+      button.hidden = true;
+      button.style.display = 'none';
+      button.setAttribute('aria-hidden', 'true');
+    });
+
+    pageSections.forEach((section) => {
+      const pageName = String(section.dataset.page || '').trim();
+      if (!TESTER_RESTRICTED_PAGES.has(pageName)) return;
+      section.hidden = true;
+      section.classList.remove('is-active');
+    });
+
+    TESTER_HIDDEN_PANEL_IDS.forEach((panelId) => {
+      const panel = document.getElementById(panelId);
+      if (!panel) return;
+      panel.hidden = true;
+      panel.style.display = 'none';
+    });
+  }
 
   // Modal state — holds pending request data until user confirms
   let _connModalState = null; // { targetUserId, matchRow, source, requesterUserId, originBtn }
@@ -6830,22 +6864,23 @@
   }
 
   function setActivePage(pageName) {
+    const resolvedPageName = isTesterRestrictedPage(pageName) ? 'home' : pageName;
     pageSections.forEach((section) => {
-      section.classList.toggle('is-active', section.dataset.page === pageName);
+      section.classList.toggle('is-active', !section.hidden && section.dataset.page === resolvedPageName);
     });
     pageNavButtons.forEach((button) => {
-      button.classList.toggle('is-active', button.dataset.pageTarget === pageName && button.classList.contains('app-nav-link'));
+      button.classList.toggle('is-active', button.dataset.pageTarget === resolvedPageName && button.classList.contains('app-nav-link'));
     });
 
-    if (pageName === 'home') {
+    if (resolvedPageName === 'home') {
       loadHomeDashboard();
       initActivationEngine();
       loadActivationChecklist();
     }
-    if (pageName === 'welcome') {
+    if (resolvedPageName === 'welcome') {
       refreshOnboardingProfile();
     }
-    if (pageName === 'family-tree') {
+    if (resolvedPageName === 'family-tree') {
       persistOnboardingProgress({ onboarding_family_tree_started: true, onboarding_started: true }).then(maybeCompleteOnboarding);
       if (!familiesCache.length) {
         loadFamilies();
@@ -6853,7 +6888,7 @@
       renderVisualFamilyTree();
       loadTreeDuplicateReview();
     }
-    if (pageName === 'find-family') {
+    if (resolvedPageName === 'find-family') {
       persistOnboardingProgress({ onboarding_first_connection_explored: true, onboarding_started: true }).then(maybeCompleteOnboarding);
       const knownUserId = getKnownUserId();
       if (knownUserId) {
@@ -6871,23 +6906,23 @@
       loadIncomingConnectionRequests();
       loadOutgoingConnectionRequests();
     }
-    if (pageName === 'cohorts') {
+    if (resolvedPageName === 'cohorts') {
       initCohortsPage();
     }
-    if (pageName === 'movement') {
+    if (resolvedPageName === 'movement') {
       initMovementsPage();
     }
-    if (pageName === 'origin-discovery') {
+    if (resolvedPageName === 'origin-discovery') {
       initOriginDiscoveryPage();
     }
-    if (pageName === 'activity-log') {
+    if (resolvedPageName === 'activity-log') {
       logPageViewOnce('activity-log', 'activity_log_viewed', 'Activity Log tab opened.');
       loadActivityLog();
     }
-    if (pageName === 'messages') {
+    if (resolvedPageName === 'messages') {
       initMessagesPage();
     }
-    if (pageName === 'admin-dashboard') {
+    if (resolvedPageName === 'admin-dashboard') {
       logPageViewOnce('admin-dashboard', 'admin_dashboard_viewed', 'Admin Dashboard tab opened.');
       renderAdminSummary();
       loadStats();
@@ -6976,7 +7011,9 @@
 
     if (checklist.completed) {
       onboardingGuidance.innerHTML = '<div>Onboarding complete. Continue expanding lineage depth and reconnection pathways.</div>';
-      onboardingStateHint.textContent = 'Onboarding complete. You can navigate freely across Family Tree, Find Family, and Activity Log.';
+      onboardingStateHint.textContent = IS_TESTER_MODE
+        ? 'Onboarding complete. Continue with Family Tree, Find Family, Messages, Cohorts, Movement, and Origin Discovery.'
+        : 'Onboarding complete. You can navigate freely across Family Tree, Find Family, and Activity Log.';
       return;
     }
 
@@ -7270,7 +7307,7 @@
     const stepsEl = document.getElementById('relocationPathwaySteps');
     if (!card || !stepsEl) return;
 
-    const me = getKnownUserRecord ? getKnownUserRecord() : null;
+    const me = getKnownUserProfileFromCache ? getKnownUserProfileFromCache() : null;
     const level = String(me?.relocation_interest_level || '').toLowerCase();
     const activeLevels = new Set(['considering', 'planning', 'active', 'actively_planning', 'already_relocated']);
     if (!activeLevels.has(level)) {
@@ -10746,15 +10783,16 @@
         if (!probe.ok) {
           throw new Error(`Stats probe failed: ${probe.status}`);
         }
-        await Promise.allSettled([
+        const hydrationTasks = [
           loadHomeDashboard(),
           loadStats(),
           loadRegistrations(),
           loadFamilies(),
-          loadActivityLog(),
-          loadAdminActivityLog(),
-          loadIntelligenceDashboard(),
-        ]);
+        ];
+        if (!IS_TESTER_MODE) {
+          hydrationTasks.push(loadActivityLog(), loadAdminActivityLog(), loadIntelligenceDashboard());
+        }
+        await Promise.allSettled(hydrationTasks);
         await refreshOnboardingProfile();
         return;
       } catch {
@@ -10901,6 +10939,7 @@
 
   ensureSessionStartedEvent();
   sendSessionHeartbeat();
+  applyTesterModeRestrictions();
   restoreActivityFilterState();
   renderSystemStatusBadges();
   updateOnboardingNavHighlights();
@@ -10911,9 +10950,11 @@
     loadStats();
     loadRegistrations();
     loadFamilies();
-    loadActivityLog();
-    loadAdminActivityLog();
-    loadIntelligenceDashboard();
+    if (!IS_TESTER_MODE) {
+      loadActivityLog();
+      loadAdminActivityLog();
+      loadIntelligenceDashboard();
+    }
   }, 15000);
   setInterval(() => {
     sendSessionHeartbeat();
