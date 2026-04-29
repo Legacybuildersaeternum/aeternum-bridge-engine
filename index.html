@@ -1969,6 +1969,70 @@
       z-index: 3;
     }
 
+    .nav-info-panel {
+      max-width: 1240px;
+      margin: -12px auto 18px;
+      border: 1px solid rgba(201, 168, 76, 0.36);
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(21, 39, 62, 0.96), rgba(10, 24, 40, 0.95));
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28), 0 0 16px rgba(201, 168, 76, 0.1);
+      padding: 10px 12px 12px;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 200ms ease, transform 200ms ease;
+      pointer-events: none;
+      position: relative;
+      z-index: 2;
+    }
+
+    .nav-info-panel.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .nav-info-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .nav-info-panel-head strong {
+      color: var(--gold-lt);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .nav-info-panel-body {
+      color: var(--body-text);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .nav-info-dismiss {
+      width: auto;
+      margin-top: 0;
+      padding: 6px 10px;
+      font-size: 0.62rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      border: 1px solid rgba(201, 168, 76, 0.36);
+      background: rgba(11, 26, 43, 0.7);
+      color: var(--gold-lt);
+      box-shadow: none;
+    }
+
+    .nav-info-dismiss:hover {
+      background: rgba(201, 168, 76, 0.14);
+      transform: none;
+      filter: none;
+      box-shadow: 0 0 10px rgba(201, 168, 76, 0.18);
+    }
+
     .app-nav-link {
       width: auto;
       padding: 10px 14px;
@@ -2855,6 +2919,16 @@
       .app-nav {
         position: static;
       }
+
+      .nav-info-panel {
+        margin: -8px auto 14px;
+        padding: 10px;
+      }
+
+      .nav-info-panel-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
     }
 
     footer {
@@ -2963,6 +3037,14 @@
     </select>
   </div>
 </nav>
+
+<div id="navInfoPanel" class="nav-info-panel" role="status" aria-live="polite" aria-hidden="true" hidden>
+  <div class="nav-info-panel-head">
+    <strong id="navInfoPanelTitle">Navigation Guide</strong>
+    <button type="button" id="navInfoPanelClose" class="nav-info-dismiss" aria-label="Dismiss navigation guidance">Dismiss</button>
+  </div>
+  <p id="navInfoPanelBody" class="nav-info-panel-body"></p>
+</div>
 
 <main class="page-stack">
   <section class="page-section is-active" data-page="home">
@@ -4587,16 +4669,52 @@
   const accountSubmitBtn = document.getElementById('accountSubmitBtn');
   const accountCancelBtn = document.getElementById('accountCancelBtn');
   const accountPanelMessage = document.getElementById('accountPanelMessage');
+  const navInfoPanel = document.getElementById('navInfoPanel');
+  const navInfoPanelTitle = document.getElementById('navInfoPanelTitle');
+  const navInfoPanelBody = document.getElementById('navInfoPanelBody');
+  const navInfoPanelClose = document.getElementById('navInfoPanelClose');
   const adminLoginBtn = document.getElementById('adminLoginBtn');
   const adminLoginPanel = document.getElementById('adminLoginPanel');
   const adminPasscodeInput = document.getElementById('adminPasscodeInput');
   const adminUnlockBtn = document.getElementById('adminUnlockBtn');
   const adminCancelBtn = document.getElementById('adminCancelBtn');
 
+  const NAV_INFO_DESCRIPTIONS = Object.freeze({
+    register: {
+      title: 'Register',
+      description: 'Start your family record by adding a primary representative. This creates your family identity inside the system.',
+    },
+    'family-tree': {
+      title: 'Family Tree',
+      description: 'View and build your family structure. Connect relatives and map relationships across generations.',
+    },
+    'find-family': {
+      title: 'Find Family',
+      description: 'Search for possible relatives already in the system and request connection.',
+    },
+    messages: {
+      title: 'Messages',
+      description: 'Communicate securely with connected family members and verified users.',
+    },
+    cohorts: {
+      title: 'Cohorts',
+      description: 'Join or form small trusted groups based on shared heritage, goals, or location.',
+    },
+    movement: {
+      title: 'Movement',
+      description: 'Organize relocation plans, group travel, or cultural return initiatives.',
+    },
+    'origin-discovery': {
+      title: 'Origin Discovery',
+      description: 'Explore your possible roots based on heritage, region, and cultural alignment.',
+    },
+  });
+
   let adminMode = false;
   let accountSession = null;
   let accountPanelMode = 'login';
   let accountOwnedRegistration = null;
+  let navInfoPanelTimerId = null;
 
   function getStoredAdminPasscode() {
     return String(window.localStorage.getItem(ADMIN_PASSCODE_STORAGE_KEY) || '').trim();
@@ -7676,6 +7794,47 @@
     return payload;
   }
 
+  function dismissNavInfoPanel() {
+    if (navInfoPanelTimerId) {
+      window.clearTimeout(navInfoPanelTimerId);
+      navInfoPanelTimerId = null;
+    }
+    if (!navInfoPanel) return;
+    navInfoPanel.classList.remove('is-visible');
+    navInfoPanel.setAttribute('aria-hidden', 'true');
+    window.setTimeout(() => {
+      if (!navInfoPanel.classList.contains('is-visible')) {
+        navInfoPanel.hidden = true;
+      }
+    }, 220);
+  }
+
+  function showNavInfoPanel(pageName) {
+    const key = String(pageName || '').trim();
+    const info = NAV_INFO_DESCRIPTIONS[key];
+    if (!info || !navInfoPanel || !navInfoPanelTitle || !navInfoPanelBody) {
+      dismissNavInfoPanel();
+      return;
+    }
+
+    if (navInfoPanelTimerId) {
+      window.clearTimeout(navInfoPanelTimerId);
+      navInfoPanelTimerId = null;
+    }
+
+    navInfoPanelTitle.textContent = info.title;
+    navInfoPanelBody.textContent = info.description;
+    navInfoPanel.hidden = false;
+    navInfoPanel.setAttribute('aria-hidden', 'false');
+    window.requestAnimationFrame(() => {
+      navInfoPanel.classList.add('is-visible');
+    });
+
+    navInfoPanelTimerId = window.setTimeout(() => {
+      dismissNavInfoPanel();
+    }, 4000);
+  }
+
   function setActivePage(pageName) {
     let resolvedPageName = String(pageName || 'home').trim() || 'home';
     if (!isPageAllowed(resolvedPageName)) {
@@ -7754,6 +7913,7 @@
       loadAdminProofQueue();
       loadIntelligenceDashboard();
     }
+    showNavInfoPanel(resolvedPageName);
     updateOnboardingNavHighlights();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -9275,6 +9435,7 @@
     activeTreeLayout = String(treeGraphLayout.value || 'vertical');
     renderVisualFamilyTree();
   });
+  navInfoPanelClose?.addEventListener('click', dismissNavInfoPanel);
   pageNavButtons.forEach((button) => {
     button.addEventListener('click', () => {
       const targetPage = button.dataset.pageTarget;
