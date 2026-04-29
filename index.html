@@ -3481,11 +3481,28 @@
           </div>
           <div class="field">
             <label for="registerLookupCountry">Country</label>
-            <input id="registerLookupCountry" type="text" placeholder="Optional" />
+              <select id="registerLookupCountry">
+                <option value="">-- Select country --</option>
+                <option value="United States">United States</option>
+                <option value="Canada">Canada</option>
+                <option value="United Kingdom">United Kingdom</option>
+                <option value="Nigeria">Nigeria</option>
+                <option value="Ghana">Ghana</option>
+                <option value="Kenya">Kenya</option>
+                <option value="Jamaica">Jamaica</option>
+                <option value="Haiti">Haiti</option>
+                <option value="Trinidad and Tobago">Trinidad and Tobago</option>
+                <option value="Barbados">Barbados</option>
+                <option value="Guyana">Guyana</option>
+                <option value="Unknown">Unknown</option>
+                <option value="Other / Not listed">Other / Not listed</option>
+              </select>
           </div>
           <div class="field">
             <label for="registerLookupStateRegion">State / Region</label>
-            <input id="registerLookupStateRegion" type="text" placeholder="Optional" />
+              <select id="registerLookupStateRegion">
+                <option value="">-- Select state / region --</option>
+              </select>
           </div>
           <div class="field">
             <label for="registerLookupKnownRelativeName">Known Relative Name</label>
@@ -3495,33 +3512,32 @@
             <label for="registerLookupRelationshipGuess">Relationship Guess</label>
             <select id="registerLookupRelationshipGuess">
               <option value="">-- Select --</option>
-              <option value="father">Father</option>
-              <option value="mother">Mother</option>
-              <option value="son">Son</option>
-              <option value="daughter">Daughter</option>
-              <option value="brother">Brother</option>
-              <option value="sister">Sister</option>
+                <option value="parent">Parent</option>
+                <option value="child">Child</option>
+                <option value="sibling">Sibling</option>
+                <option value="grandparent">Grandparent</option>
+                <option value="grandchild">Grandchild</option>
+                <option value="aunt_uncle">Aunt / Uncle</option>
+                <option value="niece_nephew">Niece / Nephew</option>
               <option value="cousin">Cousin</option>
-              <option value="uncle">Uncle</option>
-              <option value="aunt">Aunt</option>
-              <option value="nephew">Nephew</option>
-              <option value="niece">Niece</option>
-              <option value="grandfather">Grandfather</option>
-              <option value="grandmother">Grandmother</option>
-              <option value="grandson">Grandson</option>
-              <option value="granddaughter">Granddaughter</option>
-              <option value="relative">Relative</option>
-              <option value="other">Other</option>
+                <option value="spouse_partner">Spouse / Partner</option>
+                <option value="guardian">Guardian</option>
+                <option value="ancestor">Ancestor</option>
+                <option value="unknown">Unknown</option>
+                <option value="other_not_listed">Other / Not listed</option>
             </select>
           </div>
           <div class="field">
             <label for="registerLookupPreferredContactMethod">Preferred Contact Method</label>
             <select id="registerLookupPreferredContactMethod">
               <option value="">-- Select --</option>
+                <option value="in_app_message">In-app message</option>
+                <option value="email">Email</option>
               <option value="phone">Phone</option>
-              <option value="email">Email</option>
-              <option value="text">Text</option>
-              <option value="mail">Mail</option>
+                <option value="text_message">Text message</option>
+                <option value="no_contact_yet">No contact yet</option>
+                <option value="unknown">Unknown</option>
+                <option value="other_not_listed">Other / Not listed</option>
             </select>
           </div>
         </div>
@@ -3766,11 +3782,28 @@
             </div>
             <div class="field">
               <label for="findCountry">Country</label>
-              <input id="findCountry" type="text" placeholder="Optional" />
+              <select id="findCountry">
+                <option value="">-- Select country --</option>
+                <option value="United States">United States</option>
+                <option value="Canada">Canada</option>
+                <option value="United Kingdom">United Kingdom</option>
+                <option value="Nigeria">Nigeria</option>
+                <option value="Ghana">Ghana</option>
+                <option value="Kenya">Kenya</option>
+                <option value="Jamaica">Jamaica</option>
+                <option value="Haiti">Haiti</option>
+                <option value="Trinidad and Tobago">Trinidad and Tobago</option>
+                <option value="Barbados">Barbados</option>
+                <option value="Guyana">Guyana</option>
+                <option value="Unknown">Unknown</option>
+                <option value="Other / Not listed">Other / Not listed</option>
+              </select>
             </div>
             <div class="field">
               <label for="findStateRegion">State / Region</label>
-              <input id="findStateRegion" type="text" placeholder="Optional" />
+              <select id="findStateRegion">
+                <option value="">-- Select state / region --</option>
+              </select>
             </div>
             <div class="field">
               <label for="findKnownRelativeName">Known Relative Name</label>
@@ -3780,33 +3813,32 @@
               <label for="findRelationshipGuess">Relationship Guess</label>
               <select id="findRelationshipGuess">
                 <option value="">-- Select --</option>
-                <option value="father">Father</option>
-                <option value="mother">Mother</option>
-                <option value="son">Son</option>
-                <option value="daughter">Daughter</option>
-                <option value="brother">Brother</option>
-                <option value="sister">Sister</option>
+                <option value="parent">Parent</option>
+                <option value="child">Child</option>
+                <option value="sibling">Sibling</option>
+                <option value="grandparent">Grandparent</option>
+                <option value="grandchild">Grandchild</option>
+                <option value="aunt_uncle">Aunt / Uncle</option>
+                <option value="niece_nephew">Niece / Nephew</option>
                 <option value="cousin">Cousin</option>
-                <option value="uncle">Uncle</option>
-                <option value="aunt">Aunt</option>
-                <option value="nephew">Nephew</option>
-                <option value="niece">Niece</option>
-                <option value="grandfather">Grandfather</option>
-                <option value="grandmother">Grandmother</option>
-                <option value="grandson">Grandson</option>
-                <option value="granddaughter">Granddaughter</option>
-                <option value="relative">Relative</option>
-                <option value="other">Other</option>
+                <option value="spouse_partner">Spouse / Partner</option>
+                <option value="guardian">Guardian</option>
+                <option value="ancestor">Ancestor</option>
+                <option value="unknown">Unknown</option>
+                <option value="other_not_listed">Other / Not listed</option>
               </select>
             </div>
             <div class="field">
               <label for="findPreferredContactMethod">Preferred Contact Method</label>
               <select id="findPreferredContactMethod">
                 <option value="">-- Select --</option>
-                <option value="phone">Phone</option>
+                <option value="in_app_message">In-app message</option>
                 <option value="email">Email</option>
-                <option value="text">Text</option>
-                <option value="mail">Mail</option>
+                <option value="phone">Phone</option>
+                <option value="text_message">Text message</option>
+                <option value="no_contact_yet">No contact yet</option>
+                <option value="unknown">Unknown</option>
+                <option value="other_not_listed">Other / Not listed</option>
               </select>
             </div>
           </div>
@@ -5168,6 +5200,75 @@
     'relative',
     'other',
   ];
+
+  const FIND_FAMILY_US_STATES = [
+    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida',
+    'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine',
+    'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska',
+    'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
+    'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas',
+    'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming', 'Washington, D.C.',
+    'Unknown', 'Other / Not listed',
+  ];
+
+  const FIND_FAMILY_STATE_ABBREVIATION_MAP = {
+    AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut',
+    DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana',
+    IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts',
+    MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska',
+    NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina',
+    ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island',
+    SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+    VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'Washington, D.C.',
+  };
+
+  function normalizeFindFamilyCountry(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const lower = raw.toLowerCase();
+    if (lower === 'usa' || lower === 'us' || lower === 'u.s.' || lower === 'u.s.a.' || lower === 'united states of america') {
+      return 'United States';
+    }
+    return raw;
+  }
+
+  function normalizeFindFamilyState(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const upper = raw.toUpperCase();
+    return FIND_FAMILY_STATE_ABBREVIATION_MAP[upper] || raw;
+  }
+
+  function setFindFamilyStateOptions(countrySelect, stateSelect, preferredStateValue = '') {
+    if (!stateSelect) return;
+    const selectedCountry = normalizeFindFamilyCountry(countrySelect?.value || '');
+    const selectedState = normalizeFindFamilyState(preferredStateValue || stateSelect.value || '');
+    const options = selectedCountry === 'United States'
+      ? FIND_FAMILY_US_STATES
+      : ['Unknown', 'Other / Not listed'];
+
+    stateSelect.innerHTML = '<option value="">-- Select state / region --</option>';
+    options.forEach((name) => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      stateSelect.appendChild(option);
+    });
+
+    if (selectedState && options.includes(selectedState)) {
+      stateSelect.value = selectedState;
+    }
+  }
+
+  function syncFindFamilyLocationDropdowns(countrySelect, stateSelect, preferred = {}) {
+    if (!countrySelect || !stateSelect) return;
+    const normalizedCountry = normalizeFindFamilyCountry(preferred.country || countrySelect.value || '');
+    const hasCountryOption = Array.from(countrySelect.options).some((option) => option.value === normalizedCountry);
+    if (normalizedCountry && hasCountryOption) {
+      countrySelect.value = normalizedCountry;
+    }
+    setFindFamilyStateOptions(countrySelect, stateSelect, preferred.state || stateSelect.value || '');
+  }
 
   const HOUSEHOLD_POSITION_OPTIONS = [
     'primary_representative',
@@ -7432,6 +7533,10 @@
     if (findDobInput) findDobInput.value = String(requester.date_of_birth || '').trim();
     if (findStateRegionInput) findStateRegionInput.value = String(requester.state || '').trim();
     if (findCountryInput) findCountryInput.value = String(requester.country || '').trim();
+    syncFindFamilyLocationDropdowns(findCountryInput, findStateRegionInput, {
+      country: requester.country,
+      state: requester.state,
+    });
     return requester;
   }
 
@@ -9318,6 +9423,14 @@
     await autoRunFindFamilySearch('requester-change');
   });
 
+  findCountryInput?.addEventListener('change', () => {
+    syncFindFamilyLocationDropdowns(findCountryInput, findStateRegionInput);
+  });
+
+  registerLookupCountryInput?.addEventListener('change', () => {
+    syncFindFamilyLocationDropdowns(registerLookupCountryInput, registerLookupStateRegionInput);
+  });
+
   findFamilyResults?.addEventListener('click', async (event) => {
     const actionBtn = event.target.closest('[data-find-action]');
     if (!actionBtn) return;
@@ -9751,6 +9864,10 @@
       if (registerLookupDobInput) registerLookupDobInput.value = String(date_of_birth || birth_date || '').trim();
       if (registerLookupCountryInput) registerLookupCountryInput.value = String(country || '').trim();
       if (registerLookupStateRegionInput) registerLookupStateRegionInput.value = String(state || '').trim();
+      syncFindFamilyLocationDropdowns(registerLookupCountryInput, registerLookupStateRegionInput, {
+        country,
+        state,
+      });
 
       if (adminMode) {
         if (registerLookupFeedback) {
@@ -11605,6 +11722,8 @@
     }
   });
   restoreActivityFilterState();
+  syncFindFamilyLocationDropdowns(findCountryInput, findStateRegionInput);
+  syncFindFamilyLocationDropdowns(registerLookupCountryInput, registerLookupStateRegionInput);
   renderSystemStatusBadges();
   updateOnboardingNavHighlights();
   const initialRestorePromise = restoreAccountSession();
